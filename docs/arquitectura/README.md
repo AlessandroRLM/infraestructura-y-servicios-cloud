@@ -147,17 +147,18 @@ flowchart TB
 
 ### GCP (principal)
 
-| Servicio                   | Uso                                                                  |
-| -------------------------- | -------------------------------------------------------------------- |
-| GKE                        | Cluster Kubernetes que orquesta los contenedores.                    |
-| Compute Engine (GCE)       | VM `bastion` (acceso) y VM `ops` (backups). Nodos del cluster.       |
-| VPC + subredes             | Red privada segmentada (pública para bastión, privadas para cargas). |
-| Cloud NAT                  | Salida a internet de las subredes privadas.                          |
-| Persistent Disk            | Volúmenes persistentes (PVC) de PostgreSQL.                          |
-| Cloud Storage (GCS)        | Activos estáticos, backups y estado de Terraform.                    |
-| Cloud Load Balancing       | Expone la aplicación vía Ingress HTTPS.                              |
-| Cloud Monitoring + Logging | Métricas, dashboards, alertas y logs de auditoría.                   |
-| Cloud KMS                  | Claves de cifrado en reposo (CMEK donde aplique).                    |
+| Servicio                   | Uso                                                                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| GKE                        | Cluster Kubernetes que orquesta los contenedores.                                                                                           |
+| Compute Engine (GCE)       | VM `bastion` (acceso) y VM `ops` (backups). Nodos del cluster.                                                                              |
+| VPC + subredes             | Red privada segmentada (pública para bastión, privadas para cargas).                                                                        |
+| Cloud NAT                  | Salida a internet de las subredes privadas.                                                                                                 |
+| Persistent Disk            | Volúmenes persistentes (PVC) de PostgreSQL.                                                                                                 |
+| Cloud Storage (GCS)        | Activos estáticos, backups y estado de Terraform.                                                                                           |
+| Cloud Load Balancing       | Expone la aplicación vía Ingress HTTPS.                                                                                                     |
+| Cloud Monitoring + Logging | Métricas, dashboards, alertas y logs de auditoría.                                                                                          |
+| Cloud KMS                  | Claves de cifrado en reposo (CMEK donde aplique).                                                                                           |
+| PgBouncer                  | Connection Pooler a PostgreSQL, en el cluster (modo _transaction_). Componente self-hosted, no gestionado; sostiene el pico de inscripción. |
 
 ### AWS (respaldo / DR)
 
@@ -253,18 +254,18 @@ Los rangos de pods y services se definen como rangos secundarios de la subred de
 
 La autorización es de dos capas: **permiso** (qué operación, data-driven) y **pertenencia a nivel de recurso** (sobre qué datos). Los permisos se guardan en tablas (`permissions`, `role_permissions`) y se asignan vía `user_roles`. El control real es del backend; la UI solo oculta lo que el rol no puede usar.
 
-| Operación | Administrador | Docente | Alumno |
-| --- | :---: | :---: | :---: |
-| Gestionar usuarios, roles y permisos | Sí | — | — |
-| Gestionar catálogo (programas, asignaturas, secciones) | Sí | — | — |
-| Gestionar matrícula (anual) | Sí | — | — |
-| Inscribir / anular secciones | Sí | — | — |
-| Ver matrícula e inscripciones propias | Sí | — | Sí |
-| Registrar / editar notas | Sí | Solo sus secciones | — |
-| Ver notas de una sección | Sí | Solo sus secciones | — |
-| Ver notas propias | Sí | — | Sí |
-| Generar reportes | Sí | Solo sus secciones | — |
-| Ver logs de auditoría | Sí | — | — |
+| Operación                                              | Administrador |      Docente       | Alumno |
+| ------------------------------------------------------ | :-----------: | :----------------: | :----: |
+| Gestionar usuarios, roles y permisos                   |      Sí       |         —          |   —    |
+| Gestionar catálogo (programas, asignaturas, secciones) |      Sí       |         —          |   —    |
+| Gestionar matrícula (anual)                            |      Sí       |         —          |   —    |
+| Inscribir / anular secciones                           |      Sí       |         —          |   —    |
+| Ver matrícula e inscripciones propias                  |      Sí       |         —          |   Sí   |
+| Registrar / editar notas                               |      Sí       | Solo sus secciones |   —    |
+| Ver notas de una sección                               |      Sí       | Solo sus secciones |   —    |
+| Ver notas propias                                      |      Sí       |         —          |   Sí   |
+| Generar reportes                                       |      Sí       | Solo sus secciones |   —    |
+| Ver logs de auditoría                                  |      Sí       |         —          |   —    |
 
 **Dos capas de autorización:**
 
@@ -318,8 +319,9 @@ erDiagram
     users ||--o| student_profiles : ""
     users ||--o| teacher_profiles : ""
     teacher_profiles ||--o{ teacher_qualifications : ""
-    programs ||--o{ student_profiles : ""
     programs ||--o{ program_courses : ""
+    programs ||--o{ program_quotas : ""
+    programs ||--o{ enrollments : ""
     courses ||--o{ program_courses : ""
     courses ||--o{ sections : ""
     academic_periods ||--o{ sections : ""
@@ -356,7 +358,6 @@ erDiagram
     }
     student_profiles {
         uuid user_id PK
-        uuid program_id FK
         int admission_year
     }
     teacher_profiles {
@@ -374,6 +375,12 @@ erDiagram
         uuid id PK
         string code UK
         string name
+    }
+    program_quotas {
+        uuid id PK
+        uuid program_id FK
+        int year
+        int capacity
     }
     courses {
         uuid id PK
@@ -405,6 +412,7 @@ erDiagram
     enrollments {
         uuid id PK
         uuid student_id FK
+        uuid program_id FK
         int year
         string status "pending | paid | cancelled"
         timestamp paid_at
@@ -440,7 +448,8 @@ Notas del modelo:
 
 - **Identidad, roles y permisos:** `users` es solo identidad/auth. El acceso es data-driven: `roles` y `permissions` se relacionan vía `role_permissions` (M:N) y se asignan a usuarios vía `user_roles` (M:N) — una persona puede ser docente **y** alumno a la vez, y los permisos de cada rol se cambian sin tocar código.
 - **Jerarquía académica:** `programs` ↔ `courses` es **M:N** (`program_courses`): una asignatura como "Inglés I" puede compartirse entre varias carreras. Cada `course` se dicta en `sections` (una sección = asignatura + `academic_period` + uno o varios docentes vía `section_teachers`, co-docencia).
-- **Matrícula vs inscripción:** `enrollments` es la matrícula anual (financiera); `section_enrollments` son las inscripciones a secciones, y solo existen si hay matrícula vigente. Las notas (`grades`) cuelgan de la inscripción a la sección.
+- **Matrícula vs inscripción:** `enrollments` es la matrícula anual por carrera (`program_id` + `year`), con `UNIQUE(student_id, program_id, year)`. `section_enrollments` son las inscripciones a secciones, con `UNIQUE(enrollment_id, section_id)`, y solo existen si hay matrícula vigente. Las notas (`grades`) cuelgan de la inscripción a la sección.
+- **Cupos:** `program_quotas` fija el cupo de admisión por `(carrera, año)` (ej. 40 matrículas); `sections.capacity`, el cupo de cada sección. Ambos se controlan con bloqueo de fila para evitar sobreventa en el pico de inscripción (ver §12).
 - **Pertenencia:** `section_teachers` define qué docentes dictan cada sección. Es la base de la autorización por pertenencia (ver §8.5).
 - `audit_logs` da soporte a la trazabilidad (RF-5). Los reportes (RF-3) se generan por consulta y se cachean en Redis; no requieren tabla propia.
 
@@ -448,13 +457,13 @@ Notas del modelo:
 
 Para no repetir columnas en el diagrama, estas se aplican por convención:
 
-| Campo | Qué | Dónde |
-| --- | --- | --- |
-| `created_at` / `updated_at` | Cuándo se creó / modificó | Entidades mutables (users, perfiles, programs, courses, academic_periods, sections, enrollments, section_enrollments, grades). |
-| `created_by` / `updated_by` | Quién (FK a users) | Cambios humanos sensibles: users, perfiles, programs, courses, sections, grades, enrollments. |
-| `deleted_at` | Soft-delete (`NULL` = vivo) | Registros que no se borran físicamente: users, programs, courses, academic_periods, sections, enrollments, section_enrollments, grades. |
-| `version` | Optimistic locking | `grades` (edición concurrente, evita pisar cambios). |
-| `status` | Estado de negocio multi-estado | `enrollments` y `section_enrollments` (ya en el diagrama). |
+| Campo                       | Qué                            | Dónde                                                                                                                                   |
+| --------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `created_at` / `updated_at` | Cuándo se creó / modificó      | Entidades mutables (users, perfiles, programs, courses, academic_periods, sections, enrollments, section_enrollments, grades).          |
+| `created_by` / `updated_by` | Quién (FK a users)             | Cambios humanos sensibles: users, perfiles, programs, courses, sections, grades, enrollments.                                           |
+| `deleted_at`                | Soft-delete (`NULL` = vivo)    | Registros que no se borran físicamente: users, programs, courses, academic_periods, sections, enrollments, section_enrollments, grades. |
+| `version`                   | Optimistic locking             | `grades` (edición concurrente, evita pisar cambios).                                                                                    |
+| `status`                    | Estado de negocio multi-estado | `enrollments` y `section_enrollments` (ya en el diagrama).                                                                              |
 
 Las tablas **append-only** (`audit_logs`, `user_roles`, `role_permissions`, `program_courses`, `section_teachers`) solo llevan `created_at`: no se editan, se insertan o se borran.
 
@@ -494,11 +503,13 @@ sequenceDiagram
 
     U->>A: inscribir sección + cookie
     A->>R: validar sesión y permiso
-    A->>P: ¿matrícula vigente del alumno en el año?
-    alt sin matrícula
-        A-->>U: rechazado (requiere matrícula)
-    else con matrícula
-        A->>P: insertar section_enrollment
+    A->>P: BEGIN; ¿matrícula vigente del alumno?
+    A->>P: SELECT capacity FROM sections WHERE id=? FOR UPDATE
+    A->>P: contar inscriptos de la sección
+    alt sin matrícula o sección llena
+        A-->>U: rechazado
+    else hay cupo
+        A->>P: insertar section_enrollment; COMMIT
         A-->>U: inscripción creada
     end
 ```
@@ -545,7 +556,35 @@ sequenceDiagram
     A-->>U: reporte
 ```
 
-## 12. Tolerancia a fallos y alta disponibilidad
+## 12. Concurrencia y cupos
+
+El período de inscripción concentra un volumen alto de peticiones sobre recursos acotados (el cupo de cada carrera y el de cada sección). Son dos problemas distintos, en capas distintas.
+
+### 12.1 Condición de carrera por los cupos
+
+El control ingenuo (contar inscripciones y, si hay lugar, insertar) no es atómico: entre el conteo y la inserción, otras peticiones inscriben y se supera el cupo. Un bloqueo en memoria (un mutex o el paquete `sync` de Go) no resuelve el caso, porque solo coordina dentro de un proceso y, al ejecutarse varias réplicas de la API, cada una mantiene su propio bloqueo. El bloqueo debe residir en el recurso compartido —PostgreSQL— mediante `SELECT ... FOR UPDATE`:
+
+```sql
+BEGIN;
+-- cupo de carrera (matrícula); el mismo patrón aplica a sections.capacity
+SELECT capacity FROM program_quotas WHERE program_id = $1 AND year = $2 FOR UPDATE;
+SELECT count(*) FROM enrollments
+  WHERE program_id = $1 AND year = $2 AND status <> 'cancelled';
+-- si count < capacity: insertar; en caso contrario, rechazar
+COMMIT;
+```
+
+El bloqueo de fila serializa los intentos sobre un mismo cupo, mientras que cupos distintos no se bloquean entre sí, lo que preserva el rendimiento. Las restricciones `UNIQUE(student_id, program_id, year)` y `UNIQUE(enrollment_id, section_id)` aportan idempotencia: un reintento o un envío duplicado no genera registros repetidos ni ocupa un cupo adicional.
+
+### 12.2 Carga durante el período de inscripción
+
+Escalar la API con HPA sin limitar las conexiones a PostgreSQL agrava el problema: más réplicas implican más conexiones, hasta agotar `max_connections` y dejar el servicio indisponible. Medidas:
+
+- Pool de conexiones acotado (`pgxpool`) junto con PgBouncer en modo _transaction_: varias réplicas comparten un conjunto reducido de conexiones reales a PostgreSQL.
+- HPA en la capa de API e idempotencia (las restricciones `UNIQUE`) para los reintentos del pico.
+- Como paso posterior, solo si la contención lo justifica: reserva de cupo en Redis o una cola de inscripción.
+
+## 13. Tolerancia a fallos y alta disponibilidad
 
 | Escenario                  | Mecanismo                                     | Impacto                                                                                                                                       |
 | -------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -557,7 +596,7 @@ sequenceDiagram
 
 La elección de cluster zonal es un trade-off consciente de costo: una sola zona es suficiente para el SLA de 99.5 % del caso y mantiene el gasto bajo; si se exigiera mayor disponibilidad, se pasa a regional sin cambiar el diseño.
 
-## 13. Dimensionamiento y capacidad
+## 14. Dimensionamiento y capacidad
 
 | Componente        | Tamaño                          | Justificación                                                                              |
 | ----------------- | ------------------------------- | ------------------------------------------------------------------------------------------ |
@@ -569,7 +608,7 @@ La elección de cluster zonal es un trade-off consciente de costo: una sola zona
 
 **Carga esperada:** un instituto del orden de cientos a pocos miles de alumnos, con concurrencia baja-media y picos puntuales (períodos de matrícula y cierre de notas). El HPA de la API cubre esos picos sin sobre-aprovisionar el resto del tiempo.
 
-## 14. Respaldo y recuperación (DR)
+## 15. Respaldo y recuperación (DR)
 
 ```mermaid
 sequenceDiagram
@@ -590,7 +629,7 @@ sequenceDiagram
 - **Doble destino:** GCS (rápido, misma nube) + S3 (otra nube, protege ante falla total de GCP).
 - **Prueba de restauración:** documentada en el runbook de infraestructura (restaurar el dump en un namespace de prueba y validar integridad).
 
-## 15. Decisiones y alternativas
+## 16. Decisiones y alternativas
 
 | Decisión             | Elección                 | Alternativa                      | Por qué                                                                                             |
 | -------------------- | ------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------- |

@@ -7,13 +7,13 @@ Toda la infraestructura es reproducible: se crea con `terraform apply` y se elim
 
 ## 1. Prerrequisitos
 
-| Requisito | Detalle |
-|-----------|---------|
+| Requisito  | Detalle                                                                                                   |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
 | Cuenta GCP | Proyecto creado, facturación activa, APIs habilitadas (Compute, Container, Storage, Monitoring, Logging). |
-| Cuenta AWS | Usuario IAM con permiso de escritura solo sobre el bucket de backups. |
-| Terraform | >= 1.6 |
-| gcloud CLI | Autenticado: `gcloud auth application-default login` |
-| aws CLI | Configurado: `aws configure` (clave del usuario IAM de backups) |
+| Cuenta AWS | Usuario IAM con permiso de escritura solo sobre el bucket de backups.                                     |
+| Terraform  | >= 1.6                                                                                                    |
+| gcloud CLI | Autenticado: `gcloud auth application-default login`                                                      |
+| aws CLI    | Configurado: `aws configure` (clave del usuario IAM de backups)                                           |
 
 Habilitar APIs de GCP:
 
@@ -84,21 +84,21 @@ flowchart LR
 
 ## 5. Red y firewall
 
-| Recurso | Valor |
-|---------|-------|
-| VPC | `vpc-academico` |
-| subnet-public | `10.0.0.0/24` (bastión) |
-| subnet-ops | `10.0.1.0/24` (VM ops) |
-| subnet-gke | `10.0.16.0/20` + rangos secundarios para pods/services |
-| Cloud NAT | salida a internet de subredes privadas |
+| Recurso       | Valor                                                  |
+| ------------- | ------------------------------------------------------ |
+| VPC           | `vpc-academico`                                        |
+| subnet-public | `10.0.0.0/24` (bastión)                                |
+| subnet-ops    | `10.0.1.0/24` (VM ops)                                 |
+| subnet-gke    | `10.0.16.0/20` + rangos secundarios para pods/services |
+| Cloud NAT     | salida a internet de subredes privadas                 |
 
 Reglas de firewall (acceso mínimo):
 
-| Regla | Origen | Destino | Puerto |
-|-------|--------|---------|--------|
-| `allow-ssh-bastion` | IP del administrador | bastión | 22 |
-| `allow-https-ingress` | Internet | balanceador GKE | 443 |
-| `allow-internal` | rangos de la VPC | VPC | según servicio |
+| Regla                 | Origen               | Destino         | Puerto         |
+| --------------------- | -------------------- | --------------- | -------------- |
+| `allow-ssh-bastion`   | IP del administrador | bastión         | 22             |
+| `allow-https-ingress` | Internet             | balanceador GKE | 443            |
+| `allow-internal`      | rangos de la VPC     | VPC             | según servicio |
 
 Verificación:
 
@@ -111,10 +111,10 @@ gcloud compute firewall-rules list --filter="network=vpc-academico"
 
 ## 6. Máquinas virtuales
 
-| VM | Subred | Tamaño | IP pública | Rol |
-|----|--------|--------|-----------|-----|
-| `bastion` | subnet-public | e2-micro | sí (restringida) | Acceso SSH / kubectl |
-| `ops` | subnet-ops | e2-small | no | Cron de backup cross-cloud |
+| VM        | Subred        | Tamaño   | IP pública       | Rol                        |
+| --------- | ------------- | -------- | ---------------- | -------------------------- |
+| `bastion` | subnet-public | e2-micro | sí (restringida) | Acceso SSH / kubectl       |
+| `ops`     | subnet-ops    | e2-small | no               | Cron de backup cross-cloud |
 
 - SO: Debian 12.
 - Claves SSH gestionadas por OS Login (sin claves embebidas en metadatos).
@@ -131,12 +131,12 @@ gcloud compute ssh bastion --zone=us-central1-a   # único acceso
 
 ## 7. Almacenamiento
 
-| Tipo | Recurso | Uso | Retención |
-|------|---------|-----|-----------|
-| Bloque | Persistent Disk (pd-balanced) | PVC de PostgreSQL | snapshots diarios, 7 días |
-| Objeto | GCS `assets-academico` | activos estáticos del frontend | — |
-| Objeto | GCS `backups-academico` | backups de la base | 30 días |
-| Objeto | S3 `backups-academico-dr` | réplica cross-cloud | versionado + lifecycle a frío a los 30 días |
+| Tipo   | Recurso                       | Uso                            | Retención                                   |
+| ------ | ----------------------------- | ------------------------------ | ------------------------------------------- |
+| Bloque | Persistent Disk (pd-balanced) | PVC de PostgreSQL              | snapshots diarios, 7 días                   |
+| Objeto | GCS `assets-academico`        | activos estáticos del frontend | —                                           |
+| Objeto | GCS `backups-academico`       | backups de la base             | 30 días                                     |
+| Objeto | S3 `backups-academico-dr`     | réplica cross-cloud            | versionado + lifecycle a frío a los 30 días |
 
 Política de snapshots de disco:
 
@@ -147,7 +147,23 @@ gcloud compute resource-policies create snapshot-schedule diario \
   --daily-schedule --start-time=03:00
 ```
 
-## 8. Backups cross-cloud (GCS → S3)
+## 8. Connection Pooler (PgBouncer)
+
+PgBouncer se despliega en el cluster (Deployment) delante de PostgreSQL, en modo _transaction_. No es infraestructura de Terraform sino un componente de Kubernetes (sus manifiestos se documentan en contenedores-kubernetes); se incluye aquí por su rol en el dimensionamiento de conexiones.
+
+Durante el período de inscripción, varias réplicas de la API abren muchas conexiones; sin un pooler se agota `max_connections` de PostgreSQL. PgBouncer multiplexa: las réplicas se conectan a PgBouncer y este mantiene un conjunto reducido de conexiones reales a la base.
+
+Dimensionamiento de referencia:
+
+| Parámetro           | Valor de referencia                          |
+| ------------------- | -------------------------------------------- |
+| `pool_mode`         | `transaction`                                |
+| `default_pool_size` | acorde a los cores de PostgreSQL (ej. 20–25) |
+| `max_client_conn`   | alto (ej. 1000), absorbe el pico de clientes |
+
+Las réplicas de la API apuntan su `DATABASE_URL` a PgBouncer, no directamente a PostgreSQL.
+
+## 9. Backups cross-cloud (GCS → S3)
 
 La VM `ops` ejecuta un cron diario: dump de PostgreSQL, subida a GCS y réplica a S3.
 
@@ -189,7 +205,7 @@ Crontab:
 
 `[captura]` objetos en GCS y en S3 tras la primera corrida.
 
-## 9. Prueba de restauración
+## 10. Prueba de restauración
 
 Restaurar el último backup en un namespace de prueba y validar:
 
@@ -208,7 +224,7 @@ kubectl -n test exec statefulset/postgres -- \
 
 `[captura]` resultado de la consulta de validación.
 
-## 10. Apagado y reducción de costos
+## 11. Apagado y reducción de costos
 
 Para no consumir crédito fuera de las demos, destruir la infraestructura no productiva:
 
