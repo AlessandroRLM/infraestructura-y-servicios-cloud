@@ -249,37 +249,37 @@ Los rangos de pods y services se definen como rangos secundarios de la subred de
 | Secretos                    | Kubernetes Secrets por namespace; credenciales de AWS solo en la VM `ops`.                    |
 | Auditoría                   | Cloud Logging centraliza logs de acceso y de actividad administrativa (RNF-4).                |
 
-### 8.5 Roles y permisos (RBAC + pertenencia)
+### 8.5 Roles, permisos y pertenencia
 
-La autorización es de dos capas: **rol** (grueso) y **pertenencia a nivel de recurso** (fino). El control real es del backend; la UI solo oculta lo que el rol no puede usar.
+La autorización es de dos capas: **permiso** (qué operación, data-driven) y **pertenencia a nivel de recurso** (sobre qué datos). Los permisos se guardan en tablas (`permissions`, `role_permissions`) y se asignan vía `user_roles`. El control real es del backend; la UI solo oculta lo que el rol no puede usar.
 
 | Operación | Administrador | Docente | Alumno |
 | --- | :---: | :---: | :---: |
-| Gestionar usuarios y roles | Sí | — | — |
-| Gestionar cursos y asignaciones | Sí | — | — |
+| Gestionar usuarios, roles y permisos | Sí | — | — |
+| Gestionar catálogo (programas, asignaturas, secciones) | Sí | — | — |
 | Gestionar matrícula (anual) | Sí | — | — |
-| Inscribir / anular asignaturas | Sí | — | — |
+| Inscribir / anular secciones | Sí | — | — |
 | Ver matrícula e inscripciones propias | Sí | — | Sí |
-| Registrar / editar notas | Sí | Solo sus cursos | — |
-| Ver notas de un curso | Sí | Solo sus cursos | — |
+| Registrar / editar notas | Sí | Solo sus secciones | — |
+| Ver notas de una sección | Sí | Solo sus secciones | — |
 | Ver notas propias | Sí | — | Sí |
-| Generar reportes | Sí | Solo sus cursos | — |
+| Generar reportes | Sí | Solo sus secciones | — |
 | Ver logs de auditoría | Sí | — | — |
 
 **Dos capas de autorización:**
 
-- El **rol** habilita la operación; la **pertenencia** decide sobre qué recursos. Un docente tiene el rol para cargar notas, pero solo en los cursos que tiene asignados (`course_assignments`).
+- El **permiso** habilita la operación (el interceptor lo verifica contra los permisos del rol); la **pertenencia** decide sobre qué recursos. Un docente con permiso para cargar notas solo puede hacerlo en las secciones que dicta (`section_teachers`).
 - **Sin auto-acción:** nadie opera sobre sus propios registros académicos. Un docente que también es alumno no puede cargar ni editar la nota de una inscripción donde el alumno sea él mismo.
 - **Admin total, pero auditado:** el administrador puede todo —incluida la corrección de una nota—, pero cada acción queda registrada en `audit_logs`. El poder no exime del rastro.
 
-Regla de autorización para cargar o editar una nota:
+Regla de autorización para cargar o editar una nota (sobre la inscripción `SE`):
 
 ```text
 permitir si:
-  (rol = teacher
-     AND existe course_assignment(course = CR.course, teacher = user, term = CR.term)
-     AND enrollment.student_id != user)   -- no podés calificarte a vos mismo
-  OR rol = admin                          -- queda auditado
+  el rol incluye el permiso grades.write
+    AND existe section_teachers(section = SE.section_id, teacher = user)  -- dicta la sección
+    AND SE.student != user                                               -- no te calificás a vos mismo
+  OR el rol incluye el permiso grades.override                           -- admin; queda auditado
 ```
 
 ## 9. Ambientes
@@ -307,35 +307,56 @@ Un solo cluster mantiene el costo bajo (un único plano de control). El aislamie
 
 ## 10. Modelo de datos
 
-Entidades del dominio académico. Los nombres de tablas y columnas siguen la convención del código (inglés). La identidad y la autenticación viven en `users`; los datos propios de cada rol, en perfiles separados.
+Entidades del dominio académico. Los nombres de tablas y columnas siguen la convención del código (inglés). La identidad y la autenticación viven en `users`; los datos de cada rol, en perfiles; y el control de acceso es data-driven (roles y permisos en tablas).
 
 ```mermaid
 erDiagram
-    users ||--o{ user_roles : "tiene"
-    users ||--o| student_profiles : "perfil alumno"
-    users ||--o| teacher_profiles : "perfil docente"
-    teacher_profiles ||--o{ teacher_qualifications : "postgrados"
-    student_profiles ||--o{ enrollments : "matrícula anual"
-    enrollments ||--o{ course_registrations : "habilita"
-    courses ||--o{ course_registrations : "inscriptos"
-    courses ||--o{ course_assignments : "dictado"
-    teacher_profiles ||--o{ course_assignments : "asignado"
-    course_registrations ||--o{ grades : "recibe"
-    teacher_profiles ||--o{ grades : "califica"
-    users ||--o{ audit_logs : "genera"
+    users ||--o{ user_roles : ""
+    roles ||--o{ user_roles : ""
+    roles ||--o{ role_permissions : ""
+    permissions ||--o{ role_permissions : ""
+    users ||--o| student_profiles : ""
+    users ||--o| teacher_profiles : ""
+    teacher_profiles ||--o{ teacher_qualifications : ""
+    programs ||--o{ student_profiles : ""
+    programs ||--o{ program_courses : ""
+    courses ||--o{ program_courses : ""
+    courses ||--o{ sections : ""
+    academic_periods ||--o{ sections : ""
+    sections ||--o{ section_teachers : ""
+    teacher_profiles ||--o{ section_teachers : ""
+    student_profiles ||--o{ enrollments : ""
+    enrollments ||--o{ section_enrollments : ""
+    sections ||--o{ section_enrollments : ""
+    section_enrollments ||--o{ grades : ""
+    teacher_profiles ||--o{ grades : "graded_by"
+    users ||--o{ audit_logs : ""
 
     users {
         uuid id PK
         string email UK
         string password_hash
     }
+    roles {
+        uuid id PK
+        string name UK
+    }
+    permissions {
+        uuid id PK
+        string code UK
+        string description
+    }
+    role_permissions {
+        uuid role_id FK
+        uuid permission_id FK
+    }
     user_roles {
         uuid user_id FK
-        string role "admin | teacher | student"
+        uuid role_id FK
     }
     student_profiles {
         uuid user_id PK
-        string career
+        uuid program_id FK
         int admission_year
     }
     teacher_profiles {
@@ -349,16 +370,37 @@ erDiagram
         string degree
         int year
     }
-    courses {
+    programs {
         uuid id PK
         string code UK
         string name
     }
-    course_assignments {
+    courses {
+        uuid id PK
+        string code UK
+        string name
+        int credits
+    }
+    program_courses {
+        uuid program_id FK
+        uuid course_id FK
+    }
+    academic_periods {
+        uuid id PK
+        int year
+        int term
+        date start_date
+        date end_date
+    }
+    sections {
         uuid id PK
         uuid course_id FK
+        uuid academic_period_id FK
+        int capacity
+    }
+    section_teachers {
+        uuid section_id FK
         uuid teacher_id FK
-        string term
     }
     enrollments {
         uuid id PK
@@ -367,18 +409,17 @@ erDiagram
         string status "pending | paid | cancelled"
         timestamp paid_at
     }
-    course_registrations {
+    section_enrollments {
         uuid id PK
         uuid enrollment_id FK
-        uuid course_id FK
-        string term
+        uuid section_id FK
         string status "in_progress | passed | failed | withdrawn"
         timestamp registered_at
     }
     grades {
         uuid id PK
-        uuid course_registration_id FK
-        uuid teacher_id FK
+        uuid section_enrollment_id FK
+        uuid graded_by FK
         numeric value
         timestamp evaluated_at
     }
@@ -397,10 +438,11 @@ erDiagram
 
 Notas del modelo:
 
-- **Identidad vs rol:** `users` es solo identidad/auth. Los roles van en `user_roles` (M:N), así una persona puede ser docente **y** alumno a la vez. Los atributos propios de cada rol viven en `student_profiles` / `teacher_profiles`.
-- **Matrícula vs inscripción:** `enrollments` es la matrícula anual (financiera); `course_registrations` son las inscripciones a asignaturas por semestre (`term`), y solo existen si hay matrícula vigente.
-- **Pertenencia:** `course_assignments` define qué docente dicta qué curso por `term`. Es la base de la autorización por pertenencia (ver §8.5).
-- `audit_logs` da soporte a la trazabilidad de accesos y cambios (RF-5). Los reportes (RF-3) se generan por consulta y se cachean en Redis; no requieren tabla propia.
+- **Identidad, roles y permisos:** `users` es solo identidad/auth. El acceso es data-driven: `roles` y `permissions` se relacionan vía `role_permissions` (M:N) y se asignan a usuarios vía `user_roles` (M:N) — una persona puede ser docente **y** alumno a la vez, y los permisos de cada rol se cambian sin tocar código.
+- **Jerarquía académica:** `programs` ↔ `courses` es **M:N** (`program_courses`): una asignatura como "Inglés I" puede compartirse entre varias carreras. Cada `course` se dicta en `sections` (una sección = asignatura + `academic_period` + uno o varios docentes vía `section_teachers`, co-docencia).
+- **Matrícula vs inscripción:** `enrollments` es la matrícula anual (financiera); `section_enrollments` son las inscripciones a secciones, y solo existen si hay matrícula vigente. Las notas (`grades`) cuelgan de la inscripción a la sección.
+- **Pertenencia:** `section_teachers` define qué docentes dictan cada sección. Es la base de la autorización por pertenencia (ver §8.5).
+- `audit_logs` da soporte a la trazabilidad (RF-5). Los reportes (RF-3) se generan por consulta y se cachean en Redis; no requieren tabla propia.
 
 ### 10.1 Convención de metadata y auditoría
 
@@ -408,13 +450,13 @@ Para no repetir columnas en el diagrama, estas se aplican por convención:
 
 | Campo | Qué | Dónde |
 | --- | --- | --- |
-| `created_at` / `updated_at` | Cuándo se creó / modificó | Entidades mutables (users, perfiles, courses, enrollments, course_registrations, grades, course_assignments). |
-| `created_by` / `updated_by` | Quién (FK a users) | Cambios humanos sensibles: users, perfiles, courses, grades, enrollments. |
-| `deleted_at` | Soft-delete (`NULL` = vivo) | Registros que no se borran físicamente: users, courses, enrollments, course_registrations, grades. |
+| `created_at` / `updated_at` | Cuándo se creó / modificó | Entidades mutables (users, perfiles, programs, courses, academic_periods, sections, enrollments, section_enrollments, grades). |
+| `created_by` / `updated_by` | Quién (FK a users) | Cambios humanos sensibles: users, perfiles, programs, courses, sections, grades, enrollments. |
+| `deleted_at` | Soft-delete (`NULL` = vivo) | Registros que no se borran físicamente: users, programs, courses, academic_periods, sections, enrollments, section_enrollments, grades. |
 | `version` | Optimistic locking | `grades` (edición concurrente, evita pisar cambios). |
-| `status` | Estado de negocio multi-estado | `enrollments` y `course_registrations` (ya en el diagrama). |
+| `status` | Estado de negocio multi-estado | `enrollments` y `section_enrollments` (ya en el diagrama). |
 
-Las tablas **append-only** (`audit_logs`, `user_roles`, `course_assignments`) solo llevan `created_at`: no se editan, se insertan o se borran.
+Las tablas **append-only** (`audit_logs`, `user_roles`, `role_permissions`, `program_courses`, `section_teachers`) solo llevan `created_at`: no se editan, se insertan o se borran.
 
 ## 11. Flujos clave
 
@@ -429,7 +471,7 @@ sequenceDiagram
 
     U->>A: login (credenciales)
     A->>P: buscar usuario
-    P-->>A: hash + rol
+    P-->>A: hash + roles
     A->>A: verificar (bcrypt)
     A->>R: crear sesión
     A-->>U: cookie httpOnly (id de sesión)
@@ -437,11 +479,11 @@ sequenceDiagram
     Note over U,A: peticiones posteriores
     U->>A: petición + cookie
     A->>R: validar sesión (interceptor)
-    R-->>A: usuario + rol
+    R-->>A: usuario + roles/permisos
     A-->>U: respuesta autorizada
 ```
 
-### 11.2 Inscripción de asignatura (con matrícula vigente)
+### 11.2 Inscripción de sección (con matrícula vigente)
 
 ```mermaid
 sequenceDiagram
@@ -450,13 +492,13 @@ sequenceDiagram
     participant R as Redis
     participant P as PostgreSQL
 
-    U->>A: inscribir asignatura + cookie
-    A->>R: validar sesión y rol
+    U->>A: inscribir sección + cookie
+    A->>R: validar sesión y permiso
     A->>P: ¿matrícula vigente del alumno en el año?
     alt sin matrícula
         A-->>U: rechazado (requiere matrícula)
     else con matrícula
-        A->>P: insertar course_registration
+        A->>P: insertar section_enrollment
         A-->>U: inscripción creada
     end
 ```
@@ -471,8 +513,8 @@ sequenceDiagram
     participant P as PostgreSQL
 
     T->>A: cargar nota + cookie
-    A->>R: validar sesión y rol (teacher)
-    A->>P: ¿docente asignado al curso de la inscripción (term)?
+    A->>R: validar sesión y permiso (grades.write)
+    A->>P: ¿el docente dicta la sección? (section_teachers)
     A->>P: ¿el alumno de la inscripción no es el docente?
     alt no autorizado
         A-->>T: rechazado
