@@ -158,7 +158,6 @@ flowchart TB
 | Cloud Load Balancing       | Expone la aplicación vía Ingress HTTPS.                                                                                                     |
 | Cloud Monitoring + Logging | Métricas, dashboards, alertas y logs de auditoría.                                                                                          |
 | Cloud KMS                  | Claves de cifrado en reposo (CMEK donde aplique).                                                                                           |
-| PgBouncer                  | Connection Pooler a PostgreSQL, en el cluster (modo _transaction_). Componente self-hosted, no gestionado; sostiene el pico de inscripción. |
 
 ### AWS (respaldo / DR)
 
@@ -580,9 +579,10 @@ El bloqueo de fila serializa los intentos sobre un mismo cupo, mientras que cupo
 
 Escalar la API con HPA sin limitar las conexiones a PostgreSQL agrava el problema: más réplicas implican más conexiones, hasta agotar `max_connections` y dejar el servicio indisponible. Medidas:
 
-- Pool de conexiones acotado (`pgxpool`) junto con PgBouncer en modo _transaction_: varias réplicas comparten un conjunto reducido de conexiones reales a PostgreSQL.
+- **Pool por instancia (`pgxpool`) con presupuesto de conexiones.** Cada réplica mantiene un pool acotado, dimensionado junto con el techo del HPA para que el total nunca supere `max_connections`: `maxReplicas × pool_size + reservas ≤ max_connections` (las reservas cubren migraciones, la VM `ops`, monitoreo y superusuario). No se usa un pooler compartido a esta escala.
+- Un único DSN: sin pooling por transacción, pgx conserva sus prepared statements y las migraciones comparten la conexión.
 - HPA en la capa de API e idempotencia (las restricciones `UNIQUE`) para los reintentos del pico.
-- Como paso posterior, solo si la contención lo justifica: reserva de cupo en Redis o una cola de inscripción.
+- Como paso posterior, solo si no se puede acotar la cantidad de clientes (muchos servicios, concurrencia impredecible): un pooler compartido como PgBouncer, o reserva de cupo en Redis / cola de inscripción.
 
 ## 13. Tolerancia a fallos y alta disponibilidad
 

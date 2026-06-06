@@ -147,21 +147,29 @@ gcloud compute resource-policies create snapshot-schedule diario \
   --daily-schedule --start-time=03:00
 ```
 
-## 8. Connection Pooler (PgBouncer)
+## 8. Pool de conexiones (presupuesto)
 
-PgBouncer se despliega en el cluster (Deployment) delante de PostgreSQL, en modo _transaction_. No es infraestructura de Terraform sino un componente de Kubernetes (sus manifiestos se documentan en contenedores-kubernetes); se incluye aquí por su rol en el dimensionamiento de conexiones.
+La aplicación usa el pool de pgx (`pgxpool`), **uno por instancia**. No se usa un pooler compartido (PgBouncer): a esta escala, con el HPA acotado, alcanza con dimensionar el pool para que el total de conexiones nunca supere `max_connections` de PostgreSQL.
 
-Durante el período de inscripción, varias réplicas de la API abren muchas conexiones; sin un pooler se agota `max_connections` de PostgreSQL. PgBouncer multiplexa: las réplicas se conectan a PgBouncer y este mantiene un conjunto reducido de conexiones reales a la base.
+Presupuesto de conexiones:
 
-Dimensionamiento de referencia:
+```
+maxReplicas (HPA) × pool_size + reservas ≤ max_connections
+```
 
-| Parámetro           | Valor de referencia                          |
-| ------------------- | -------------------------------------------- |
-| `pool_mode`         | `transaction`                                |
-| `default_pool_size` | acorde a los cores de PostgreSQL (ej. 20–25) |
-| `max_client_conn`   | alto (ej. 1000), absorbe el pico de clientes |
+Las reservas cubren migraciones, la VM `ops`, monitoreo y superusuario. Valores de referencia:
 
-Las réplicas de la API apuntan su `DATABASE_URL` a PgBouncer, no directamente a PostgreSQL.
+| Parámetro | Valor de referencia |
+| --------- | ------------------- |
+| `max_connections` (PostgreSQL) | 100 |
+| Reservas | ~20 |
+| HPA `maxReplicas` | 6 |
+| `pool_size` por instancia | 12 |
+| Total app (6 × 12) | 72 ≤ 80 ✓ |
+
+Sin pooling por transacción, pgx conserva sus prepared statements (modo por defecto) y la app y las migraciones comparten un **único DSN**.
+
+> Escalón futuro: si no se pudiera acotar la cantidad de clientes (muchos servicios, concurrencia impredecible), se introduce un pooler compartido como PgBouncer. En transaction mode obligaría a `QueryExecModeSimpleProtocol` en pgx y a un DSN directo a Postgres para las migraciones (advisory lock de sesión).
 
 ## 9. Backups cross-cloud (GCS → S3)
 
