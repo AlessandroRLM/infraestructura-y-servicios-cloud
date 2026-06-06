@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package health.v1;
+
+option go_package = "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/health/v1;healthv1";
+
+service HealthService {
+  rpc Ping(PingRequest) returns (PingResponse);
+}
+
+message PingRequest {}
+
+message PingResponse {
+  string status = 1;
+}

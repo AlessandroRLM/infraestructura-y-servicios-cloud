@@ -1,0 +1,4 @@
+gen/** linguist-generated=true
+internal/platform/db/sqlc.go linguist-generated=true
+internal/platform/db/models.go linguist-generated=true
+internal/platform/db/query.sql.go linguist-generated=true
