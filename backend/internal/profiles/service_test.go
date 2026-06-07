@@ -22,6 +22,7 @@ type fakeRepository struct {
 	getOwnProfileErr    error
 	getOwnProfileResult profilesdb.UserProfile
 	getOwnProfileID     uuid.UUID
+	getOwnProfileCalled bool
 
 	upsertStudentProfileErr    error
 	upsertStudentProfileCalled bool
@@ -48,6 +49,7 @@ func (f *fakeRepository) GetUserProfile(_ context.Context, _ uuid.UUID) (profile
 }
 
 func (f *fakeRepository) GetOwnProfile(_ context.Context, callerID uuid.UUID) (profilesdb.UserProfile, error) {
+	f.getOwnProfileCalled = true
 	f.getOwnProfileID = callerID
 	return f.getOwnProfileResult, f.getOwnProfileErr
 }
@@ -252,8 +254,9 @@ func TestService_GetOwnProfile_NoContextUser_ReturnsErrNotFound(t *testing.T) {
 	if !errors.Is(err, profiles.ErrNotFound) {
 		t.Errorf("GetOwnProfile (no context user): got %v, want ErrNotFound", err)
 	}
-	// repo must NOT have been called.
-	if repo.getOwnProfileID != (uuid.UUID{}) {
+	// repo must NOT have been called (a bool sentinel, so a call with the zero
+	// UUID is still detected — the zero id alone cannot distinguish not-called).
+	if repo.getOwnProfileCalled {
 		t.Error("repo.GetOwnProfile was called despite missing context user — zero UUID would have been queried")
 	}
 }
