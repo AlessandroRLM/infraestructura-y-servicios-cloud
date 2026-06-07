@@ -8,6 +8,7 @@ import (
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 )
 
@@ -53,9 +54,11 @@ func NewSessionInterceptor(store session.Store, loader RoleLoader, cfg config.Co
 
 			ctx = WithUserID(ctx, sess.UserID)
 
-			if _, err := loader.Load(ctx, sess.UserID); err != nil {
+			perms, err := loader.Load(ctx, sess.UserID)
+			if err != nil {
 				return nil, connect.NewError(connect.CodeInternal, err)
 			}
+			ctx = authz.WithPermissions(ctx, perms)
 
 			return next(ctx, req)
 		}
