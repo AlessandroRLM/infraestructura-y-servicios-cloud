@@ -10,6 +10,7 @@ import (
 
 	migrations "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/migrations"
 
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
@@ -69,15 +70,23 @@ func main() {
 	roleLoader := rbac.NewPostgresRoleLoader(rbacdb.New(pool))
 	authInterceptor := auth.NewSessionInterceptor(sessionStore, roleLoader, cfg)
 
-	// Authz interceptor — empty required-permission map: mechanism is live but no
-	// business procedures are protected yet. Domain slices add entries as they land.
-	//
-	// WARNING: never add public procedures to this map.
-	// Login, RequestPasswordReset, and ConfirmPasswordReset are handled before any
-	// session is established, so no PermissionSet is stored in context for those calls.
-	// Adding them here would cause the interceptor to deny every request with
-	// CodePermissionDenied, permanently locking users out of authentication.
-	authzInterceptor := auth.NewAuthzInterceptor(map[string]authz.Permission{}, authz.PermissionPolicy{})
+	// exempt lists procedures that bypass the authz interceptor entirely.
+	// Public procedures (no session) and authenticated-but-no-permission procedures
+	// (Logout) belong here. Every other procedure must appear in policies below or
+	// it will be denied automatically (fail-closed).
+	exempt := map[string]struct{}{
+		authv1connect.AuthServiceLoginProcedure:                {},
+		authv1connect.AuthServiceRequestPasswordResetProcedure: {},
+		authv1connect.AuthServiceConfirmPasswordResetProcedure: {},
+		authv1connect.AuthServiceLogoutProcedure:               {},
+	}
+
+	// policies maps each protected procedure to a PolicyFunc. An empty map is valid
+	// while no procedure requires a permission; domain slices add entries as they land.
+	// Any procedure not in exempt and not in policies is denied (fail-closed).
+	policies := map[string]authz.PolicyFunc{}
+
+	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
 
 	// Auth handler (repository → service → Connect handler).
 	queries := authdb.New(pool)

@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,27 +16,30 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
 )
 
-// fakePolicy is a test double for authz.Policy that always returns a fixed decision.
-type fakePolicy struct{ allowed bool }
-
-func (f fakePolicy) Evaluate(_ context.Context, _ authz.Permission) authz.Decision {
-	return authz.Decision{Allowed: f.allowed}
+// makePermissionsInterceptor injects a PermissionSet into the server-side context
+// before the authz interceptor runs, mirroring the production session interceptor.
+func makePermissionsInterceptor(set authz.PermissionSet) connect.UnaryInterceptorFunc {
+	return func(next connect.UnaryFunc) connect.UnaryFunc {
+		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			ctx = authz.WithPermissions(ctx, set)
+			return next(ctx, req)
+		}
+	}
 }
 
-// buildAuthzServer wires a Connect server with the authz interceptor applied to the
-// auth service handler. The procedure protected is authv1connect.AuthServiceLogoutProcedure.
-func buildAuthzServer(t *testing.T, requiredPerms map[string]authz.Permission, policy authz.Policy) (string, *httptest.Server) {
+// buildAuthzServer builds a test Connect server with the authz interceptor wired.
+func buildAuthzServer(
+	t *testing.T,
+	exempt map[string]struct{},
+	policies map[string]authz.PolicyFunc,
+) (string, *httptest.Server) {
 	t.Helper()
 
-	interceptor := auth.NewAuthzInterceptor(requiredPerms, policy)
-
-	// Minimal auth service stub — we only need the handler to exist; the interceptor
-	// runs before the handler and may reject the request without invoking it.
+	interceptor := auth.NewAuthzInterceptor(exempt, policies)
 	handler := &noopAuthHandler{}
 	path, h := authv1connect.NewAuthServiceHandler(handler,
 		connect.WithInterceptors(interceptor),
 	)
-
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 	srv := httptest.NewServer(mux)
@@ -43,8 +47,7 @@ func buildAuthzServer(t *testing.T, requiredPerms map[string]authz.Permission, p
 	return srv.URL, srv
 }
 
-// noopAuthHandler is a minimal stub that satisfies authv1connect.AuthServiceHandler.
-// It returns success for every call so the interceptor under test controls outcomes.
+// noopAuthHandler satisfies authv1connect.AuthServiceHandler, returning success for all calls.
 type noopAuthHandler struct{}
 
 func (h *noopAuthHandler) Login(_ context.Context, _ *connect.Request[authv1.LoginRequest]) (*connect.Response[authv1.LoginResponse], error) {
@@ -63,56 +66,43 @@ func (h *noopAuthHandler) ConfirmPasswordReset(_ context.Context, _ *connect.Req
 	return connect.NewResponse(&authv1.ConfirmPasswordResetResponse{}), nil
 }
 
-// withPermissionsTransport injects a PermissionSet into the outgoing request context
-// by wrapping the transport. The authz interceptor reads it on the server side via
-// authz.PermissionsFromContext — but since the interceptor runs on the server, and
-// we want to test the server-side interceptor behavior, we use a server-side approach:
-// the permissions are stored in context BEFORE the authz interceptor runs.
-//
-// For these unit tests we use a dedicated header to signal permissions, handled by a
-// wrapper interceptor that pre-populates the context before the authz interceptor runs.
-// This mirrors the production chain where the session interceptor runs first.
-func makePermissionsInterceptor(set authz.PermissionSet) connect.UnaryInterceptorFunc {
-	return func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			ctx = authz.WithPermissions(ctx, set)
-			return next(ctx, req)
-		}
-	}
-}
+// ── Exempt procedures ──────────────────────────────────────────────────────
 
-func TestAuthzInterceptor_EmptyMapPassesThrough(t *testing.T) {
+func TestAuthzInterceptor_ExemptProcedure_PassesThrough(t *testing.T) {
 	t.Parallel()
 
-	// Empty map: every procedure passes through regardless of permission set.
-	url, _ := buildAuthzServer(t, map[string]authz.Permission{}, fakePolicy{allowed: false})
+	// Login is in the exempt set; even without any permission, it must pass.
+	exempt := map[string]struct{}{
+		authv1connect.AuthServiceLoginProcedure: {},
+	}
+	url, _ := buildAuthzServer(t, exempt, map[string]authz.PolicyFunc{})
 	client := authv1connect.NewAuthServiceClient(http.DefaultClient, url)
 
-	req := connect.NewRequest(&authv1.LogoutRequest{})
-	_, err := client.Logout(context.Background(), req)
+	_, err := client.Login(context.Background(), connect.NewRequest(&authv1.LoginRequest{}))
 	if err != nil {
-		t.Errorf("empty-map interceptor should pass through, got: %v", err)
+		t.Errorf("exempt procedure should pass through, got: %v", err)
 	}
 }
 
-func TestAuthzInterceptor_MappedProcedureAllowed(t *testing.T) {
+// ── Mapped procedure — allow ───────────────────────────────────────────────
+
+func TestAuthzInterceptor_MappedProcedure_Allow(t *testing.T) {
 	t.Parallel()
 
-	// Logout procedure is in the required map; fakePolicy always allows.
+	// Logout is mapped to RequirePermission(PermUsersManage).
+	// The caller has that permission in context.
 	permSet := authz.NewPermissionSet([]authz.Permission{authz.PermUsersManage})
 	permsInterceptor := makePermissionsInterceptor(permSet)
 
+	exempt := map[string]struct{}{}
+	policies := map[string]authz.PolicyFunc{
+		authv1connect.AuthServiceLogoutProcedure: authz.RequirePermission(authz.PermUsersManage),
+	}
+
+	interceptor := auth.NewAuthzInterceptor(exempt, policies)
 	handler := &noopAuthHandler{}
 	path, h := authv1connect.NewAuthServiceHandler(handler,
-		connect.WithInterceptors(
-			permsInterceptor,
-			auth.NewAuthzInterceptor(
-				map[string]authz.Permission{
-					authv1connect.AuthServiceLogoutProcedure: authz.PermUsersManage,
-				},
-				fakePolicy{allowed: true},
-			),
-		),
+		connect.WithInterceptors(permsInterceptor, interceptor),
 	)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
@@ -126,24 +116,26 @@ func TestAuthzInterceptor_MappedProcedureAllowed(t *testing.T) {
 	}
 }
 
-func TestAuthzInterceptor_MappedProcedureDenied(t *testing.T) {
+// ── Mapped procedure — deny ────────────────────────────────────────────────
+
+func TestAuthzInterceptor_MappedProcedure_Deny(t *testing.T) {
 	t.Parallel()
 
-	// Logout procedure is in the required map; fakePolicy always denies.
-	permSet := authz.NewPermissionSet([]authz.Permission{authz.PermUsersManage})
+	// Logout is mapped to RequirePermission(PermUsersManage).
+	// The caller only has PermCatalogManage → denied.
+	// Wire message must be the generic "permission denied" (reason stays server-side).
+	permSet := authz.NewPermissionSet([]authz.Permission{authz.PermCatalogManage})
 	permsInterceptor := makePermissionsInterceptor(permSet)
 
+	exempt := map[string]struct{}{}
+	policies := map[string]authz.PolicyFunc{
+		authv1connect.AuthServiceLogoutProcedure: authz.RequirePermission(authz.PermUsersManage),
+	}
+
+	interceptor := auth.NewAuthzInterceptor(exempt, policies)
 	handler := &noopAuthHandler{}
 	path, h := authv1connect.NewAuthServiceHandler(handler,
-		connect.WithInterceptors(
-			permsInterceptor,
-			auth.NewAuthzInterceptor(
-				map[string]authz.Permission{
-					authv1connect.AuthServiceLogoutProcedure: authz.PermUsersManage,
-				},
-				fakePolicy{allowed: false},
-			),
-		),
+		connect.WithInterceptors(permsInterceptor, interceptor),
 	)
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
@@ -162,29 +154,87 @@ func TestAuthzInterceptor_MappedProcedureDenied(t *testing.T) {
 	if ce.Code() != connect.CodePermissionDenied {
 		t.Errorf("error code = %v, want PermissionDenied", ce.Code())
 	}
+	if ce.Message() != "permission denied" {
+		t.Errorf("wire message = %q, want %q", ce.Message(), "permission denied")
+	}
 }
 
-func TestAuthzInterceptor_MappedProcedureNoPermissionsInContext(t *testing.T) {
+// ── Infra failure inside policy → CodeInternal ───────────────────────────────
+
+func TestAuthzInterceptor_PolicyInfraFailure_ReturnsCodeInternal(t *testing.T) {
 	t.Parallel()
 
-	// Logout is in the map; context has no PermissionSet; fakePolicy denies (empty set).
-	handler := &noopAuthHandler{}
-	path, h := authv1connect.NewAuthServiceHandler(handler,
-		connect.WithInterceptors(
-			auth.NewAuthzInterceptor(
-				map[string]authz.Permission{
-					authv1connect.AuthServiceLogoutProcedure: authz.PermUsersManage,
-				},
-				fakePolicy{allowed: false},
-			),
-		),
-	)
-	mux := http.NewServeMux()
-	mux.Handle(path, h)
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
+	// A policy that simulates an infrastructure failure (e.g. storage error).
+	// Decision.Err is set → the interceptor must return CodeInternal, not CodePermissionDenied,
+	// and must not leak the underlying error to the client.
+	infraErr := errors.New("db connection refused")
+	failingPolicy := func(_ context.Context, _ authz.AccessRequest) authz.Decision {
+		return authz.DenyErr("storage lookup failed", infraErr)
+	}
 
-	client := authv1connect.NewAuthServiceClient(http.DefaultClient, srv.URL)
+	exempt := map[string]struct{}{}
+	policies := map[string]authz.PolicyFunc{
+		authv1connect.AuthServiceLogoutProcedure: failingPolicy,
+	}
+
+	url, _ := buildAuthzServer(t, exempt, policies)
+	client := authv1connect.NewAuthServiceClient(http.DefaultClient, url)
+
+	_, err := client.Logout(context.Background(), connect.NewRequest(&authv1.LogoutRequest{}))
+	if err == nil {
+		t.Fatal("expected Internal error, got nil")
+	}
+	ce, ok := err.(*connect.Error)
+	if !ok {
+		t.Fatalf("expected *connect.Error, got %T: %v", err, err)
+	}
+	if ce.Code() != connect.CodeInternal {
+		t.Errorf("error code = %v, want CodeInternal (infra failure must not be CodePermissionDenied)", ce.Code())
+	}
+	if ce.Message() != "internal error" {
+		t.Errorf("wire message = %q, want %q (must not leak internal details)", ce.Message(), "internal error")
+	}
+}
+
+// ── Fail-closed: unmapped and non-exempt ──────────────────────────────────
+
+func TestAuthzInterceptor_UnmappedAndNonExempt_DeniedFailClosed(t *testing.T) {
+	t.Parallel()
+
+	// Logout is neither in exempt nor in policies.
+	// The interceptor must deny with CodePermissionDenied — this is the fail-closed guarantee.
+	exempt := map[string]struct{}{
+		authv1connect.AuthServiceLoginProcedure: {},
+	}
+	url, _ := buildAuthzServer(t, exempt, map[string]authz.PolicyFunc{})
+	client := authv1connect.NewAuthServiceClient(http.DefaultClient, url)
+
+	_, err := client.Logout(context.Background(), connect.NewRequest(&authv1.LogoutRequest{}))
+	if err == nil {
+		t.Fatal("unmapped non-exempt procedure should be denied (fail-closed), got nil error")
+	}
+	ce, ok := err.(*connect.Error)
+	if !ok {
+		t.Fatalf("expected *connect.Error, got %T: %v", err, err)
+	}
+	if ce.Code() != connect.CodePermissionDenied {
+		t.Errorf("error code = %v, want PermissionDenied (fail-closed)", ce.Code())
+	}
+}
+
+// ── Mapped procedure — no permissions in context ──────────────────────────
+
+func TestAuthzInterceptor_MappedProcedure_NoPermissionsInContext(t *testing.T) {
+	t.Parallel()
+
+	// Logout is mapped but the context has no PermissionSet (unauthenticated or misconfigured chain).
+	exempt := map[string]struct{}{}
+	policies := map[string]authz.PolicyFunc{
+		authv1connect.AuthServiceLogoutProcedure: authz.RequirePermission(authz.PermUsersManage),
+	}
+	url, _ := buildAuthzServer(t, exempt, policies)
+	client := authv1connect.NewAuthServiceClient(http.DefaultClient, url)
+
 	_, err := client.Logout(context.Background(), connect.NewRequest(&authv1.LogoutRequest{}))
 	if err == nil {
 		t.Fatal("expected PermissionDenied, got nil")

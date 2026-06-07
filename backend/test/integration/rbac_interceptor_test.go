@@ -170,7 +170,8 @@ func TestRBACInterceptor_SessionInterceptorStoresPermissions(t *testing.T) {
 }
 
 // TestRBACInterceptor_AuthzChain verifies the full session+authz interceptor chain:
-// allow, deny, no-session, and unmapped procedure scenarios.
+// allow (admin), deny (student), no-session (unauthenticated), and unmapped non-exempt
+// procedure (fail-closed deny).
 func TestRBACInterceptor_AuthzChain(t *testing.T) {
 	adminID := seedUserWithRole(t, "rbac-chain-admin@test.local", "admin")
 	studentID := seedUserWithRole(t, "rbac-chain-student@test.local", "student")
@@ -185,13 +186,22 @@ func TestRBACInterceptor_AuthzChain(t *testing.T) {
 	redisStore := session.NewRedisStore(testRedisClient)
 	sessionInterceptor := auth.NewSessionInterceptor(redisStore, loader, testCfg)
 
-	// Protect Logout with users.manage to create a synthetic admin-only route.
-	authzInterceptor := auth.NewAuthzInterceptor(
-		map[string]authz.Permission{
-			authv1connect.AuthServiceLogoutProcedure: authz.PermUsersManage,
-		},
-		authz.PermissionPolicy{},
-	)
+	// Public auth procedures (Login, RequestPasswordReset, ConfirmPasswordReset) are in
+	// exempt so the session interceptor passes them through unauthenticated.
+	// Logout is mapped to RequirePermission(PermUsersManage) to exercise the allow/deny
+	// paths with a synthetic admin-only policy.
+	// The fail-closed property (unmapped + non-exempt → CodePermissionDenied) is proven
+	// by the separate strict server in the unmapped_non_exempt_procedure_is_denied_fail_closed
+	// sub-test, which uses an empty exempt and empty policies map.
+	exempt := map[string]struct{}{
+		authv1connect.AuthServiceLoginProcedure:                {},
+		authv1connect.AuthServiceRequestPasswordResetProcedure: {},
+		authv1connect.AuthServiceConfirmPasswordResetProcedure: {},
+	}
+	policies := map[string]authz.PolicyFunc{
+		authv1connect.AuthServiceLogoutProcedure: authz.RequirePermission(authz.PermUsersManage),
+	}
+	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
 
 	handler := &noopTestAuthHandler{}
 	path, h := authv1connect.NewAuthServiceHandler(handler,
@@ -229,15 +239,28 @@ func TestRBACInterceptor_AuthzChain(t *testing.T) {
 		assertConnectCode(t, err, connect.CodeUnauthenticated)
 	})
 
-	t.Run("unmapped_procedure_passes_through", func(t *testing.T) {
-		// Login is public and not in the required map — the authz interceptor must pass
-		// the call through to the handler. The test handler always returns nil, so a
-		// non-nil error here means the interceptor blocked the call (or wiring is broken).
+	t.Run("unmapped_non_exempt_procedure_is_denied_fail_closed", func(t *testing.T) {
+		// Login is in exempt, so the session interceptor lets it through unauthenticated.
+		// However, for this sub-test we want to verify the fail-closed property: we build
+		// a separate server where Login is NOT in exempt and NOT in policies.
+		// The authz interceptor must deny it with CodePermissionDenied.
+		strictExempt := map[string]struct{}{} // nothing exempt
+		strictPolicies := map[string]authz.PolicyFunc{}
+		strictAuthz := auth.NewAuthzInterceptor(strictExempt, strictPolicies)
+
+		strictHandler := &noopTestAuthHandler{}
+		strictPath, strictH := authv1connect.NewAuthServiceHandler(strictHandler,
+			connect.WithInterceptors(strictAuthz),
+		)
+		strictMux := http.NewServeMux()
+		strictMux.Handle(strictPath, strictH)
+		strictSrv := httptest.NewServer(strictMux)
+		defer strictSrv.Close()
+
+		strictClient := authv1connect.NewAuthServiceClient(http.DefaultClient, strictSrv.URL)
 		req := connect.NewRequest(&authv1.LoginRequest{Email: "x@x.com", Password: "pw"})
-		_, err := client.Login(context.Background(), req)
-		if err != nil {
-			t.Errorf("unmapped procedure Login should reach the handler and succeed, got: %v", err)
-		}
+		_, err := strictClient.Login(context.Background(), req)
+		assertConnectCode(t, err, connect.CodePermissionDenied)
 	})
 }
 
