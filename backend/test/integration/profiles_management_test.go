@@ -19,6 +19,32 @@ func newProfilesClient(jar http.CookieJar) profilesv1connect.ProfileServiceClien
 	return profilesv1connect.NewProfileServiceClient(&http.Client{Jar: jar}, baseURL)
 }
 
+// cleanupUserProfile registers a t.Cleanup to delete the user_profiles row for userID.
+func cleanupUserProfile(t *testing.T, userID uuid.UUID) {
+	t.Helper()
+	t.Cleanup(func() {
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM user_profiles WHERE user_id = $1`, userID)
+	})
+}
+
+// cleanupStudentProfile registers a t.Cleanup to delete the student_profiles row for userID.
+func cleanupStudentProfile(t *testing.T, userID uuid.UUID) {
+	t.Helper()
+	t.Cleanup(func() {
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM student_profiles WHERE user_id = $1`, userID)
+	})
+}
+
+// cleanupTeacherProfile registers a t.Cleanup to delete the teacher_profiles row and
+// associated teacher_qualifications rows for userID.
+func cleanupTeacherProfile(t *testing.T, userID uuid.UUID) {
+	t.Helper()
+	t.Cleanup(func() {
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM teacher_qualifications WHERE teacher_id = $1`, userID)
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM teacher_profiles WHERE user_id = $1`, userID)
+	})
+}
+
 // seedUserWithSession seeds a user with the given role, creates a Redis session,
 // and returns (userID, sessionID) ready for use in Cookie headers.
 func seedUserWithSession(t *testing.T, email, roleName string) (uuid.UUID, string) {
@@ -39,6 +65,7 @@ func withSession[T any](req *connect.Request[T], sid string) *connect.Request[T]
 func TestProfilesManagement_AdminUpsertAndGetUserProfile(t *testing.T) {
 	ctx := context.Background()
 	targetID := seedUserWithRole(t, "target-userprofile@profiles.test", "student")
+	cleanupUserProfile(t, targetID)
 	_, adminSID := seedUserWithSession(t, "admin-upsert-up@profiles.test", "admin")
 
 	client := newProfilesClient(nil)
@@ -48,7 +75,7 @@ func TestProfilesManagement_AdminUpsertAndGetUserProfile(t *testing.T) {
 		GivenNames:       "Juan",
 		LastNamePaternal: "Pérez",
 		NationalIdType:   "RUT",
-		NationalId:       "12345678-" + targetID.String()[:4],
+		NationalId:       "MGMT-UP-" + targetID.String(),
 	}
 	resp, err := client.UpsertUserProfile(ctx, withSession(connect.NewRequest(upsertReq), adminSID))
 	if err != nil {
@@ -74,6 +101,7 @@ func TestProfilesManagement_AdminUpsertAndGetUserProfile(t *testing.T) {
 func TestProfilesManagement_AdminReUpsertNoDuplicate(t *testing.T) {
 	ctx := context.Background()
 	targetID := seedUserWithRole(t, "target-reupsert@profiles.test", "student")
+	cleanupUserProfile(t, targetID)
 	_, adminSID := seedUserWithSession(t, "admin-reupsert@profiles.test", "admin")
 
 	client := newProfilesClient(nil)
@@ -120,6 +148,7 @@ func TestProfilesManagement_AdminReUpsertNoDuplicate(t *testing.T) {
 func TestProfilesManagement_AdminUpsertStudentProfile(t *testing.T) {
 	ctx := context.Background()
 	targetID := seedUserWithRole(t, "target-student@profiles.test", "student")
+	cleanupStudentProfile(t, targetID)
 	_, adminSID := seedUserWithSession(t, "admin-student@profiles.test", "admin")
 
 	client := newProfilesClient(nil)
@@ -141,6 +170,7 @@ func TestProfilesManagement_AdminUpsertStudentProfile(t *testing.T) {
 func TestProfilesManagement_AdminUpsertTeacherProfile(t *testing.T) {
 	ctx := context.Background()
 	targetID := seedUserWithRole(t, "target-teacher@profiles.test", "teacher")
+	cleanupTeacherProfile(t, targetID)
 	_, adminSID := seedUserWithSession(t, "admin-teacher@profiles.test", "admin")
 
 	client := newProfilesClient(nil)
@@ -165,6 +195,7 @@ func TestProfilesManagement_AdminUpsertTeacherProfile(t *testing.T) {
 func TestProfilesManagement_AddAndListTeacherQualifications(t *testing.T) {
 	ctx := context.Background()
 	teacherID := seedUserWithRole(t, "target-qualifications@profiles.test", "teacher")
+	cleanupTeacherProfile(t, teacherID)
 	_, adminSID := seedUserWithSession(t, "admin-quals@profiles.test", "admin")
 
 	client := newProfilesClient(nil)

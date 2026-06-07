@@ -15,6 +15,7 @@ import (
 func TestProfilesAudit_CreatedByPopulatedOnInsert(t *testing.T) {
 	ctx := context.Background()
 	targetID := seedUserWithRole(t, "audit-target-insert@profiles.test", "student")
+	cleanupUserProfile(t, targetID)
 	adminID, adminSID := seedUserWithSession(t, "audit-admin-insert@profiles.test", "admin")
 
 	client := newProfilesClient(nil)
@@ -49,6 +50,7 @@ func TestProfilesAudit_CreatedByPopulatedOnInsert(t *testing.T) {
 func TestProfilesAudit_UpdatedByPopulatedOnUpdate(t *testing.T) {
 	ctx := context.Background()
 	targetID := seedUserWithRole(t, "audit-target-update@profiles.test", "student")
+	cleanupUserProfile(t, targetID)
 	adminID, adminSID := seedUserWithSession(t, "audit-admin-update@profiles.test", "admin")
 
 	client := newProfilesClient(nil)
@@ -91,12 +93,14 @@ func TestProfilesAudit_UpdatedByPopulatedOnUpdate(t *testing.T) {
 func TestProfilesAudit_StudentAndTeacherProfilesSetAuditColumns(t *testing.T) {
 	ctx := context.Background()
 	targetID := seedUserWithRole(t, "audit-multi@profiles.test", "teacher")
+	cleanupTeacherProfile(t, targetID)
 	adminID, adminSID := seedUserWithSession(t, "audit-admin-multi@profiles.test", "admin")
 
 	client := newProfilesClient(nil)
 
 	t.Run("student_profiles_created_by", func(t *testing.T) {
 		studentTargetID := seedUserWithRole(t, "audit-student-multi@profiles.test", "student")
+		cleanupStudentProfile(t, studentTargetID)
 
 		req := &profilesv1.UpsertStudentProfileRequest{
 			UserId:        studentTargetID.String(),

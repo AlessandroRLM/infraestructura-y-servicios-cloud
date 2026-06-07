@@ -13,13 +13,15 @@ import (
 // Uses a unique national_id derived from the userID to avoid UNIQUE constraint collisions.
 func seedUserProfile(t *testing.T, userID interface{ String() string }, givenNames string) {
 	t.Helper()
+	// Use the full UUID as national_id to guarantee uniqueness across concurrent test users.
+	nationalID := "SEED-" + userID.String()
 	_, err := pgxPool.Exec(context.Background(), `
 		INSERT INTO user_profiles (
 			user_id, given_names, last_name_paternal,
 			national_id_type, national_id
 		) VALUES ($1, $2, 'Test', 'RUT', $3)
 		ON CONFLICT (user_id) DO UPDATE SET given_names = EXCLUDED.given_names
-	`, userID.String(), givenNames, "SEED-"+userID.String()[:12])
+	`, userID.String(), givenNames, nationalID)
 	if err != nil {
 		t.Fatalf("seedUserProfile: %v", err)
 	}

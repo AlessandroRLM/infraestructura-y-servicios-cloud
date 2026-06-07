@@ -16,6 +16,7 @@ func TestProfilesDecoupling_StudentProfileDoesNotAssignRole(t *testing.T) {
 
 	// A bare user with no role assignment.
 	userID := seedUserNoRole(t, "decoupling-student@profiles.test")
+	cleanupStudentProfile(t, userID)
 	_, adminSID := seedUserWithSession(t, "decoupling-admin-s@profiles.test", "admin")
 
 	var before int
@@ -52,6 +53,7 @@ func TestProfilesDecoupling_TeacherProfileDoesNotAssignRole(t *testing.T) {
 	ctx := context.Background()
 
 	userID := seedUserNoRole(t, "decoupling-teacher@profiles.test")
+	cleanupTeacherProfile(t, userID)
 	_, adminSID := seedUserWithSession(t, "decoupling-admin-t@profiles.test", "admin")
 
 	var before int
