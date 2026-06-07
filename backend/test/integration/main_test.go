@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 	ctx := context.Background()
 
 	pgContainer, err := tcpostgres.Run(ctx,
-		"postgres:16-alpine",
+		"postgres:18-alpine",
 		tcpostgres.WithDatabase("testdb"),
 		tcpostgres.WithUsername("testuser"),
 		tcpostgres.WithPassword("testpass"),

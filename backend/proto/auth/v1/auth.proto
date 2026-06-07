@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1;authv1";
+
+service AuthService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
+  rpc ConfirmPasswordReset(ConfirmPasswordResetRequest) returns (ConfirmPasswordResetResponse);
+}
+
+message LoginRequest {
+  string email    = 1;
+  string password = 2;
+}
+
+message LoginResponse {}
+
+message LogoutRequest {}
+
+message LogoutResponse {}
+
+message RequestPasswordResetRequest {
+  string email = 1;
+}
+
+// RequestPasswordResetResponse includes an optional dev_token field that is
+// populated only in non-production environments (APP_ENV != "production").
+message RequestPasswordResetResponse {
+  optional string dev_token = 1;
+}
+
+message ConfirmPasswordResetRequest {
+  string token        = 1;
+  string new_password = 2;
+}
+
+message ConfirmPasswordResetResponse {}
