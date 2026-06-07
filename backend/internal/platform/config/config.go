@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Config holds all validated application configuration.
@@ -99,6 +101,9 @@ func Load() (Config, error) {
 		n, err := strconv.Atoi(raw)
 		if err != nil {
 			return Config{}, fmt.Errorf("config: BCRYPT_COST must be a valid integer, got %q", raw)
+		}
+		if n < bcrypt.MinCost || n > bcrypt.MaxCost {
+			return Config{}, fmt.Errorf("config: BCRYPT_COST must be between %d and %d, got %d", bcrypt.MinCost, bcrypt.MaxCost, n)
 		}
 		cfg.BcryptCost = n
 	} else {

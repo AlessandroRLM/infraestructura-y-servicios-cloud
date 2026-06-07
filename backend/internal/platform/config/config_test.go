@@ -278,6 +278,71 @@ func TestLoad(t *testing.T) {
 				AppEnv:        "",
 			},
 		},
+		// BCRYPT_COST range validation
+		{
+			name: "bcrypt_cost_below_min_is_error",
+			env: map[string]string{
+				"DATABASE_URL":    testDBURL,
+				"REDIS_URL":       testRedisURL,
+				"SESSION_TTL":     "3600s",
+				"BCRYPT_COST":     "3", // bcrypt.MinCost is 4
+				"RESET_TOKEN_TTL": "900s",
+			},
+			wantErr: true,
+		},
+		{
+			name: "bcrypt_cost_above_max_is_error",
+			env: map[string]string{
+				"DATABASE_URL":    testDBURL,
+				"REDIS_URL":       testRedisURL,
+				"SESSION_TTL":     "3600s",
+				"BCRYPT_COST":     "32", // bcrypt.MaxCost is 31
+				"RESET_TOKEN_TTL": "900s",
+			},
+			wantErr: true,
+		},
+		{
+			name: "bcrypt_cost_at_min_is_valid",
+			env: map[string]string{
+				"DATABASE_URL":    testDBURL,
+				"REDIS_URL":       testRedisURL,
+				"SESSION_TTL":     "3600s",
+				"BCRYPT_COST":     "4", // bcrypt.MinCost
+				"RESET_TOKEN_TTL": "900s",
+			},
+			wantErr: false,
+			wantCfg: &config.Config{
+				DatabaseURL:   testDBURL,
+				RedisURL:      testRedisURL,
+				DBMaxConns:    10,
+				HTTPAddr:      ":8080",
+				LogLevel:      slog.LevelInfo,
+				SessionTTL:    3600 * time.Second,
+				BcryptCost:    4,
+				ResetTokenTTL: 900 * time.Second,
+			},
+		},
+		{
+			name: "bcrypt_cost_at_max_is_valid",
+			env: map[string]string{
+				"DATABASE_URL":    testDBURL,
+				"REDIS_URL":       testRedisURL,
+				"SESSION_TTL":     "3600s",
+				"BCRYPT_COST":     "31", // bcrypt.MaxCost
+				"RESET_TOKEN_TTL": "900s",
+			},
+			wantErr: false,
+			wantCfg: &config.Config{
+				DatabaseURL:   testDBURL,
+				RedisURL:      testRedisURL,
+				DBMaxConns:    10,
+				HTTPAddr:      ":8080",
+				LogLevel:      slog.LevelInfo,
+				SessionTTL:    3600 * time.Second,
+				BcryptCost:    31,
+				ResetTokenTTL: 900 * time.Second,
+			},
+		},
 	}
 
 	allKeys := []string{
