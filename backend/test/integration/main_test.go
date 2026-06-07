@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 
@@ -26,10 +28,18 @@ import (
 )
 
 var (
-	baseURL     string
-	dbDSN       string
-	dbPool      interface{ Ping(context.Context) error }
-	redisPinger db.Pinger
+	baseURL string
+	dbDSN   string
+	// dbPool is the minimal Ping interface exposed to health tests.
+	dbPool interface{ Ping(context.Context) error }
+	// pgxPool is the concrete pool used by auth test helpers to run raw SQL.
+	pgxPool *pgxpool.Pool
+	// testRedisClient is the raw Redis client used by auth test helpers to inspect
+	// and manipulate keys (TTL assertions, expired-session simulation, etc.).
+	testRedisClient *redis.Client
+	// sharedCfg is the config used for the shared test server. Tests that need
+	// to assert timing values (TTL, bcrypt cost) read it directly.
+	sharedCfg config.Config
 )
 
 func TestMain(m *testing.M) {
@@ -96,6 +106,7 @@ func TestMain(m *testing.M) {
 	}
 	defer pool.Close()
 	dbPool = pool
+	pgxPool = pool
 
 	if err := db.Migrate(pgDSN, migrations.FS); err != nil {
 		fmt.Fprintf(os.Stderr, "migration failed: %v\n", err) //nolint:errcheck
@@ -107,21 +118,22 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "failed to create redis pinger: %v\n", err) //nolint:errcheck
 		os.Exit(1)
 	}
-	redisPinger = rPinger
 
-	// Auth wiring — mirrors cmd/api/main.go so WU3 integration tests can call auth endpoints.
+	// Auth wiring — mirrors cmd/api/main.go so the integration tests can call auth endpoints.
 	redisClient, err := platformredis.NewClient(redisURL)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create redis client for auth: %v\n", err) //nolint:errcheck
 		os.Exit(1)
 	}
-	testCfg := config.Config{
+	testRedisClient = redisClient
+	sharedCfg = config.Config{
 		BcryptCost:    4, // fast for tests
 		SessionTTL:    time.Hour,
 		ResetTokenTTL: 15 * time.Minute,
 		AppEnv:        "test",
 		CookieSecure:  false,
 	}
+	testCfg := sharedCfg
 	sessionStore := session.NewRedisStore(redisClient)
 	roleLoader := auth.NoopRoleLoader{}
 	authInterceptor := auth.NewSessionInterceptor(sessionStore, roleLoader, testCfg)
