@@ -1,0 +1,11 @@
+[
+  { "name": "valid credentials",        "email": "admin@dev.local",            "password": "__KNOWN__",                  "expect": "OK" },
+  { "name": "wrong password",            "email": "admin@dev.local",            "password": "definitely-not-the-password", "expect": "Unauthenticated" },
+  { "name": "unknown email",             "email": "ghost@dev.local",            "password": "whatever",                   "expect": "Unauthenticated" },
+  { "name": "blank email",               "email": "",                           "password": "something",                  "expect": "InvalidArgument" },
+  { "name": "blank password",            "email": "admin@dev.local",            "password": "",                           "expect": "InvalidArgument" },
+  { "name": "both fields blank",         "email": "",                           "password": "",                           "expect": "InvalidArgument" },
+  { "name": "sql-injection-ish email",   "email": "admin@dev.local' OR '1'='1", "password": "x",                          "expect": "Unauthenticated" },
+  { "name": "unicode password",          "email": "admin@dev.local",            "password": "contraseña-ñ-😀-Ω",          "expect": "Unauthenticated" },
+  { "name": "very long password (300b)", "email": "admin@dev.local",            "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "expect": "Unauthenticated" }
+]
