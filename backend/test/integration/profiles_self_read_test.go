@@ -56,32 +56,40 @@ func TestProfilesSelfRead_AuthenticatedUserGetsOwnProfile(t *testing.T) {
 
 // TestProfilesSelfRead_IsolationBetweenUsers verifies that two users cannot access each other's
 // profiles via GetOwnProfile (no user_id argument means always own profile).
+// Both the A→A and B→B directions are asserted to prove symmetry.
 func TestProfilesSelfRead_IsolationBetweenUsers(t *testing.T) {
 	ctx := context.Background()
 
 	userAID, userASID := seedUserWithSession(t, "self-read-a@profiles.test", "student")
-	userBID, _ := seedUserWithSession(t, "self-read-b@profiles.test", "student")
+	userBID, userBSID := seedUserWithSession(t, "self-read-b@profiles.test", "student")
 
 	seedUserProfile(t, userAID, "UserAProfile")
 	seedUserProfile(t, userBID, "UserBProfile")
 
 	client := newProfilesClient(nil)
 
-	// User A calls GetOwnProfile — must get A's profile, not B's.
-	resp, err := client.GetOwnProfile(ctx, withSession(connect.NewRequest(&profilesv1.GetOwnProfileRequest{}), userASID))
+	// User A calls GetOwnProfile — must get A's profile.
+	respA, err := client.GetOwnProfile(ctx, withSession(connect.NewRequest(&profilesv1.GetOwnProfileRequest{}), userASID))
 	if err != nil {
 		t.Fatalf("GetOwnProfile (user A): %v", err)
 	}
+	if respA.Msg.GetUserId() != userAID.String() {
+		t.Errorf("user A's GetOwnProfile returned user_id %q, want %q", respA.Msg.GetUserId(), userAID.String())
+	}
+	if respA.Msg.GetGivenNames() != "UserAProfile" {
+		t.Errorf("user A's GetOwnProfile GivenNames = %q, want %q", respA.Msg.GetGivenNames(), "UserAProfile")
+	}
 
-	if resp.Msg.GetUserId() != userAID.String() {
-		t.Errorf("user A's GetOwnProfile returned user_id %q, want %q", resp.Msg.GetUserId(), userAID.String())
+	// User B calls GetOwnProfile — must get B's own profile, not A's.
+	respB, err := client.GetOwnProfile(ctx, withSession(connect.NewRequest(&profilesv1.GetOwnProfileRequest{}), userBSID))
+	if err != nil {
+		t.Fatalf("GetOwnProfile (user B): %v", err)
 	}
-	if resp.Msg.GetGivenNames() != "UserAProfile" {
-		t.Errorf("user A's GetOwnProfile GivenNames = %q, want %q", resp.Msg.GetGivenNames(), "UserAProfile")
+	if respB.Msg.GetUserId() != userBID.String() {
+		t.Errorf("user B's GetOwnProfile returned user_id %q, want %q", respB.Msg.GetUserId(), userBID.String())
 	}
-	// Ensure B's name is not returned.
-	if resp.Msg.GetGivenNames() == "UserBProfile" {
-		t.Error("user A's GetOwnProfile returned user B's profile")
+	if respB.Msg.GetGivenNames() != "UserBProfile" {
+		t.Errorf("user B's GetOwnProfile GivenNames = %q, want %q", respB.Msg.GetGivenNames(), "UserBProfile")
 	}
 }
 

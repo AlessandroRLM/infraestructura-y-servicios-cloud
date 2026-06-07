@@ -57,11 +57,10 @@ message TeacherProfile {
 
 // TeacherQualification represents a single academic qualification for a teacher.
 message TeacherQualification {
-  string user_id    = 1;
-  string id         = 2;
-  string teacher_id = 3;
-  string degree     = 4;
-  int32  year       = 5;
+  string id         = 1;
+  string teacher_id = 2;
+  string degree     = 3;
+  int32  year       = 4;
 }
 
 message UpsertUserProfileRequest {

@@ -78,7 +78,7 @@ func seedUserNoRole(t *testing.T, email string) uuid.UUID {
 func TestRBACInterceptor_PermissionsStoredInContext(t *testing.T) {
 	ctx := context.Background()
 
-	// Admin user gets all 11 permissions.
+	// Admin user gets all 12 permissions.
 	adminID := seedUserWithRole(t, "rbac-admin@test.local", "admin")
 	// User with no role gets empty set.
 	noRoleID := seedUserNoRole(t, "rbac-norole@test.local")

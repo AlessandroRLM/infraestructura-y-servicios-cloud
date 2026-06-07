@@ -3,6 +3,7 @@ package profiles
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -34,6 +35,11 @@ func (s *Service) UpsertUserProfile(ctx context.Context, p UpsertUserProfilePara
 	if p.NationalID == "" {
 		return profilesdb.UserProfile{}, fmt.Errorf("%w: national_id is required", ErrInvalidInput)
 	}
+	if p.BirthDate != nil && *p.BirthDate != "" {
+		if _, err := time.Parse("2006-01-02", *p.BirthDate); err != nil {
+			return profilesdb.UserProfile{}, fmt.Errorf("%w: birth_date must be in YYYY-MM-DD format", ErrInvalidInput)
+		}
+	}
 
 	actor := actorFromContext(ctx)
 	p.CreatedBy = actor
@@ -49,8 +55,12 @@ func (s *Service) GetUserProfile(ctx context.Context, userID uuid.UUID) (profile
 
 // GetOwnProfile retrieves the caller's own user profile using the user_id from context.
 // The caller cannot supply a user_id — self-scope is enforced structurally.
+// Returns ErrNotFound when no authenticated user is present in the context.
 func (s *Service) GetOwnProfile(ctx context.Context) (profilesdb.UserProfile, error) {
-	callerID, _ := auth.UserIDFromContext(ctx)
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return profilesdb.UserProfile{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+	}
 	return s.repo.GetOwnProfile(ctx, callerID)
 }
 

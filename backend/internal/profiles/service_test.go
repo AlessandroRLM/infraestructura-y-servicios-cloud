@@ -127,6 +127,31 @@ func TestService_UpsertUserProfile_Validation(t *testing.T) {
 	}
 }
 
+func TestService_UpsertUserProfile_BirthDateValidation(t *testing.T) {
+	t.Parallel()
+
+	malformed := "31-13-1990" // wrong format
+	repo := &fakeRepository{}
+	svc := profiles.NewService(repo)
+
+	params := profiles.UpsertUserProfileParams{
+		GivenNames:       "Test",
+		LastNamePaternal: "User",
+		NationalIDType:   "RUT",
+		NationalID:       "12345678-9",
+		BirthDate:        &malformed,
+	}
+
+	_, err := svc.UpsertUserProfile(context.Background(), params)
+
+	if !errors.Is(err, profiles.ErrInvalidInput) {
+		t.Errorf("UpsertUserProfile (malformed birth_date): got %v, want ErrInvalidInput", err)
+	}
+	if repo.upsertUserProfileCalled {
+		t.Error("repo was called despite malformed birth_date")
+	}
+}
+
 func TestService_UpsertStudentProfile_Validation(t *testing.T) {
 	t.Parallel()
 
@@ -213,6 +238,25 @@ func TestService_UpsertUserProfile_AuditFromContext(t *testing.T) {
 }
 
 // --- Self-scope tests ---
+
+func TestService_GetOwnProfile_NoContextUser_ReturnsErrNotFound(t *testing.T) {
+	t.Parallel()
+
+	// Context has NO authenticated user — GetOwnProfile must fail closed without
+	// ever calling the repository.
+	repo := &fakeRepository{}
+	svc := profiles.NewService(repo)
+
+	_, err := svc.GetOwnProfile(context.Background())
+
+	if !errors.Is(err, profiles.ErrNotFound) {
+		t.Errorf("GetOwnProfile (no context user): got %v, want ErrNotFound", err)
+	}
+	// repo must NOT have been called.
+	if repo.getOwnProfileID != (uuid.UUID{}) {
+		t.Error("repo.GetOwnProfile was called despite missing context user — zero UUID would have been queried")
+	}
+}
 
 func TestService_GetOwnProfile_UsesContextCallerID(t *testing.T) {
 	t.Parallel()

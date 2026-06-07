@@ -47,31 +47,42 @@ func TestProfilesAudit_CreatedByPopulatedOnInsert(t *testing.T) {
 
 // TestProfilesAudit_UpdatedByPopulatedOnUpdate verifies that updated_by is set on the update path
 // and that created_by is preserved from the first insert.
+// Two distinct admins are used: admin1 performs the initial insert, admin2 performs the update.
+// This detects regressions where the conflict/update path overwrites created_by.
 func TestProfilesAudit_UpdatedByPopulatedOnUpdate(t *testing.T) {
 	ctx := context.Background()
 	targetID := seedUserWithRole(t, "audit-target-update@profiles.test", "student")
 	cleanupUserProfile(t, targetID)
-	adminID, adminSID := seedUserWithSession(t, "audit-admin-update@profiles.test", "admin")
+	admin1ID, admin1SID := seedUserWithSession(t, "audit-admin1-update@profiles.test", "admin")
+	admin2ID, admin2SID := seedUserWithSession(t, "audit-admin2-update@profiles.test", "admin")
 
 	client := newProfilesClient(nil)
 
 	nationalID := "AUDIT-UPDATE-" + targetID.String()[:8]
-	upsert := func(name string) {
-		req := &profilesv1.UpsertUserProfileRequest{
-			UserId:           targetID.String(),
-			GivenNames:       name,
-			LastNamePaternal: "Update",
-			NationalIdType:   "RUT",
-			NationalId:       nationalID,
-		}
-		_, err := client.UpsertUserProfile(ctx, withSession(connect.NewRequest(req), adminSID))
-		if err != nil {
-			t.Fatalf("UpsertUserProfile (%s): %v", name, err)
-		}
+
+	// admin1 performs the initial insert.
+	insertReq := &profilesv1.UpsertUserProfileRequest{
+		UserId:           targetID.String(),
+		GivenNames:       "InsertPass",
+		LastNamePaternal: "Update",
+		NationalIdType:   "RUT",
+		NationalId:       nationalID,
+	}
+	if _, err := client.UpsertUserProfile(ctx, withSession(connect.NewRequest(insertReq), admin1SID)); err != nil {
+		t.Fatalf("UpsertUserProfile (insert, admin1): %v", err)
 	}
 
-	upsert("InsertPass")
-	upsert("UpdatePass")
+	// admin2 performs the update on the same row.
+	updateReq := &profilesv1.UpsertUserProfileRequest{
+		UserId:           targetID.String(),
+		GivenNames:       "UpdatePass",
+		LastNamePaternal: "Update",
+		NationalIdType:   "RUT",
+		NationalId:       nationalID,
+	}
+	if _, err := client.UpsertUserProfile(ctx, withSession(connect.NewRequest(updateReq), admin2SID)); err != nil {
+		t.Fatalf("UpsertUserProfile (update, admin2): %v", err)
+	}
 
 	var createdByID, updatedByID uuid.UUID
 	err := pgxPool.QueryRow(ctx,
@@ -80,11 +91,13 @@ func TestProfilesAudit_UpdatedByPopulatedOnUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SELECT created_by, updated_by: %v", err)
 	}
-	if createdByID != adminID {
-		t.Errorf("created_by after update = %v, want admin %v (should be preserved)", createdByID, adminID)
+	// created_by must still be admin1 — the conflict path must not overwrite it.
+	if createdByID != admin1ID {
+		t.Errorf("created_by after update = %v, want admin1 %v (should be preserved from insert)", createdByID, admin1ID)
 	}
-	if updatedByID != adminID {
-		t.Errorf("updated_by = %v, want admin %v", updatedByID, adminID)
+	// updated_by must be admin2 — the actor who performed the update.
+	if updatedByID != admin2ID {
+		t.Errorf("updated_by = %v, want admin2 %v", updatedByID, admin2ID)
 	}
 }
 

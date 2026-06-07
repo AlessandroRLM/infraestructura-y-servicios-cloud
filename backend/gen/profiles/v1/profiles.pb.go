@@ -327,11 +327,10 @@ func (x *TeacherProfile) GetTitle() string {
 // TeacherQualification represents a single academic qualification for a teacher.
 type TeacherQualification struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
-	TeacherId     string                 `protobuf:"bytes,3,opt,name=teacher_id,json=teacherId,proto3" json:"teacher_id,omitempty"`
-	Degree        string                 `protobuf:"bytes,4,opt,name=degree,proto3" json:"degree,omitempty"`
-	Year          int32                  `protobuf:"varint,5,opt,name=year,proto3" json:"year,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TeacherId     string                 `protobuf:"bytes,2,opt,name=teacher_id,json=teacherId,proto3" json:"teacher_id,omitempty"`
+	Degree        string                 `protobuf:"bytes,3,opt,name=degree,proto3" json:"degree,omitempty"`
+	Year          int32                  `protobuf:"varint,4,opt,name=year,proto3" json:"year,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -364,13 +363,6 @@ func (x *TeacherQualification) ProtoReflect() protoreflect.Message {
 // Deprecated: Use TeacherQualification.ProtoReflect.Descriptor instead.
 func (*TeacherQualification) Descriptor() ([]byte, []int) {
 	return file_profiles_v1_profiles_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *TeacherQualification) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
 }
 
 func (x *TeacherQualification) GetId() string {
@@ -1078,14 +1070,13 @@ const file_profiles_v1_profiles_proto_rawDesc = "" +
 	"department\x88\x01\x01\x12\x19\n" +
 	"\x05title\x18\x03 \x01(\tH\x01R\x05title\x88\x01\x01B\r\n" +
 	"\v_departmentB\b\n" +
-	"\x06_title\"\x8a\x01\n" +
-	"\x14TeacherQualification\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id\x12\x1d\n" +
+	"\x06_title\"q\n" +
+	"\x14TeacherQualification\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
-	"teacher_id\x18\x03 \x01(\tR\tteacherId\x12\x16\n" +
-	"\x06degree\x18\x04 \x01(\tR\x06degree\x12\x12\n" +
-	"\x04year\x18\x05 \x01(\x05R\x04year\"\xd6\a\n" +
+	"teacher_id\x18\x02 \x01(\tR\tteacherId\x12\x16\n" +
+	"\x06degree\x18\x03 \x01(\tR\x06degree\x12\x12\n" +
+	"\x04year\x18\x04 \x01(\x05R\x04year\"\xd6\a\n" +
 	"\x18UpsertUserProfileRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
 	"\vgiven_names\x18\x02 \x01(\tR\n" +
