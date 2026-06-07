@@ -18,3 +18,12 @@ sql:
         out: "internal/auth/authdb"
         sql_package: "pgx/v5"
         emit_interface: true
+  - engine: "postgresql"
+    queries: "internal/rbac/query.sql"
+    schema: "migrations/"
+    gen:
+      go:
+        package: "rbacdb"
+        out: "internal/rbac/rbacdb"
+        sql_package: "pgx/v5"
+        emit_interface: true
