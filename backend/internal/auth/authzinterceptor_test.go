@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -121,7 +122,8 @@ func TestAuthzInterceptor_MappedProcedure_Deny(t *testing.T) {
 	t.Parallel()
 
 	// Logout is mapped to RequirePermission(PermUsersManage).
-	// The caller only has PermCatalogManage → denied. Reason must surface.
+	// The caller only has PermCatalogManage → denied.
+	// Wire message must be the generic "permission denied" (reason stays server-side).
 	permSet := authz.NewPermissionSet([]authz.Permission{authz.PermCatalogManage})
 	permsInterceptor := makePermissionsInterceptor(permSet)
 
@@ -152,8 +154,45 @@ func TestAuthzInterceptor_MappedProcedure_Deny(t *testing.T) {
 	if ce.Code() != connect.CodePermissionDenied {
 		t.Errorf("error code = %v, want PermissionDenied", ce.Code())
 	}
-	if ce.Message() == "" {
-		t.Error("denied response should carry the policy reason, got empty message")
+	if ce.Message() != "permission denied" {
+		t.Errorf("wire message = %q, want %q", ce.Message(), "permission denied")
+	}
+}
+
+// ── Infra failure inside policy → CodeInternal ───────────────────────────────
+
+func TestAuthzInterceptor_PolicyInfraFailure_ReturnsCodeInternal(t *testing.T) {
+	t.Parallel()
+
+	// A policy that simulates an infrastructure failure (e.g. storage error).
+	// Decision.Err is set → the interceptor must return CodeInternal, not CodePermissionDenied,
+	// and must not leak the underlying error to the client.
+	infraErr := errors.New("db connection refused")
+	failingPolicy := func(_ context.Context, _ authz.AccessRequest) authz.Decision {
+		return authz.DenyErr("storage lookup failed", infraErr)
+	}
+
+	exempt := map[string]struct{}{}
+	policies := map[string]authz.PolicyFunc{
+		authv1connect.AuthServiceLogoutProcedure: failingPolicy,
+	}
+
+	url, _ := buildAuthzServer(t, exempt, policies)
+	client := authv1connect.NewAuthServiceClient(http.DefaultClient, url)
+
+	_, err := client.Logout(context.Background(), connect.NewRequest(&authv1.LogoutRequest{}))
+	if err == nil {
+		t.Fatal("expected Internal error, got nil")
+	}
+	ce, ok := err.(*connect.Error)
+	if !ok {
+		t.Fatalf("expected *connect.Error, got %T: %v", err, err)
+	}
+	if ce.Code() != connect.CodeInternal {
+		t.Errorf("error code = %v, want CodeInternal (infra failure must not be CodePermissionDenied)", ce.Code())
+	}
+	if ce.Message() != "internal error" {
+		t.Errorf("wire message = %q, want %q (must not leak internal details)", ce.Message(), "internal error")
 	}
 }
 

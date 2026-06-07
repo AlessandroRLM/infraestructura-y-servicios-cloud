@@ -3,14 +3,12 @@ package auth
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"connectrpc.com/connect"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 )
-
-// errNoPolicyDefined is the underlying error for the fail-closed default.
-var errNoPolicyDefined = errors.New("no authorization policy defined for procedure")
 
 // NewAuthzInterceptor returns a Connect unary interceptor that enforces authorization
 // for every procedure according to the provided exempt set and policy map.
@@ -20,7 +18,8 @@ var errNoPolicyDefined = errors.New("no authorization policy defined for procedu
 //     procedures (Login, RequestPasswordReset, ConfirmPasswordReset) and for
 //     authenticated-but-no-permission procedures (Logout).
 //   - Procedure in policies → evaluate the PolicyFunc. Allowed → pass through;
-//     denied → CodePermissionDenied with the decision Reason as the error message.
+//     infra failure (Decision.Err != nil) → CodeInternal (generic, reason logged server-side);
+//     denied → CodePermissionDenied with a generic "permission denied" message (reason logged).
 //   - Procedure in neither → DENY with CodePermissionDenied (fail-closed). This is
 //     the key guarantee: every new procedure must be consciously classified.
 //
@@ -39,7 +38,11 @@ func NewAuthzInterceptor(exempt map[string]struct{}, policies map[string]authz.P
 			if !ok {
 				// Fail-closed: an unmapped procedure is denied. This forces every
 				// new procedure to be explicitly added to either exempt or policies.
-				return nil, connect.NewError(connect.CodePermissionDenied, errNoPolicyDefined)
+				slog.InfoContext(ctx, "authorization denied",
+					"procedure", proc,
+					"reason", "no authorization policy defined for procedure "+proc,
+				)
+				return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 			}
 
 			subjectID, _ := UserIDFromContext(ctx)
@@ -55,7 +58,21 @@ func NewAuthzInterceptor(exempt map[string]struct{}, policies map[string]authz.P
 
 			d := pf(ctx, ar)
 			if !d.Allowed {
-				return nil, connect.NewError(connect.CodePermissionDenied, errors.New(d.Reason))
+				if d.Err != nil {
+					// Infra failure inside the policy: do not leak the internal error to
+					// the caller; return a generic Internal code instead.
+					slog.ErrorContext(ctx, "authorization policy internal error",
+						"reason", d.Reason,
+						"err", d.Err,
+					)
+					return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
+				}
+				// Normal policy denial: log the reason server-side, send generic message.
+				slog.InfoContext(ctx, "authorization denied",
+					"procedure", proc,
+					"reason", d.Reason,
+				)
+				return nil, connect.NewError(connect.CodePermissionDenied, errors.New("permission denied"))
 			}
 
 			return next(ctx, req)

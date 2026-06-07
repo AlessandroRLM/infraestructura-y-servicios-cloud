@@ -186,10 +186,13 @@ func TestRBACInterceptor_AuthzChain(t *testing.T) {
 	redisStore := session.NewRedisStore(testRedisClient)
 	sessionInterceptor := auth.NewSessionInterceptor(redisStore, loader, testCfg)
 
-	// Exempt the public auth procedures so the session interceptor lets them through.
-	// Logout is mapped to RequirePermission(PermUsersManage) to create a synthetic
-	// admin-only route for the allow/deny sub-tests.
-	// Login is left out of both exempt and policies intentionally for the fail-closed test.
+	// Public auth procedures (Login, RequestPasswordReset, ConfirmPasswordReset) are in
+	// exempt so the session interceptor passes them through unauthenticated.
+	// Logout is mapped to RequirePermission(PermUsersManage) to exercise the allow/deny
+	// paths with a synthetic admin-only policy.
+	// The fail-closed property (unmapped + non-exempt → CodePermissionDenied) is proven
+	// by the separate strict server in the unmapped_non_exempt_procedure_is_denied_fail_closed
+	// sub-test, which uses an empty exempt and empty policies map.
 	exempt := map[string]struct{}{
 		authv1connect.AuthServiceLoginProcedure:                {},
 		authv1connect.AuthServiceRequestPasswordResetProcedure: {},
