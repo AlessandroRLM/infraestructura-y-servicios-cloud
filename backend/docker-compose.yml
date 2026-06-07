@@ -1,0 +1,46 @@
+# Local development dependencies for the API server (Postgres + Redis).
+# The API itself runs on the host via `go run ./cmd/api` so edits iterate fast;
+# these containers only provide its backing services.
+#
+# Versions match the integration test harness (test/integration/main_test.go)
+# so local and CI behave identically.
+#
+#   docker compose up -d        # start Postgres + Redis
+#   docker compose ps           # check health
+#   docker compose down         # stop (keeps data)
+#   docker compose down -v      # stop and wipe data volumes
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: academico
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # Postgres 18+ images store data in a major-version subdirectory and expect
+      # the volume mounted at /var/lib/postgresql (not /var/lib/postgresql/data).
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d academico"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres-data:
+  redis-data:

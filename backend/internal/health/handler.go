@@ -25,11 +25,11 @@ func (h *Handler) Ping(
 }
 
 // Register mounts the HealthService Connect handler on mux.
-// It is compatible with server.HandlerReg and applies the shared interceptor chain.
+// Health is a public endpoint; no session interceptor is applied.
 func Register(mux *http.ServeMux) {
 	path, handler := healthv1connect.NewHealthServiceHandler(
 		&Handler{},
-		connect.WithInterceptors(server.Chain()...),
+		server.Chain()...,
 	)
 	mux.Handle(path, handler)
 }

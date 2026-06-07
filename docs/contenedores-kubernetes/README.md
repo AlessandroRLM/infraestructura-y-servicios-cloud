@@ -10,7 +10,7 @@ La aplicación se divide en **cuatro contenedores**, uno por responsabilidad:
 |------------|-----------|-------------|
 | `web` | Frontend React compilado (Vite), servido por Nginx | `nginx:alpine` |
 | `api` | Backend Go (binario único) | `distroless` / `scratch` (multi-stage) |
-| `postgres` | Base de datos relacional | `postgres:16-alpine` |
+| `postgres` | Base de datos relacional | `postgres:18-alpine` |
 | `redis` | Sesiones y cache de reportes | `redis:7-alpine` |
 
 **Backend: monolito modular, no microservicios.** El backend es un único deployable con módulos internos separados por dominio (`enrollments`, `grades`, `reports`, `users`, `auth`). A esta escala y con un equipo chico, partirlo en microservicios sumaría complejidad de red, despliegue y observabilidad sin beneficio real: misma claridad de dominio, mucho más costo operativo. Los módulos exponen su contrato en Protobuf, así que extraer uno a un servicio aparte —si el volumen lo justifica— es un cambio acotado, no una reescritura.

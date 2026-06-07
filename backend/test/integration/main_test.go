@@ -10,29 +10,43 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/health"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
-	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/redis"
+	platformredis "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/redis"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/server"
 	migrations "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/migrations"
 )
 
 var (
-	baseURL     string
-	dbDSN       string
-	dbPool      interface{ Ping(context.Context) error }
-	redisPinger db.Pinger
+	baseURL string
+	dbDSN   string
+	// dbPool is the minimal Ping interface exposed to health tests.
+	dbPool interface{ Ping(context.Context) error }
+	// pgxPool is the concrete pool used by auth test helpers to run raw SQL.
+	pgxPool *pgxpool.Pool
+	// testRedisClient is the raw Redis client used by auth test helpers to inspect
+	// and manipulate keys (TTL assertions, expired-session simulation, etc.).
+	testRedisClient *redis.Client
+	// sharedCfg is the config used for the shared test server. Tests that need
+	// to assert timing values (TTL, bcrypt cost) read it directly.
+	sharedCfg config.Config
 )
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
 	pgContainer, err := tcpostgres.Run(ctx,
-		"postgres:16-alpine",
+		"postgres:18-alpine",
 		tcpostgres.WithDatabase("testdb"),
 		tcpostgres.WithUsername("testuser"),
 		tcpostgres.WithPassword("testpass"),
@@ -92,21 +106,48 @@ func TestMain(m *testing.M) {
 	}
 	defer pool.Close()
 	dbPool = pool
+	pgxPool = pool
 
 	if err := db.Migrate(pgDSN, migrations.FS); err != nil {
 		fmt.Fprintf(os.Stderr, "migration failed: %v\n", err) //nolint:errcheck
 		os.Exit(1)
 	}
 
-	rPinger, err := redis.NewPinger(redisURL)
+	rPinger, err := platformredis.NewPinger(redisURL)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create redis pinger: %v\n", err) //nolint:errcheck
 		os.Exit(1)
 	}
-	redisPinger = rPinger
+
+	// Auth wiring — mirrors cmd/api/main.go so the integration tests can call auth endpoints.
+	redisClient, err := platformredis.NewClient(redisURL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create redis client for auth: %v\n", err) //nolint:errcheck
+		os.Exit(1)
+	}
+	testRedisClient = redisClient
+	sharedCfg = config.Config{
+		BcryptCost:    4, // fast for tests
+		SessionTTL:    time.Hour,
+		ResetTokenTTL: 15 * time.Minute,
+		AppEnv:        "test",
+		CookieSecure:  false,
+	}
+	testCfg := sharedCfg
+	sessionStore := session.NewRedisStore(redisClient)
+	roleLoader := auth.NoopRoleLoader{}
+	authInterceptor := auth.NewSessionInterceptor(sessionStore, roleLoader, testCfg)
+	queries := authdb.New(pool)
+	repo := auth.NewPostgresRepository(queries)
+	svc := auth.NewService(repo, sessionStore, roleLoader, testCfg)
+	authHandler := auth.NewHandler(svc, testCfg)
+	authOpts := server.Chain(authInterceptor)
+	authReg := func(mux *http.ServeMux) {
+		auth.Register(mux, authHandler, authOpts...)
+	}
 
 	log := logging.New(slog.LevelError) // suppress output in tests
-	srv := server.New(log, pool, rPinger, health.Register)
+	srv := server.New(log, pool, rPinger, health.Register, authReg)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
