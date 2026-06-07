@@ -71,6 +71,12 @@ func main() {
 
 	// Authz interceptor — empty required-permission map: mechanism is live but no
 	// business procedures are protected yet. Domain slices add entries as they land.
+	//
+	// WARNING: never add public procedures to this map.
+	// Login, RequestPasswordReset, and ConfirmPasswordReset are handled before any
+	// session is established, so no PermissionSet is stored in context for those calls.
+	// Adding them here would cause the interceptor to deny every request with
+	// CodePermissionDenied, permanently locking users out of authentication.
 	authzInterceptor := auth.NewAuthzInterceptor(map[string]authz.Permission{}, authz.PermissionPolicy{})
 
 	// Auth handler (repository → service → Connect handler).

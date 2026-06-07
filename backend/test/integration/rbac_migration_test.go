@@ -136,20 +136,27 @@ func TestRBACMigration_TablesAndSeed(t *testing.T) {
 			"grades.read":  {},
 			"reports.read": {},
 		}
-		var got []string
+		got := map[string]struct{}{}
 		for rows.Next() {
 			var code string
 			if err := rows.Scan(&code); err != nil {
 				t.Fatalf("scan: %v", err)
 			}
-			got = append(got, code)
+			got[code] = struct{}{}
 		}
 		if err := rows.Err(); err != nil {
 			t.Fatalf("rows error: %v", err)
 		}
-		for _, code := range got {
+		// No unexpected permissions (over-grant check).
+		for code := range got {
 			if _, ok := want[code]; !ok {
 				t.Errorf("teacher has unexpected permission %q", code)
+			}
+		}
+		// No missing permissions (under-grant check).
+		for code := range want {
+			if _, ok := got[code]; !ok {
+				t.Errorf("teacher is missing expected permission %q", code)
 			}
 		}
 	})
@@ -185,20 +192,27 @@ func TestRBACMigration_TablesAndSeed(t *testing.T) {
 			"enrollment.view_own": {},
 			"grades.view_own":     {},
 		}
-		var got []string
+		got := map[string]struct{}{}
 		for rows.Next() {
 			var code string
 			if err := rows.Scan(&code); err != nil {
 				t.Fatalf("scan: %v", err)
 			}
-			got = append(got, code)
+			got[code] = struct{}{}
 		}
 		if err := rows.Err(); err != nil {
 			t.Fatalf("rows error: %v", err)
 		}
-		for _, code := range got {
+		// No unexpected permissions (over-grant check).
+		for code := range got {
 			if _, ok := want[code]; !ok {
 				t.Errorf("student has unexpected permission %q", code)
+			}
+		}
+		// No missing permissions (under-grant check).
+		for code := range want {
+			if _, ok := got[code]; !ok {
+				t.Errorf("student is missing expected permission %q", code)
 			}
 		}
 	})

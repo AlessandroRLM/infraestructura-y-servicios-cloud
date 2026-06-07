@@ -12,12 +12,14 @@ import (
 )
 
 const getPermissionsForUser = `-- name: GetPermissionsForUser :many
-SELECT p.code FROM permissions p
+SELECT DISTINCT p.code FROM permissions p
   JOIN role_permissions rp ON rp.permission_id = p.id
   JOIN user_roles ur ON ur.role_id = rp.role_id
 WHERE ur.user_id = $1
 `
 
+// DISTINCT is required: a user with multiple roles that share a permission would otherwise
+// produce duplicate rows, one per (role, permission) combination.
 func (q *Queries) GetPermissionsForUser(ctx context.Context, userID pgtype.UUID) ([]string, error) {
 	rows, err := q.db.Query(ctx, getPermissionsForUser, userID)
 	if err != nil {

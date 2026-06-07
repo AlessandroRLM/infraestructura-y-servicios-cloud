@@ -1,7 +1,9 @@
 -- Remove seed data in FK-safe order.
--- Delete user_roles rows for the bootstrap admin first.
+-- Delete ALL user_roles rows referencing the seeded roles before touching role_permissions or roles.
+-- Scoping to the seeded role IDs (not a specific user) is necessary because any user — including
+-- test fixtures — may hold one of these roles; a narrower delete would leave dangling FK rows.
 DELETE FROM user_roles
-WHERE user_id = 'a0000000-0000-0000-0000-000000000001';
+WHERE role_id IN (SELECT id FROM roles WHERE name IN ('admin', 'teacher', 'student'));
 
 -- Remove all role_permissions rows for the three seeded roles.
 DELETE FROM role_permissions

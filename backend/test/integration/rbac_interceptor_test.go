@@ -230,15 +230,13 @@ func TestRBACInterceptor_AuthzChain(t *testing.T) {
 	})
 
 	t.Run("unmapped_procedure_passes_through", func(t *testing.T) {
-		// Login is public and not in the required map — passes through.
+		// Login is public and not in the required map — the authz interceptor must pass
+		// the call through to the handler. The test handler always returns nil, so a
+		// non-nil error here means the interceptor blocked the call (or wiring is broken).
 		req := connect.NewRequest(&authv1.LoginRequest{Email: "x@x.com", Password: "pw"})
 		_, err := client.Login(context.Background(), req)
-		// Any error here comes from the handler (bad credentials), not the authz interceptor.
 		if err != nil {
-			ce, ok := err.(*connect.Error)
-			if ok && ce.Code() == connect.CodePermissionDenied {
-				t.Error("unmapped procedure Login should not receive CodePermissionDenied from authz interceptor")
-			}
+			t.Errorf("unmapped procedure Login should reach the handler and succeed, got: %v", err)
 		}
 	})
 }

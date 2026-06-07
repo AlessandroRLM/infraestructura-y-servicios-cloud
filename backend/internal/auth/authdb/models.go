@@ -8,6 +8,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Permission struct {
+	ID          pgtype.UUID
+	Code        string
+	Description string
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
+type Role struct {
+	ID        pgtype.UUID
+	Name      string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+type RolePermission struct {
+	RoleID       pgtype.UUID
+	PermissionID pgtype.UUID
+	CreatedAt    pgtype.Timestamptz
+}
+
 type User struct {
 	ID           pgtype.UUID
 	Email        string
@@ -17,4 +38,10 @@ type User struct {
 	CreatedBy    pgtype.UUID
 	UpdatedBy    pgtype.UUID
 	DeletedAt    pgtype.Timestamptz
+}
+
+type UserRole struct {
+	UserID    pgtype.UUID
+	RoleID    pgtype.UUID
+	CreatedAt pgtype.Timestamptz
 }
