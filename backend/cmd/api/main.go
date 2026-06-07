@@ -13,12 +13,15 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/health"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
 	platformredis "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/redis"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/server"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac/rbacdb"
 )
 
 func main() {
@@ -63,8 +66,12 @@ func main() {
 
 	// Auth dependencies.
 	sessionStore := session.NewRedisStore(redisClient)
-	roleLoader := auth.NoopRoleLoader{}
+	roleLoader := rbac.NewPostgresRoleLoader(rbacdb.New(pool))
 	authInterceptor := auth.NewSessionInterceptor(sessionStore, roleLoader, cfg)
+
+	// Authz interceptor — empty required-permission map: mechanism is live but no
+	// business procedures are protected yet. Domain slices add entries as they land.
+	authzInterceptor := auth.NewAuthzInterceptor(map[string]authz.Permission{}, authz.PermissionPolicy{})
 
 	// Auth handler (repository → service → Connect handler).
 	queries := authdb.New(pool)
@@ -73,7 +80,7 @@ func main() {
 	authHandler := auth.NewHandler(svc, cfg)
 
 	// Interceptor options for the auth service endpoint.
-	authOpts := server.Chain(authInterceptor)
+	authOpts := server.Chain(authInterceptor, authzInterceptor)
 
 	// authReg curries auth.Register into the HandlerReg signature.
 	authReg := func(mux *http.ServeMux) {
