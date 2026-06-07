@@ -502,13 +502,13 @@ sequenceDiagram
 
     U->>A: inscribir sección + cookie
     A->>R: validar sesión y permiso
-    A->>P: BEGIN; ¿matrícula vigente del alumno?
+    A->>P: BEGIN ¿matrícula vigente del alumno?
     A->>P: SELECT capacity FROM sections WHERE id=? FOR UPDATE
     A->>P: contar inscriptos de la sección
     alt sin matrícula o sección llena
         A-->>U: rechazado
     else hay cupo
-        A->>P: insertar section_enrollment; COMMIT
+        A->>P: insertar section_enrollment COMMIT
         A-->>U: inscripción creada
     end
 ```
