@@ -259,6 +259,7 @@ La autorización es de dos capas: **permiso** (qué operación, data-driven) y *
 | Gestionar catálogo (programas, asignaturas, secciones) |      Sí       |         —          |   —    |
 | Gestionar matrícula (anual)                            |      Sí       |         —          |   —    |
 | Inscribir / anular secciones                           |      Sí       |         —          |   —    |
+| Ver perfil propio                                      |      Sí       |         Sí         |   Sí   |
 | Ver matrícula e inscripciones propias                  |      Sí       |         —          |   Sí   |
 | Registrar / editar notas                               |      Sí       | Solo sus secciones |   —    |
 | Ver notas de una sección                               |      Sí       | Solo sus secciones |   —    |
@@ -269,7 +270,8 @@ La autorización es de dos capas: **permiso** (qué operación, data-driven) y *
 **Dos capas de autorización:**
 
 - El **permiso** habilita la operación (el interceptor lo verifica contra los permisos del rol); la **pertenencia** decide sobre qué recursos. Un docente con permiso para cargar notas solo puede hacerlo en las secciones que dicta (`section_teachers`).
-- **Sin auto-acción:** nadie opera sobre sus propios registros académicos. Un docente que también es alumno no puede cargar ni editar la nota de una inscripción donde el alumno sea él mismo.
+- **Perfil propio:** todo usuario puede leer sus propios datos personales (operación habilitada por el permiso `profile.view_own`). La pertenencia restringe la lectura al registro cuyo `user_id` coincide con el del solicitante; un usuario nunca ve el perfil de otro por esta vía. La gestión de perfiles de terceros (alta/edición/lectura por id) es una operación administrativa aparte (`users.manage`).
+- **Sin auto-acción:** nadie opera sobre sus propios registros académicos. Un docente que también es alumno no puede cargar ni editar la nota de una inscripción donde el alumno sea él mismo. Esta regla aplica a los registros académicos (notas, inscripciones), no a la lectura de los datos personales propios.
 - **Admin total, pero auditado:** el administrador puede todo —incluida la corrección de una nota—, pero cada acción queda registrada en `audit_logs`. El poder no exime del rastro.
 
 Regla de autorización para cargar o editar una nota (sobre la inscripción `SE`):
@@ -315,6 +317,7 @@ erDiagram
     roles ||--o{ user_roles : ""
     roles ||--o{ role_permissions : ""
     permissions ||--o{ role_permissions : ""
+    users ||--o| user_profiles : ""
     users ||--o| student_profiles : ""
     users ||--o| teacher_profiles : ""
     teacher_profiles ||--o{ teacher_qualifications : ""
@@ -354,6 +357,27 @@ erDiagram
     user_roles {
         uuid user_id FK
         uuid role_id FK
+    }
+    user_profiles {
+        uuid user_id PK
+        string given_names
+        string last_name_paternal
+        string last_name_maternal
+        string national_id_type
+        string national_id UK
+        date birth_date
+        string phone
+        string personal_email
+        string address_street
+        string commune
+        string region
+        string country
+        string postal_code
+        string sex
+        string nationality
+        string photo_url
+        string emergency_contact_name
+        string emergency_contact_phone
     }
     student_profiles {
         uuid user_id PK
@@ -446,6 +470,7 @@ erDiagram
 Notas del modelo:
 
 - **Identidad, roles y permisos:** `users` es solo identidad/auth. El acceso es data-driven: `roles` y `permissions` se relacionan vía `role_permissions` (M:N) y se asignan a usuarios vía `user_roles` (M:N) — una persona puede ser docente **y** alumno a la vez, y los permisos de cada rol se cambian sin tocar código.
+- **Datos personales:** los datos personales comunes a cualquier persona (nombre, identificador legal, contacto, domicilio) viven en `user_profiles` (1:1 con `users`), no en `users` —que se mantiene magro para autenticación— ni duplicados en `student_profiles`/`teacher_profiles`. Los perfiles de rol (`student_profiles`, `teacher_profiles`) guardan solo atributos específicos del rol. `national_id` es único. Cada usuario puede leer su propio `user_profiles` vía `profile.view_own` (ver §8.5).
 - **Jerarquía académica:** `programs` ↔ `courses` es **M:N** (`program_courses`): una asignatura como "Inglés I" puede compartirse entre varias carreras. Cada `course` se dicta en `sections` (una sección = asignatura + `academic_period` + uno o varios docentes vía `section_teachers`, co-docencia).
 - **Matrícula vs inscripción:** `enrollments` es la matrícula anual por carrera (`program_id` + `year`), con `UNIQUE(student_id, program_id, year)`. `section_enrollments` son las inscripciones a secciones, con `UNIQUE(enrollment_id, section_id)`, y solo existen si hay matrícula vigente. Las notas (`grades`) cuelgan de la inscripción a la sección.
 - **Cupos:** `program_quotas` fija el cupo de admisión por `(carrera, año)` (ej. 40 matrículas); `sections.capacity`, el cupo de cada sección. Ambos se controlan con bloqueo de fila para evitar sobreventa en el pico de inscripción (ver §12).
