@@ -27,3 +27,12 @@ sql:
         out: "internal/rbac/rbacdb"
         sql_package: "pgx/v5"
         emit_interface: true
+  - engine: "postgresql"
+    queries: "internal/profiles/query.sql"
+    schema: "migrations/"
+    gen:
+      go:
+        package: "profilesdb"
+        out: "internal/profiles/profilesdb"
+        sql_package: "pgx/v5"
+        emit_interface: true
