@@ -11,6 +11,7 @@ import (
 	migrations "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/migrations"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
+	profilesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1/profilesv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
@@ -21,6 +22,8 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
 	platformredis "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/redis"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/server"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/profiles"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/profiles/profilesdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac/rbacdb"
 )
@@ -81,10 +84,20 @@ func main() {
 		authv1connect.AuthServiceLogoutProcedure:               {},
 	}
 
-	// policies maps each protected procedure to a PolicyFunc. An empty map is valid
-	// while no procedure requires a permission; domain slices add entries as they land.
-	// Any procedure not in exempt and not in policies is denied (fail-closed).
-	policies := map[string]authz.PolicyFunc{}
+	// policies maps each protected procedure to a PolicyFunc. Every procedure not in
+	// exempt and not in this map is denied (fail-closed). Profile management procedures
+	// require users.manage; the self-read procedure requires profile.view_own.
+	policies := map[string]authz.PolicyFunc{
+		profilesv1connect.ProfileServiceUpsertUserProfileProcedure:         authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceGetUserProfileProcedure:            authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceUpsertStudentProfileProcedure:      authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceGetStudentProfileProcedure:         authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceUpsertTeacherProfileProcedure:      authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceGetTeacherProfileProcedure:         authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceAddTeacherQualificationProcedure:   authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceListTeacherQualificationsProcedure: authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceGetOwnProfileProcedure:             authz.RequirePermission(authz.PermProfileViewOwn),
+	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
 
@@ -94,12 +107,22 @@ func main() {
 	svc := auth.NewService(repo, sessionStore, roleLoader, cfg)
 	authHandler := auth.NewHandler(svc, cfg)
 
-	// Interceptor options for the auth service endpoint.
+	// Interceptor options shared across all service endpoints.
 	authOpts := server.Chain(authInterceptor, authzInterceptor)
 
 	// authReg curries auth.Register into the HandlerReg signature.
 	authReg := func(mux *http.ServeMux) {
 		auth.Register(mux, authHandler, authOpts...)
+	}
+
+	// Profiles handler (profilesdb.Querier → repository → service → Connect handler).
+	profilesQueries := profilesdb.New(pool)
+	profilesRepo := profiles.NewPostgresRepository(profilesQueries)
+	profilesSvc := profiles.NewService(profilesRepo)
+	profilesHandler := profiles.NewHandler(profilesSvc)
+
+	profilesReg := func(mux *http.ServeMux) {
+		profiles.Register(mux, profilesHandler, authOpts...)
 	}
 
 	// Redis pinger for the readyz handler.
@@ -112,6 +135,7 @@ func main() {
 	srv := server.New(log, pool, redisPinger,
 		health.Register,
 		authReg,
+		profilesReg,
 	)
 	srv.Addr = cfg.HTTPAddr
 
