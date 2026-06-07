@@ -9,7 +9,7 @@ package authz
 // to a Permission parameter without an explicit conversion, catching typos early.
 type Permission string
 
-// The 11 permission codes that correspond to the operations matrix defined in the
+// The 12 permission codes that correspond to the operations matrix defined in the
 // system architecture. These constants are the single source of truth; seed migrations
 // insert the same literal strings, and a test asserts parity between this slice and
 // the seeded rows.
@@ -25,11 +25,12 @@ const (
 	PermReportsRead       Permission = "reports.read"
 	PermAuditRead         Permission = "audit.read"
 	PermGradesOverride    Permission = "grades.override"
+	PermProfileViewOwn    Permission = "profile.view_own"
 )
 
 // AllPermissions lists every defined permission in the order they appear above.
 // It is used by the seed parity test to verify that typed constants match the
-// set of permission codes inserted by the seed migration.
+// set of permission codes inserted by the seed migrations.
 var AllPermissions = []Permission{
 	PermUsersManage,
 	PermCatalogManage,
@@ -42,4 +43,5 @@ var AllPermissions = []Permission{
 	PermReportsRead,
 	PermAuditRead,
 	PermGradesOverride,
+	PermProfileViewOwn,
 }
