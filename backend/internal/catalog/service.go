@@ -261,10 +261,7 @@ func (s *Service) UpdateProgramQuota(ctx context.Context, id uuid.UUID, p Update
 		return catalogdb.ProgramQuota{}, fmt.Errorf("%w: capacity must be greater than 0", ErrInvalidInput)
 	}
 
-	return s.repo.UpdateProgramQuota(ctx, id, UpdateProgramQuotaParams{
-		Year:     p.Year,
-		Capacity: p.Capacity,
-	}, actorFromContext(ctx))
+	return s.repo.UpdateProgramQuota(ctx, id, UpdateProgramQuotaParams(p), actorFromContext(ctx))
 }
 
 // GetProgramQuota retrieves a live program quota by id.

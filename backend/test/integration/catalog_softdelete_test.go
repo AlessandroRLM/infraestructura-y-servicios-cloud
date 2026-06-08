@@ -42,15 +42,19 @@ func TestCatalog_DeleteProgram_BlockedByProgramCourses(t *testing.T) {
 
 	// Program row must still be live.
 	var deletedAt *string
-	pgxPool.QueryRow(ctx, `SELECT deleted_at::text FROM programs WHERE id = $1`, progID).Scan(&deletedAt) //nolint:errcheck
+	if err := pgxPool.QueryRow(ctx, `SELECT deleted_at::text FROM programs WHERE id = $1`, progID).Scan(&deletedAt); err != nil {
+		t.Fatalf("SELECT deleted_at from programs: %v", err)
+	}
 	if deletedAt != nil {
 		t.Errorf("DeleteProgram (blocked): program row was soft-deleted, expected live")
 	}
 
 	// Clean up association so the cleanup can succeed.
-	client.RemoveCourseFromProgram(ctx, withSID(connect.NewRequest(&catalogv1.RemoveCourseFromProgramRequest{ //nolint:errcheck
+	if _, err := client.RemoveCourseFromProgram(ctx, withSID(connect.NewRequest(&catalogv1.RemoveCourseFromProgramRequest{
 		ProgramId: progID, CourseId: courseID,
-	}), adminSID))
+	}), adminSID)); err != nil {
+		t.Logf("RemoveCourseFromProgram (cleanup): %v", err)
+	}
 }
 
 // TestCatalog_DeleteProgram_BlockedByLiveQuota then UnblockedAfterQuotaDeleted.

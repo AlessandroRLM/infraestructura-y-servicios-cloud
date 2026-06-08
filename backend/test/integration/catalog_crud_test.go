@@ -323,11 +323,5 @@ func TestCatalog_NoRegression(t *testing.T) {
 	}
 }
 
-// seedAdminWithSession is an alias for catalogSeedAdminSession that returns (userID, sid).
-func seedAdminWithSession(t *testing.T, email string) string {
-	t.Helper()
-	return catalogSeedAdminSession(t, email)
-}
-
 // Ensure time package is used (for timeout contexts if needed).
 var _ = time.Hour
