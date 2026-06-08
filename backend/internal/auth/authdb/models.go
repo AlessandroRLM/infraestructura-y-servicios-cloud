@@ -8,12 +8,64 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AcademicPeriod struct {
+	ID        pgtype.UUID
+	Year      int32
+	Term      int32
+	StartDate pgtype.Date
+	EndDate   pgtype.Date
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+}
+
+type Course struct {
+	ID        pgtype.UUID
+	Code      string
+	Name      string
+	Credits   int32
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+	CreatedBy pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
 type Permission struct {
 	ID          pgtype.UUID
 	Code        string
 	Description string
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
+}
+
+type Program struct {
+	ID        pgtype.UUID
+	Code      string
+	Name      string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+	CreatedBy pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
+type ProgramCourse struct {
+	ProgramID pgtype.UUID
+	CourseID  pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+}
+
+type ProgramQuota struct {
+	ID        pgtype.UUID
+	ProgramID pgtype.UUID
+	Year      int32
+	Capacity  int32
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+	CreatedBy pgtype.UUID
+	UpdatedBy pgtype.UUID
 }
 
 type Role struct {
@@ -29,6 +81,39 @@ type RolePermission struct {
 	CreatedAt    pgtype.Timestamptz
 }
 
+type StudentProfile struct {
+	UserID        pgtype.UUID
+	AdmissionYear int32
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	DeletedAt     pgtype.Timestamptz
+	CreatedBy     pgtype.UUID
+	UpdatedBy     pgtype.UUID
+}
+
+type TeacherProfile struct {
+	UserID     pgtype.UUID
+	Department pgtype.Text
+	Title      pgtype.Text
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+	DeletedAt  pgtype.Timestamptz
+	CreatedBy  pgtype.UUID
+	UpdatedBy  pgtype.UUID
+}
+
+type TeacherQualification struct {
+	ID        pgtype.UUID
+	TeacherID pgtype.UUID
+	Degree    string
+	Year      int32
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+	CreatedBy pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
 type User struct {
 	ID           pgtype.UUID
 	Email        string
@@ -38,6 +123,33 @@ type User struct {
 	CreatedBy    pgtype.UUID
 	UpdatedBy    pgtype.UUID
 	DeletedAt    pgtype.Timestamptz
+}
+
+type UserProfile struct {
+	UserID                pgtype.UUID
+	GivenNames            string
+	LastNamePaternal      string
+	LastNameMaternal      pgtype.Text
+	NationalIDType        string
+	NationalID            string
+	BirthDate             pgtype.Date
+	Phone                 pgtype.Text
+	PersonalEmail         pgtype.Text
+	AddressStreet         pgtype.Text
+	Commune               pgtype.Text
+	Region                pgtype.Text
+	Country               pgtype.Text
+	PostalCode            pgtype.Text
+	Sex                   pgtype.Text
+	Nationality           pgtype.Text
+	PhotoUrl              pgtype.Text
+	EmergencyContactName  pgtype.Text
+	EmergencyContactPhone pgtype.Text
+	CreatedAt             pgtype.Timestamptz
+	UpdatedAt             pgtype.Timestamptz
+	DeletedAt             pgtype.Timestamptz
+	CreatedBy             pgtype.UUID
+	UpdatedBy             pgtype.UUID
 }
 
 type UserRole struct {

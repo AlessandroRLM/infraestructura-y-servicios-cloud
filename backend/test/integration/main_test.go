@@ -16,11 +16,14 @@ import (
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
+	catalogv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
 	profilesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1/profilesv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog/catalogdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/health"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
@@ -154,7 +157,7 @@ func TestMain(m *testing.M) {
 		authv1connect.AuthServiceLogoutProcedure:               {},
 	}
 
-	// policies mirrors cmd/api/main.go — all profiles procedures are registered.
+	// policies mirrors cmd/api/main.go — all profiles and catalog procedures are registered.
 	policies := map[string]authz.PolicyFunc{
 		profilesv1connect.ProfileServiceUpsertUserProfileProcedure:         authz.RequirePermission(authz.PermUsersManage),
 		profilesv1connect.ProfileServiceGetUserProfileProcedure:            authz.RequirePermission(authz.PermUsersManage),
@@ -165,6 +168,31 @@ func TestMain(m *testing.M) {
 		profilesv1connect.ProfileServiceAddTeacherQualificationProcedure:   authz.RequirePermission(authz.PermUsersManage),
 		profilesv1connect.ProfileServiceListTeacherQualificationsProcedure: authz.RequirePermission(authz.PermUsersManage),
 		profilesv1connect.ProfileServiceGetOwnProfileProcedure:             authz.RequirePermission(authz.PermProfileViewOwn),
+
+		// Catalog procedures — all require catalog.manage.
+		catalogv1connect.CatalogServiceCreateProgramProcedure:           authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceUpdateProgramProcedure:           authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceGetProgramProcedure:              authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListProgramsProcedure:            authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceDeleteProgramProcedure:           authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceCreateCourseProcedure:            authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceUpdateCourseProcedure:            authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceGetCourseProcedure:               authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListCoursesProcedure:             authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceDeleteCourseProcedure:            authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceCreateAcademicPeriodProcedure:    authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceUpdateAcademicPeriodProcedure:    authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceGetAcademicPeriodProcedure:       authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListAcademicPeriodsProcedure:     authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceDeleteAcademicPeriodProcedure:    authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceCreateProgramQuotaProcedure:      authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceUpdateProgramQuotaProcedure:      authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceGetProgramQuotaProcedure:         authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListProgramQuotasProcedure:       authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceDeleteProgramQuotaProcedure:      authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceAddCourseToProgramProcedure:      authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceRemoveCourseFromProgramProcedure: authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListProgramCoursesProcedure:      authz.RequirePermission(authz.PermCatalogManage),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
@@ -187,8 +215,17 @@ func TestMain(m *testing.M) {
 		profiles.Register(mux, profilesHandler, authOpts...)
 	}
 
+	// Catalog handler wiring.
+	catalogQueries := catalogdb.New(pool)
+	catalogRepo := catalog.NewPostgresRepository(catalogQueries)
+	catalogSvc := catalog.NewService(catalogRepo)
+	catalogHandler := catalog.NewHandler(catalogSvc)
+	catalogReg := func(mux *http.ServeMux) {
+		catalog.Register(mux, catalogHandler, authOpts...)
+	}
+
 	log := logging.New(slog.LevelError) // suppress output in tests
-	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg)
+	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
