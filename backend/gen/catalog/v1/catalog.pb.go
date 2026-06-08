@@ -504,6 +504,737 @@ func (x *ProgramCourse) GetCreatedAt() string {
 	return ""
 }
 
+// Section represents a scheduled instance of a course in an academic period.
+// seat_capacity maps to sections.capacity (disambiguated from admission_quota on ProgramQuota).
+type Section struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	CourseId         string                 `protobuf:"bytes,2,opt,name=course_id,json=courseId,proto3" json:"course_id,omitempty"`
+	AcademicPeriodId string                 `protobuf:"bytes,3,opt,name=academic_period_id,json=academicPeriodId,proto3" json:"academic_period_id,omitempty"`
+	SeatCapacity     int32                  `protobuf:"varint,4,opt,name=seat_capacity,json=seatCapacity,proto3" json:"seat_capacity,omitempty"`
+	CreatedAt        string                 `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt        string                 `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	DeletedAt        *string                `protobuf:"bytes,7,opt,name=deleted_at,json=deletedAt,proto3,oneof" json:"deleted_at,omitempty"`
+	CreatedBy        *string                `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	UpdatedBy        *string                `protobuf:"bytes,9,opt,name=updated_by,json=updatedBy,proto3,oneof" json:"updated_by,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *Section) Reset() {
+	*x = Section{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Section) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Section) ProtoMessage() {}
+
+func (x *Section) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Section.ProtoReflect.Descriptor instead.
+func (*Section) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Section) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Section) GetCourseId() string {
+	if x != nil {
+		return x.CourseId
+	}
+	return ""
+}
+
+func (x *Section) GetAcademicPeriodId() string {
+	if x != nil {
+		return x.AcademicPeriodId
+	}
+	return ""
+}
+
+func (x *Section) GetSeatCapacity() int32 {
+	if x != nil {
+		return x.SeatCapacity
+	}
+	return 0
+}
+
+func (x *Section) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *Section) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *Section) GetDeletedAt() string {
+	if x != nil && x.DeletedAt != nil {
+		return *x.DeletedAt
+	}
+	return ""
+}
+
+func (x *Section) GetCreatedBy() string {
+	if x != nil && x.CreatedBy != nil {
+		return *x.CreatedBy
+	}
+	return ""
+}
+
+func (x *Section) GetUpdatedBy() string {
+	if x != nil && x.UpdatedBy != nil {
+		return *x.UpdatedBy
+	}
+	return ""
+}
+
+// SectionTeacher represents a single teacher-to-section assignment.
+type SectionTeacher struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SectionId     string                 `protobuf:"bytes,1,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
+	TeacherId     string                 `protobuf:"bytes,2,opt,name=teacher_id,json=teacherId,proto3" json:"teacher_id,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SectionTeacher) Reset() {
+	*x = SectionTeacher{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SectionTeacher) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SectionTeacher) ProtoMessage() {}
+
+func (x *SectionTeacher) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SectionTeacher.ProtoReflect.Descriptor instead.
+func (*SectionTeacher) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SectionTeacher) GetSectionId() string {
+	if x != nil {
+		return x.SectionId
+	}
+	return ""
+}
+
+func (x *SectionTeacher) GetTeacherId() string {
+	if x != nil {
+		return x.TeacherId
+	}
+	return ""
+}
+
+func (x *SectionTeacher) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type CreateSectionRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	CourseId         string                 `protobuf:"bytes,1,opt,name=course_id,json=courseId,proto3" json:"course_id,omitempty"`
+	AcademicPeriodId string                 `protobuf:"bytes,2,opt,name=academic_period_id,json=academicPeriodId,proto3" json:"academic_period_id,omitempty"`
+	SeatCapacity     int32                  `protobuf:"varint,3,opt,name=seat_capacity,json=seatCapacity,proto3" json:"seat_capacity,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CreateSectionRequest) Reset() {
+	*x = CreateSectionRequest{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSectionRequest) ProtoMessage() {}
+
+func (x *CreateSectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSectionRequest.ProtoReflect.Descriptor instead.
+func (*CreateSectionRequest) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *CreateSectionRequest) GetCourseId() string {
+	if x != nil {
+		return x.CourseId
+	}
+	return ""
+}
+
+func (x *CreateSectionRequest) GetAcademicPeriodId() string {
+	if x != nil {
+		return x.AcademicPeriodId
+	}
+	return ""
+}
+
+func (x *CreateSectionRequest) GetSeatCapacity() int32 {
+	if x != nil {
+		return x.SeatCapacity
+	}
+	return 0
+}
+
+type UpdateSectionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	SeatCapacity  int32                  `protobuf:"varint,2,opt,name=seat_capacity,json=seatCapacity,proto3" json:"seat_capacity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateSectionRequest) Reset() {
+	*x = UpdateSectionRequest{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateSectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateSectionRequest) ProtoMessage() {}
+
+func (x *UpdateSectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateSectionRequest.ProtoReflect.Descriptor instead.
+func (*UpdateSectionRequest) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *UpdateSectionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateSectionRequest) GetSeatCapacity() int32 {
+	if x != nil {
+		return x.SeatCapacity
+	}
+	return 0
+}
+
+type GetSectionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSectionRequest) Reset() {
+	*x = GetSectionRequest{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSectionRequest) ProtoMessage() {}
+
+func (x *GetSectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSectionRequest.ProtoReflect.Descriptor instead.
+func (*GetSectionRequest) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetSectionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ListSectionsRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	CourseId         *string                `protobuf:"bytes,1,opt,name=course_id,json=courseId,proto3,oneof" json:"course_id,omitempty"`
+	AcademicPeriodId *string                `protobuf:"bytes,2,opt,name=academic_period_id,json=academicPeriodId,proto3,oneof" json:"academic_period_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ListSectionsRequest) Reset() {
+	*x = ListSectionsRequest{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSectionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSectionsRequest) ProtoMessage() {}
+
+func (x *ListSectionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSectionsRequest.ProtoReflect.Descriptor instead.
+func (*ListSectionsRequest) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListSectionsRequest) GetCourseId() string {
+	if x != nil && x.CourseId != nil {
+		return *x.CourseId
+	}
+	return ""
+}
+
+func (x *ListSectionsRequest) GetAcademicPeriodId() string {
+	if x != nil && x.AcademicPeriodId != nil {
+		return *x.AcademicPeriodId
+	}
+	return ""
+}
+
+type ListSectionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Sections      []*Section             `protobuf:"bytes,1,rep,name=sections,proto3" json:"sections,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSectionsResponse) Reset() {
+	*x = ListSectionsResponse{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSectionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSectionsResponse) ProtoMessage() {}
+
+func (x *ListSectionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSectionsResponse.ProtoReflect.Descriptor instead.
+func (*ListSectionsResponse) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListSectionsResponse) GetSections() []*Section {
+	if x != nil {
+		return x.Sections
+	}
+	return nil
+}
+
+type DeleteSectionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSectionRequest) Reset() {
+	*x = DeleteSectionRequest{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSectionRequest) ProtoMessage() {}
+
+func (x *DeleteSectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSectionRequest.ProtoReflect.Descriptor instead.
+func (*DeleteSectionRequest) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *DeleteSectionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteSectionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSectionResponse) Reset() {
+	*x = DeleteSectionResponse{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSectionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSectionResponse) ProtoMessage() {}
+
+func (x *DeleteSectionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSectionResponse.ProtoReflect.Descriptor instead.
+func (*DeleteSectionResponse) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{13}
+}
+
+type AssignTeacherToSectionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SectionId     string                 `protobuf:"bytes,1,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
+	TeacherId     string                 `protobuf:"bytes,2,opt,name=teacher_id,json=teacherId,proto3" json:"teacher_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssignTeacherToSectionRequest) Reset() {
+	*x = AssignTeacherToSectionRequest{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignTeacherToSectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignTeacherToSectionRequest) ProtoMessage() {}
+
+func (x *AssignTeacherToSectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignTeacherToSectionRequest.ProtoReflect.Descriptor instead.
+func (*AssignTeacherToSectionRequest) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *AssignTeacherToSectionRequest) GetSectionId() string {
+	if x != nil {
+		return x.SectionId
+	}
+	return ""
+}
+
+func (x *AssignTeacherToSectionRequest) GetTeacherId() string {
+	if x != nil {
+		return x.TeacherId
+	}
+	return ""
+}
+
+type RemoveTeacherFromSectionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SectionId     string                 `protobuf:"bytes,1,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
+	TeacherId     string                 `protobuf:"bytes,2,opt,name=teacher_id,json=teacherId,proto3" json:"teacher_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveTeacherFromSectionRequest) Reset() {
+	*x = RemoveTeacherFromSectionRequest{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveTeacherFromSectionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveTeacherFromSectionRequest) ProtoMessage() {}
+
+func (x *RemoveTeacherFromSectionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveTeacherFromSectionRequest.ProtoReflect.Descriptor instead.
+func (*RemoveTeacherFromSectionRequest) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *RemoveTeacherFromSectionRequest) GetSectionId() string {
+	if x != nil {
+		return x.SectionId
+	}
+	return ""
+}
+
+func (x *RemoveTeacherFromSectionRequest) GetTeacherId() string {
+	if x != nil {
+		return x.TeacherId
+	}
+	return ""
+}
+
+type RemoveTeacherFromSectionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveTeacherFromSectionResponse) Reset() {
+	*x = RemoveTeacherFromSectionResponse{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveTeacherFromSectionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveTeacherFromSectionResponse) ProtoMessage() {}
+
+func (x *RemoveTeacherFromSectionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveTeacherFromSectionResponse.ProtoReflect.Descriptor instead.
+func (*RemoveTeacherFromSectionResponse) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{16}
+}
+
+type ListSectionTeachersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SectionId     string                 `protobuf:"bytes,1,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSectionTeachersRequest) Reset() {
+	*x = ListSectionTeachersRequest{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSectionTeachersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSectionTeachersRequest) ProtoMessage() {}
+
+func (x *ListSectionTeachersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSectionTeachersRequest.ProtoReflect.Descriptor instead.
+func (*ListSectionTeachersRequest) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ListSectionTeachersRequest) GetSectionId() string {
+	if x != nil {
+		return x.SectionId
+	}
+	return ""
+}
+
+type ListSectionTeachersResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	SectionTeachers []*SectionTeacher      `protobuf:"bytes,1,rep,name=section_teachers,json=sectionTeachers,proto3" json:"section_teachers,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListSectionTeachersResponse) Reset() {
+	*x = ListSectionTeachersResponse{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSectionTeachersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSectionTeachersResponse) ProtoMessage() {}
+
+func (x *ListSectionTeachersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSectionTeachersResponse.ProtoReflect.Descriptor instead.
+func (*ListSectionTeachersResponse) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListSectionTeachersResponse) GetSectionTeachers() []*SectionTeacher {
+	if x != nil {
+		return x.SectionTeachers
+	}
+	return nil
+}
+
 type CreateProgramRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
@@ -514,7 +1245,7 @@ type CreateProgramRequest struct {
 
 func (x *CreateProgramRequest) Reset() {
 	*x = CreateProgramRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[5]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -526,7 +1257,7 @@ func (x *CreateProgramRequest) String() string {
 func (*CreateProgramRequest) ProtoMessage() {}
 
 func (x *CreateProgramRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[5]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -539,7 +1270,7 @@ func (x *CreateProgramRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateProgramRequest.ProtoReflect.Descriptor instead.
 func (*CreateProgramRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{5}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CreateProgramRequest) GetCode() string {
@@ -567,7 +1298,7 @@ type UpdateProgramRequest struct {
 
 func (x *UpdateProgramRequest) Reset() {
 	*x = UpdateProgramRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[6]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -579,7 +1310,7 @@ func (x *UpdateProgramRequest) String() string {
 func (*UpdateProgramRequest) ProtoMessage() {}
 
 func (x *UpdateProgramRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[6]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -592,7 +1323,7 @@ func (x *UpdateProgramRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProgramRequest.ProtoReflect.Descriptor instead.
 func (*UpdateProgramRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{6}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *UpdateProgramRequest) GetId() string {
@@ -625,7 +1356,7 @@ type GetProgramRequest struct {
 
 func (x *GetProgramRequest) Reset() {
 	*x = GetProgramRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[7]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -637,7 +1368,7 @@ func (x *GetProgramRequest) String() string {
 func (*GetProgramRequest) ProtoMessage() {}
 
 func (x *GetProgramRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[7]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -650,7 +1381,7 @@ func (x *GetProgramRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProgramRequest.ProtoReflect.Descriptor instead.
 func (*GetProgramRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{7}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetProgramRequest) GetId() string {
@@ -668,7 +1399,7 @@ type ListProgramsRequest struct {
 
 func (x *ListProgramsRequest) Reset() {
 	*x = ListProgramsRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[8]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -680,7 +1411,7 @@ func (x *ListProgramsRequest) String() string {
 func (*ListProgramsRequest) ProtoMessage() {}
 
 func (x *ListProgramsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[8]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -693,7 +1424,7 @@ func (x *ListProgramsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProgramsRequest.ProtoReflect.Descriptor instead.
 func (*ListProgramsRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{8}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{22}
 }
 
 type ListProgramsResponse struct {
@@ -705,7 +1436,7 @@ type ListProgramsResponse struct {
 
 func (x *ListProgramsResponse) Reset() {
 	*x = ListProgramsResponse{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[9]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -717,7 +1448,7 @@ func (x *ListProgramsResponse) String() string {
 func (*ListProgramsResponse) ProtoMessage() {}
 
 func (x *ListProgramsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[9]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -730,7 +1461,7 @@ func (x *ListProgramsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProgramsResponse.ProtoReflect.Descriptor instead.
 func (*ListProgramsResponse) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{9}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListProgramsResponse) GetPrograms() []*Program {
@@ -749,7 +1480,7 @@ type DeleteProgramRequest struct {
 
 func (x *DeleteProgramRequest) Reset() {
 	*x = DeleteProgramRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[10]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -761,7 +1492,7 @@ func (x *DeleteProgramRequest) String() string {
 func (*DeleteProgramRequest) ProtoMessage() {}
 
 func (x *DeleteProgramRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[10]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -774,7 +1505,7 @@ func (x *DeleteProgramRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteProgramRequest.ProtoReflect.Descriptor instead.
 func (*DeleteProgramRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{10}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *DeleteProgramRequest) GetId() string {
@@ -792,7 +1523,7 @@ type DeleteProgramResponse struct {
 
 func (x *DeleteProgramResponse) Reset() {
 	*x = DeleteProgramResponse{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[11]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -804,7 +1535,7 @@ func (x *DeleteProgramResponse) String() string {
 func (*DeleteProgramResponse) ProtoMessage() {}
 
 func (x *DeleteProgramResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[11]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -817,7 +1548,7 @@ func (x *DeleteProgramResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteProgramResponse.ProtoReflect.Descriptor instead.
 func (*DeleteProgramResponse) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{11}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{25}
 }
 
 type CreateCourseRequest struct {
@@ -831,7 +1562,7 @@ type CreateCourseRequest struct {
 
 func (x *CreateCourseRequest) Reset() {
 	*x = CreateCourseRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[12]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -843,7 +1574,7 @@ func (x *CreateCourseRequest) String() string {
 func (*CreateCourseRequest) ProtoMessage() {}
 
 func (x *CreateCourseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[12]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -856,7 +1587,7 @@ func (x *CreateCourseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCourseRequest.ProtoReflect.Descriptor instead.
 func (*CreateCourseRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{12}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CreateCourseRequest) GetCode() string {
@@ -892,7 +1623,7 @@ type UpdateCourseRequest struct {
 
 func (x *UpdateCourseRequest) Reset() {
 	*x = UpdateCourseRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[13]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -904,7 +1635,7 @@ func (x *UpdateCourseRequest) String() string {
 func (*UpdateCourseRequest) ProtoMessage() {}
 
 func (x *UpdateCourseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[13]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -917,7 +1648,7 @@ func (x *UpdateCourseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCourseRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCourseRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{13}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *UpdateCourseRequest) GetId() string {
@@ -957,7 +1688,7 @@ type GetCourseRequest struct {
 
 func (x *GetCourseRequest) Reset() {
 	*x = GetCourseRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[14]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -969,7 +1700,7 @@ func (x *GetCourseRequest) String() string {
 func (*GetCourseRequest) ProtoMessage() {}
 
 func (x *GetCourseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[14]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -982,7 +1713,7 @@ func (x *GetCourseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCourseRequest.ProtoReflect.Descriptor instead.
 func (*GetCourseRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{14}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetCourseRequest) GetId() string {
@@ -1000,7 +1731,7 @@ type ListCoursesRequest struct {
 
 func (x *ListCoursesRequest) Reset() {
 	*x = ListCoursesRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[15]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1012,7 +1743,7 @@ func (x *ListCoursesRequest) String() string {
 func (*ListCoursesRequest) ProtoMessage() {}
 
 func (x *ListCoursesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[15]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1025,7 +1756,7 @@ func (x *ListCoursesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCoursesRequest.ProtoReflect.Descriptor instead.
 func (*ListCoursesRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{15}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{29}
 }
 
 type ListCoursesResponse struct {
@@ -1037,7 +1768,7 @@ type ListCoursesResponse struct {
 
 func (x *ListCoursesResponse) Reset() {
 	*x = ListCoursesResponse{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[16]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1049,7 +1780,7 @@ func (x *ListCoursesResponse) String() string {
 func (*ListCoursesResponse) ProtoMessage() {}
 
 func (x *ListCoursesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[16]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1062,7 +1793,7 @@ func (x *ListCoursesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCoursesResponse.ProtoReflect.Descriptor instead.
 func (*ListCoursesResponse) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{16}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListCoursesResponse) GetCourses() []*Course {
@@ -1081,7 +1812,7 @@ type DeleteCourseRequest struct {
 
 func (x *DeleteCourseRequest) Reset() {
 	*x = DeleteCourseRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[17]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1093,7 +1824,7 @@ func (x *DeleteCourseRequest) String() string {
 func (*DeleteCourseRequest) ProtoMessage() {}
 
 func (x *DeleteCourseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[17]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1106,7 +1837,7 @@ func (x *DeleteCourseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCourseRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCourseRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{17}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *DeleteCourseRequest) GetId() string {
@@ -1124,7 +1855,7 @@ type DeleteCourseResponse struct {
 
 func (x *DeleteCourseResponse) Reset() {
 	*x = DeleteCourseResponse{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[18]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1136,7 +1867,7 @@ func (x *DeleteCourseResponse) String() string {
 func (*DeleteCourseResponse) ProtoMessage() {}
 
 func (x *DeleteCourseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[18]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1149,7 +1880,7 @@ func (x *DeleteCourseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCourseResponse.ProtoReflect.Descriptor instead.
 func (*DeleteCourseResponse) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{18}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{32}
 }
 
 type CreateAcademicPeriodRequest struct {
@@ -1164,7 +1895,7 @@ type CreateAcademicPeriodRequest struct {
 
 func (x *CreateAcademicPeriodRequest) Reset() {
 	*x = CreateAcademicPeriodRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[19]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1176,7 +1907,7 @@ func (x *CreateAcademicPeriodRequest) String() string {
 func (*CreateAcademicPeriodRequest) ProtoMessage() {}
 
 func (x *CreateAcademicPeriodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[19]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1189,7 +1920,7 @@ func (x *CreateAcademicPeriodRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAcademicPeriodRequest.ProtoReflect.Descriptor instead.
 func (*CreateAcademicPeriodRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{19}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *CreateAcademicPeriodRequest) GetYear() int32 {
@@ -1233,7 +1964,7 @@ type UpdateAcademicPeriodRequest struct {
 
 func (x *UpdateAcademicPeriodRequest) Reset() {
 	*x = UpdateAcademicPeriodRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[20]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1245,7 +1976,7 @@ func (x *UpdateAcademicPeriodRequest) String() string {
 func (*UpdateAcademicPeriodRequest) ProtoMessage() {}
 
 func (x *UpdateAcademicPeriodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[20]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1258,7 +1989,7 @@ func (x *UpdateAcademicPeriodRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAcademicPeriodRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAcademicPeriodRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{20}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *UpdateAcademicPeriodRequest) GetId() string {
@@ -1305,7 +2036,7 @@ type GetAcademicPeriodRequest struct {
 
 func (x *GetAcademicPeriodRequest) Reset() {
 	*x = GetAcademicPeriodRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[21]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1317,7 +2048,7 @@ func (x *GetAcademicPeriodRequest) String() string {
 func (*GetAcademicPeriodRequest) ProtoMessage() {}
 
 func (x *GetAcademicPeriodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[21]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1330,7 +2061,7 @@ func (x *GetAcademicPeriodRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAcademicPeriodRequest.ProtoReflect.Descriptor instead.
 func (*GetAcademicPeriodRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{21}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *GetAcademicPeriodRequest) GetId() string {
@@ -1348,7 +2079,7 @@ type ListAcademicPeriodsRequest struct {
 
 func (x *ListAcademicPeriodsRequest) Reset() {
 	*x = ListAcademicPeriodsRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[22]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1360,7 +2091,7 @@ func (x *ListAcademicPeriodsRequest) String() string {
 func (*ListAcademicPeriodsRequest) ProtoMessage() {}
 
 func (x *ListAcademicPeriodsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[22]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1373,7 +2104,7 @@ func (x *ListAcademicPeriodsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAcademicPeriodsRequest.ProtoReflect.Descriptor instead.
 func (*ListAcademicPeriodsRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{22}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{36}
 }
 
 type ListAcademicPeriodsResponse struct {
@@ -1385,7 +2116,7 @@ type ListAcademicPeriodsResponse struct {
 
 func (x *ListAcademicPeriodsResponse) Reset() {
 	*x = ListAcademicPeriodsResponse{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[23]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1397,7 +2128,7 @@ func (x *ListAcademicPeriodsResponse) String() string {
 func (*ListAcademicPeriodsResponse) ProtoMessage() {}
 
 func (x *ListAcademicPeriodsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[23]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1410,7 +2141,7 @@ func (x *ListAcademicPeriodsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAcademicPeriodsResponse.ProtoReflect.Descriptor instead.
 func (*ListAcademicPeriodsResponse) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{23}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListAcademicPeriodsResponse) GetAcademicPeriods() []*AcademicPeriod {
@@ -1429,7 +2160,7 @@ type DeleteAcademicPeriodRequest struct {
 
 func (x *DeleteAcademicPeriodRequest) Reset() {
 	*x = DeleteAcademicPeriodRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[24]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1441,7 +2172,7 @@ func (x *DeleteAcademicPeriodRequest) String() string {
 func (*DeleteAcademicPeriodRequest) ProtoMessage() {}
 
 func (x *DeleteAcademicPeriodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[24]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1454,7 +2185,7 @@ func (x *DeleteAcademicPeriodRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAcademicPeriodRequest.ProtoReflect.Descriptor instead.
 func (*DeleteAcademicPeriodRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{24}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *DeleteAcademicPeriodRequest) GetId() string {
@@ -1472,7 +2203,7 @@ type DeleteAcademicPeriodResponse struct {
 
 func (x *DeleteAcademicPeriodResponse) Reset() {
 	*x = DeleteAcademicPeriodResponse{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[25]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1484,7 +2215,7 @@ func (x *DeleteAcademicPeriodResponse) String() string {
 func (*DeleteAcademicPeriodResponse) ProtoMessage() {}
 
 func (x *DeleteAcademicPeriodResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[25]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1497,7 +2228,7 @@ func (x *DeleteAcademicPeriodResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAcademicPeriodResponse.ProtoReflect.Descriptor instead.
 func (*DeleteAcademicPeriodResponse) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{25}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{39}
 }
 
 type CreateProgramQuotaRequest struct {
@@ -1511,7 +2242,7 @@ type CreateProgramQuotaRequest struct {
 
 func (x *CreateProgramQuotaRequest) Reset() {
 	*x = CreateProgramQuotaRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[26]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1523,7 +2254,7 @@ func (x *CreateProgramQuotaRequest) String() string {
 func (*CreateProgramQuotaRequest) ProtoMessage() {}
 
 func (x *CreateProgramQuotaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[26]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1536,7 +2267,7 @@ func (x *CreateProgramQuotaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateProgramQuotaRequest.ProtoReflect.Descriptor instead.
 func (*CreateProgramQuotaRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{26}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *CreateProgramQuotaRequest) GetProgramId() string {
@@ -1571,7 +2302,7 @@ type UpdateProgramQuotaRequest struct {
 
 func (x *UpdateProgramQuotaRequest) Reset() {
 	*x = UpdateProgramQuotaRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[27]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1583,7 +2314,7 @@ func (x *UpdateProgramQuotaRequest) String() string {
 func (*UpdateProgramQuotaRequest) ProtoMessage() {}
 
 func (x *UpdateProgramQuotaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[27]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1596,7 +2327,7 @@ func (x *UpdateProgramQuotaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProgramQuotaRequest.ProtoReflect.Descriptor instead.
 func (*UpdateProgramQuotaRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{27}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *UpdateProgramQuotaRequest) GetId() string {
@@ -1629,7 +2360,7 @@ type GetProgramQuotaRequest struct {
 
 func (x *GetProgramQuotaRequest) Reset() {
 	*x = GetProgramQuotaRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[28]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1641,7 +2372,7 @@ func (x *GetProgramQuotaRequest) String() string {
 func (*GetProgramQuotaRequest) ProtoMessage() {}
 
 func (x *GetProgramQuotaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[28]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1654,7 +2385,7 @@ func (x *GetProgramQuotaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProgramQuotaRequest.ProtoReflect.Descriptor instead.
 func (*GetProgramQuotaRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{28}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *GetProgramQuotaRequest) GetId() string {
@@ -1673,7 +2404,7 @@ type ListProgramQuotasRequest struct {
 
 func (x *ListProgramQuotasRequest) Reset() {
 	*x = ListProgramQuotasRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[29]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1685,7 +2416,7 @@ func (x *ListProgramQuotasRequest) String() string {
 func (*ListProgramQuotasRequest) ProtoMessage() {}
 
 func (x *ListProgramQuotasRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[29]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1698,7 +2429,7 @@ func (x *ListProgramQuotasRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProgramQuotasRequest.ProtoReflect.Descriptor instead.
 func (*ListProgramQuotasRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{29}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListProgramQuotasRequest) GetProgramId() string {
@@ -1717,7 +2448,7 @@ type ListProgramQuotasResponse struct {
 
 func (x *ListProgramQuotasResponse) Reset() {
 	*x = ListProgramQuotasResponse{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[30]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1729,7 +2460,7 @@ func (x *ListProgramQuotasResponse) String() string {
 func (*ListProgramQuotasResponse) ProtoMessage() {}
 
 func (x *ListProgramQuotasResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[30]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1742,7 +2473,7 @@ func (x *ListProgramQuotasResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProgramQuotasResponse.ProtoReflect.Descriptor instead.
 func (*ListProgramQuotasResponse) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{30}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListProgramQuotasResponse) GetProgramQuotas() []*ProgramQuota {
@@ -1761,7 +2492,7 @@ type DeleteProgramQuotaRequest struct {
 
 func (x *DeleteProgramQuotaRequest) Reset() {
 	*x = DeleteProgramQuotaRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[31]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1773,7 +2504,7 @@ func (x *DeleteProgramQuotaRequest) String() string {
 func (*DeleteProgramQuotaRequest) ProtoMessage() {}
 
 func (x *DeleteProgramQuotaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[31]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1786,7 +2517,7 @@ func (x *DeleteProgramQuotaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteProgramQuotaRequest.ProtoReflect.Descriptor instead.
 func (*DeleteProgramQuotaRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{31}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *DeleteProgramQuotaRequest) GetId() string {
@@ -1804,7 +2535,7 @@ type DeleteProgramQuotaResponse struct {
 
 func (x *DeleteProgramQuotaResponse) Reset() {
 	*x = DeleteProgramQuotaResponse{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[32]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1816,7 +2547,7 @@ func (x *DeleteProgramQuotaResponse) String() string {
 func (*DeleteProgramQuotaResponse) ProtoMessage() {}
 
 func (x *DeleteProgramQuotaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[32]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1829,7 +2560,7 @@ func (x *DeleteProgramQuotaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteProgramQuotaResponse.ProtoReflect.Descriptor instead.
 func (*DeleteProgramQuotaResponse) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{32}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{46}
 }
 
 type AddCourseToProgramRequest struct {
@@ -1842,7 +2573,7 @@ type AddCourseToProgramRequest struct {
 
 func (x *AddCourseToProgramRequest) Reset() {
 	*x = AddCourseToProgramRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[33]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1854,7 +2585,7 @@ func (x *AddCourseToProgramRequest) String() string {
 func (*AddCourseToProgramRequest) ProtoMessage() {}
 
 func (x *AddCourseToProgramRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[33]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1867,7 +2598,7 @@ func (x *AddCourseToProgramRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddCourseToProgramRequest.ProtoReflect.Descriptor instead.
 func (*AddCourseToProgramRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{33}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *AddCourseToProgramRequest) GetProgramId() string {
@@ -1894,7 +2625,7 @@ type RemoveCourseFromProgramRequest struct {
 
 func (x *RemoveCourseFromProgramRequest) Reset() {
 	*x = RemoveCourseFromProgramRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[34]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1906,7 +2637,7 @@ func (x *RemoveCourseFromProgramRequest) String() string {
 func (*RemoveCourseFromProgramRequest) ProtoMessage() {}
 
 func (x *RemoveCourseFromProgramRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[34]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1919,7 +2650,7 @@ func (x *RemoveCourseFromProgramRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveCourseFromProgramRequest.ProtoReflect.Descriptor instead.
 func (*RemoveCourseFromProgramRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{34}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *RemoveCourseFromProgramRequest) GetProgramId() string {
@@ -1944,7 +2675,7 @@ type RemoveCourseFromProgramResponse struct {
 
 func (x *RemoveCourseFromProgramResponse) Reset() {
 	*x = RemoveCourseFromProgramResponse{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[35]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1956,7 +2687,7 @@ func (x *RemoveCourseFromProgramResponse) String() string {
 func (*RemoveCourseFromProgramResponse) ProtoMessage() {}
 
 func (x *RemoveCourseFromProgramResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[35]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1969,7 +2700,7 @@ func (x *RemoveCourseFromProgramResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveCourseFromProgramResponse.ProtoReflect.Descriptor instead.
 func (*RemoveCourseFromProgramResponse) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{35}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{49}
 }
 
 type ListProgramCoursesRequest struct {
@@ -1981,7 +2712,7 @@ type ListProgramCoursesRequest struct {
 
 func (x *ListProgramCoursesRequest) Reset() {
 	*x = ListProgramCoursesRequest{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[36]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1993,7 +2724,7 @@ func (x *ListProgramCoursesRequest) String() string {
 func (*ListProgramCoursesRequest) ProtoMessage() {}
 
 func (x *ListProgramCoursesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[36]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2006,7 +2737,7 @@ func (x *ListProgramCoursesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProgramCoursesRequest.ProtoReflect.Descriptor instead.
 func (*ListProgramCoursesRequest) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{36}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ListProgramCoursesRequest) GetProgramId() string {
@@ -2025,7 +2756,7 @@ type ListProgramCoursesResponse struct {
 
 func (x *ListProgramCoursesResponse) Reset() {
 	*x = ListProgramCoursesResponse{}
-	mi := &file_catalog_v1_catalog_proto_msgTypes[37]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2037,7 +2768,7 @@ func (x *ListProgramCoursesResponse) String() string {
 func (*ListProgramCoursesResponse) ProtoMessage() {}
 
 func (x *ListProgramCoursesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_catalog_v1_catalog_proto_msgTypes[37]
+	mi := &file_catalog_v1_catalog_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2050,7 +2781,7 @@ func (x *ListProgramCoursesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProgramCoursesResponse.ProtoReflect.Descriptor instead.
 func (*ListProgramCoursesResponse) Descriptor() ([]byte, []int) {
-	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{37}
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ListProgramCoursesResponse) GetProgramCourses() []*ProgramCourse {
@@ -2139,7 +2870,68 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"program_id\x18\x01 \x01(\tR\tprogramId\x12\x1b\n" +
 	"\tcourse_id\x18\x02 \x01(\tR\bcourseId\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x03 \x01(\tR\tcreatedAt\">\n" +
+	"created_at\x18\x03 \x01(\tR\tcreatedAt\"\xe0\x02\n" +
+	"\aSection\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tcourse_id\x18\x02 \x01(\tR\bcourseId\x12,\n" +
+	"\x12academic_period_id\x18\x03 \x01(\tR\x10academicPeriodId\x12#\n" +
+	"\rseat_capacity\x18\x04 \x01(\x05R\fseatCapacity\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\tR\tupdatedAt\x12\"\n" +
+	"\n" +
+	"deleted_at\x18\a \x01(\tH\x00R\tdeletedAt\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"created_by\x18\b \x01(\tH\x01R\tcreatedBy\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"updated_by\x18\t \x01(\tH\x02R\tupdatedBy\x88\x01\x01B\r\n" +
+	"\v_deleted_atB\r\n" +
+	"\v_created_byB\r\n" +
+	"\v_updated_by\"m\n" +
+	"\x0eSectionTeacher\x12\x1d\n" +
+	"\n" +
+	"section_id\x18\x01 \x01(\tR\tsectionId\x12\x1d\n" +
+	"\n" +
+	"teacher_id\x18\x02 \x01(\tR\tteacherId\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x03 \x01(\tR\tcreatedAt\"\x86\x01\n" +
+	"\x14CreateSectionRequest\x12\x1b\n" +
+	"\tcourse_id\x18\x01 \x01(\tR\bcourseId\x12,\n" +
+	"\x12academic_period_id\x18\x02 \x01(\tR\x10academicPeriodId\x12#\n" +
+	"\rseat_capacity\x18\x03 \x01(\x05R\fseatCapacity\"K\n" +
+	"\x14UpdateSectionRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
+	"\rseat_capacity\x18\x02 \x01(\x05R\fseatCapacity\"#\n" +
+	"\x11GetSectionRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x8f\x01\n" +
+	"\x13ListSectionsRequest\x12 \n" +
+	"\tcourse_id\x18\x01 \x01(\tH\x00R\bcourseId\x88\x01\x01\x121\n" +
+	"\x12academic_period_id\x18\x02 \x01(\tH\x01R\x10academicPeriodId\x88\x01\x01B\f\n" +
+	"\n" +
+	"_course_idB\x15\n" +
+	"\x13_academic_period_id\"G\n" +
+	"\x14ListSectionsResponse\x12/\n" +
+	"\bsections\x18\x01 \x03(\v2\x13.catalog.v1.SectionR\bsections\"&\n" +
+	"\x14DeleteSectionRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
+	"\x15DeleteSectionResponse\"]\n" +
+	"\x1dAssignTeacherToSectionRequest\x12\x1d\n" +
+	"\n" +
+	"section_id\x18\x01 \x01(\tR\tsectionId\x12\x1d\n" +
+	"\n" +
+	"teacher_id\x18\x02 \x01(\tR\tteacherId\"_\n" +
+	"\x1fRemoveTeacherFromSectionRequest\x12\x1d\n" +
+	"\n" +
+	"section_id\x18\x01 \x01(\tR\tsectionId\x12\x1d\n" +
+	"\n" +
+	"teacher_id\x18\x02 \x01(\tR\tteacherId\"\"\n" +
+	" RemoveTeacherFromSectionResponse\";\n" +
+	"\x1aListSectionTeachersRequest\x12\x1d\n" +
+	"\n" +
+	"section_id\x18\x01 \x01(\tR\tsectionId\"d\n" +
+	"\x1bListSectionTeachersResponse\x12E\n" +
+	"\x10section_teachers\x18\x01 \x03(\v2\x1a.catalog.v1.SectionTeacherR\x0fsectionTeachers\">\n" +
 	"\x14CreateProgramRequest\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"N\n" +
@@ -2225,7 +3017,7 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"\n" +
 	"program_id\x18\x01 \x01(\tR\tprogramId\"`\n" +
 	"\x1aListProgramCoursesResponse\x12B\n" +
-	"\x0fprogram_courses\x18\x01 \x03(\v2\x19.catalog.v1.ProgramCourseR\x0eprogramCourses2\xd2\x0f\n" +
+	"\x0fprogram_courses\x18\x01 \x03(\v2\x19.catalog.v1.ProgramCourseR\x0eprogramCourses2\x8d\x15\n" +
 	"\x0eCatalogService\x12F\n" +
 	"\rCreateProgram\x12 .catalog.v1.CreateProgramRequest\x1a\x13.catalog.v1.Program\x12F\n" +
 	"\rUpdateProgram\x12 .catalog.v1.UpdateProgramRequest\x1a\x13.catalog.v1.Program\x12@\n" +
@@ -2250,7 +3042,16 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"\x12DeleteProgramQuota\x12%.catalog.v1.DeleteProgramQuotaRequest\x1a&.catalog.v1.DeleteProgramQuotaResponse\x12V\n" +
 	"\x12AddCourseToProgram\x12%.catalog.v1.AddCourseToProgramRequest\x1a\x19.catalog.v1.ProgramCourse\x12r\n" +
 	"\x17RemoveCourseFromProgram\x12*.catalog.v1.RemoveCourseFromProgramRequest\x1a+.catalog.v1.RemoveCourseFromProgramResponse\x12c\n" +
-	"\x12ListProgramCourses\x12%.catalog.v1.ListProgramCoursesRequest\x1a&.catalog.v1.ListProgramCoursesResponseB]Z[github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1;catalogv1b\x06proto3"
+	"\x12ListProgramCourses\x12%.catalog.v1.ListProgramCoursesRequest\x1a&.catalog.v1.ListProgramCoursesResponse\x12F\n" +
+	"\rCreateSection\x12 .catalog.v1.CreateSectionRequest\x1a\x13.catalog.v1.Section\x12F\n" +
+	"\rUpdateSection\x12 .catalog.v1.UpdateSectionRequest\x1a\x13.catalog.v1.Section\x12@\n" +
+	"\n" +
+	"GetSection\x12\x1d.catalog.v1.GetSectionRequest\x1a\x13.catalog.v1.Section\x12Q\n" +
+	"\fListSections\x12\x1f.catalog.v1.ListSectionsRequest\x1a .catalog.v1.ListSectionsResponse\x12T\n" +
+	"\rDeleteSection\x12 .catalog.v1.DeleteSectionRequest\x1a!.catalog.v1.DeleteSectionResponse\x12_\n" +
+	"\x16AssignTeacherToSection\x12).catalog.v1.AssignTeacherToSectionRequest\x1a\x1a.catalog.v1.SectionTeacher\x12u\n" +
+	"\x18RemoveTeacherFromSection\x12+.catalog.v1.RemoveTeacherFromSectionRequest\x1a,.catalog.v1.RemoveTeacherFromSectionResponse\x12f\n" +
+	"\x13ListSectionTeachers\x12&.catalog.v1.ListSectionTeachersRequest\x1a'.catalog.v1.ListSectionTeachersResponseB]Z[github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1;catalogv1b\x06proto3"
 
 var (
 	file_catalog_v1_catalog_proto_rawDescOnce sync.Once
@@ -2264,104 +3065,136 @@ func file_catalog_v1_catalog_proto_rawDescGZIP() []byte {
 	return file_catalog_v1_catalog_proto_rawDescData
 }
 
-var file_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_catalog_v1_catalog_proto_goTypes = []any{
-	(*Program)(nil),                         // 0: catalog.v1.Program
-	(*Course)(nil),                          // 1: catalog.v1.Course
-	(*AcademicPeriod)(nil),                  // 2: catalog.v1.AcademicPeriod
-	(*ProgramQuota)(nil),                    // 3: catalog.v1.ProgramQuota
-	(*ProgramCourse)(nil),                   // 4: catalog.v1.ProgramCourse
-	(*CreateProgramRequest)(nil),            // 5: catalog.v1.CreateProgramRequest
-	(*UpdateProgramRequest)(nil),            // 6: catalog.v1.UpdateProgramRequest
-	(*GetProgramRequest)(nil),               // 7: catalog.v1.GetProgramRequest
-	(*ListProgramsRequest)(nil),             // 8: catalog.v1.ListProgramsRequest
-	(*ListProgramsResponse)(nil),            // 9: catalog.v1.ListProgramsResponse
-	(*DeleteProgramRequest)(nil),            // 10: catalog.v1.DeleteProgramRequest
-	(*DeleteProgramResponse)(nil),           // 11: catalog.v1.DeleteProgramResponse
-	(*CreateCourseRequest)(nil),             // 12: catalog.v1.CreateCourseRequest
-	(*UpdateCourseRequest)(nil),             // 13: catalog.v1.UpdateCourseRequest
-	(*GetCourseRequest)(nil),                // 14: catalog.v1.GetCourseRequest
-	(*ListCoursesRequest)(nil),              // 15: catalog.v1.ListCoursesRequest
-	(*ListCoursesResponse)(nil),             // 16: catalog.v1.ListCoursesResponse
-	(*DeleteCourseRequest)(nil),             // 17: catalog.v1.DeleteCourseRequest
-	(*DeleteCourseResponse)(nil),            // 18: catalog.v1.DeleteCourseResponse
-	(*CreateAcademicPeriodRequest)(nil),     // 19: catalog.v1.CreateAcademicPeriodRequest
-	(*UpdateAcademicPeriodRequest)(nil),     // 20: catalog.v1.UpdateAcademicPeriodRequest
-	(*GetAcademicPeriodRequest)(nil),        // 21: catalog.v1.GetAcademicPeriodRequest
-	(*ListAcademicPeriodsRequest)(nil),      // 22: catalog.v1.ListAcademicPeriodsRequest
-	(*ListAcademicPeriodsResponse)(nil),     // 23: catalog.v1.ListAcademicPeriodsResponse
-	(*DeleteAcademicPeriodRequest)(nil),     // 24: catalog.v1.DeleteAcademicPeriodRequest
-	(*DeleteAcademicPeriodResponse)(nil),    // 25: catalog.v1.DeleteAcademicPeriodResponse
-	(*CreateProgramQuotaRequest)(nil),       // 26: catalog.v1.CreateProgramQuotaRequest
-	(*UpdateProgramQuotaRequest)(nil),       // 27: catalog.v1.UpdateProgramQuotaRequest
-	(*GetProgramQuotaRequest)(nil),          // 28: catalog.v1.GetProgramQuotaRequest
-	(*ListProgramQuotasRequest)(nil),        // 29: catalog.v1.ListProgramQuotasRequest
-	(*ListProgramQuotasResponse)(nil),       // 30: catalog.v1.ListProgramQuotasResponse
-	(*DeleteProgramQuotaRequest)(nil),       // 31: catalog.v1.DeleteProgramQuotaRequest
-	(*DeleteProgramQuotaResponse)(nil),      // 32: catalog.v1.DeleteProgramQuotaResponse
-	(*AddCourseToProgramRequest)(nil),       // 33: catalog.v1.AddCourseToProgramRequest
-	(*RemoveCourseFromProgramRequest)(nil),  // 34: catalog.v1.RemoveCourseFromProgramRequest
-	(*RemoveCourseFromProgramResponse)(nil), // 35: catalog.v1.RemoveCourseFromProgramResponse
-	(*ListProgramCoursesRequest)(nil),       // 36: catalog.v1.ListProgramCoursesRequest
-	(*ListProgramCoursesResponse)(nil),      // 37: catalog.v1.ListProgramCoursesResponse
+	(*Program)(nil),                          // 0: catalog.v1.Program
+	(*Course)(nil),                           // 1: catalog.v1.Course
+	(*AcademicPeriod)(nil),                   // 2: catalog.v1.AcademicPeriod
+	(*ProgramQuota)(nil),                     // 3: catalog.v1.ProgramQuota
+	(*ProgramCourse)(nil),                    // 4: catalog.v1.ProgramCourse
+	(*Section)(nil),                          // 5: catalog.v1.Section
+	(*SectionTeacher)(nil),                   // 6: catalog.v1.SectionTeacher
+	(*CreateSectionRequest)(nil),             // 7: catalog.v1.CreateSectionRequest
+	(*UpdateSectionRequest)(nil),             // 8: catalog.v1.UpdateSectionRequest
+	(*GetSectionRequest)(nil),                // 9: catalog.v1.GetSectionRequest
+	(*ListSectionsRequest)(nil),              // 10: catalog.v1.ListSectionsRequest
+	(*ListSectionsResponse)(nil),             // 11: catalog.v1.ListSectionsResponse
+	(*DeleteSectionRequest)(nil),             // 12: catalog.v1.DeleteSectionRequest
+	(*DeleteSectionResponse)(nil),            // 13: catalog.v1.DeleteSectionResponse
+	(*AssignTeacherToSectionRequest)(nil),    // 14: catalog.v1.AssignTeacherToSectionRequest
+	(*RemoveTeacherFromSectionRequest)(nil),  // 15: catalog.v1.RemoveTeacherFromSectionRequest
+	(*RemoveTeacherFromSectionResponse)(nil), // 16: catalog.v1.RemoveTeacherFromSectionResponse
+	(*ListSectionTeachersRequest)(nil),       // 17: catalog.v1.ListSectionTeachersRequest
+	(*ListSectionTeachersResponse)(nil),      // 18: catalog.v1.ListSectionTeachersResponse
+	(*CreateProgramRequest)(nil),             // 19: catalog.v1.CreateProgramRequest
+	(*UpdateProgramRequest)(nil),             // 20: catalog.v1.UpdateProgramRequest
+	(*GetProgramRequest)(nil),                // 21: catalog.v1.GetProgramRequest
+	(*ListProgramsRequest)(nil),              // 22: catalog.v1.ListProgramsRequest
+	(*ListProgramsResponse)(nil),             // 23: catalog.v1.ListProgramsResponse
+	(*DeleteProgramRequest)(nil),             // 24: catalog.v1.DeleteProgramRequest
+	(*DeleteProgramResponse)(nil),            // 25: catalog.v1.DeleteProgramResponse
+	(*CreateCourseRequest)(nil),              // 26: catalog.v1.CreateCourseRequest
+	(*UpdateCourseRequest)(nil),              // 27: catalog.v1.UpdateCourseRequest
+	(*GetCourseRequest)(nil),                 // 28: catalog.v1.GetCourseRequest
+	(*ListCoursesRequest)(nil),               // 29: catalog.v1.ListCoursesRequest
+	(*ListCoursesResponse)(nil),              // 30: catalog.v1.ListCoursesResponse
+	(*DeleteCourseRequest)(nil),              // 31: catalog.v1.DeleteCourseRequest
+	(*DeleteCourseResponse)(nil),             // 32: catalog.v1.DeleteCourseResponse
+	(*CreateAcademicPeriodRequest)(nil),      // 33: catalog.v1.CreateAcademicPeriodRequest
+	(*UpdateAcademicPeriodRequest)(nil),      // 34: catalog.v1.UpdateAcademicPeriodRequest
+	(*GetAcademicPeriodRequest)(nil),         // 35: catalog.v1.GetAcademicPeriodRequest
+	(*ListAcademicPeriodsRequest)(nil),       // 36: catalog.v1.ListAcademicPeriodsRequest
+	(*ListAcademicPeriodsResponse)(nil),      // 37: catalog.v1.ListAcademicPeriodsResponse
+	(*DeleteAcademicPeriodRequest)(nil),      // 38: catalog.v1.DeleteAcademicPeriodRequest
+	(*DeleteAcademicPeriodResponse)(nil),     // 39: catalog.v1.DeleteAcademicPeriodResponse
+	(*CreateProgramQuotaRequest)(nil),        // 40: catalog.v1.CreateProgramQuotaRequest
+	(*UpdateProgramQuotaRequest)(nil),        // 41: catalog.v1.UpdateProgramQuotaRequest
+	(*GetProgramQuotaRequest)(nil),           // 42: catalog.v1.GetProgramQuotaRequest
+	(*ListProgramQuotasRequest)(nil),         // 43: catalog.v1.ListProgramQuotasRequest
+	(*ListProgramQuotasResponse)(nil),        // 44: catalog.v1.ListProgramQuotasResponse
+	(*DeleteProgramQuotaRequest)(nil),        // 45: catalog.v1.DeleteProgramQuotaRequest
+	(*DeleteProgramQuotaResponse)(nil),       // 46: catalog.v1.DeleteProgramQuotaResponse
+	(*AddCourseToProgramRequest)(nil),        // 47: catalog.v1.AddCourseToProgramRequest
+	(*RemoveCourseFromProgramRequest)(nil),   // 48: catalog.v1.RemoveCourseFromProgramRequest
+	(*RemoveCourseFromProgramResponse)(nil),  // 49: catalog.v1.RemoveCourseFromProgramResponse
+	(*ListProgramCoursesRequest)(nil),        // 50: catalog.v1.ListProgramCoursesRequest
+	(*ListProgramCoursesResponse)(nil),       // 51: catalog.v1.ListProgramCoursesResponse
 }
 var file_catalog_v1_catalog_proto_depIdxs = []int32{
-	0,  // 0: catalog.v1.ListProgramsResponse.programs:type_name -> catalog.v1.Program
-	1,  // 1: catalog.v1.ListCoursesResponse.courses:type_name -> catalog.v1.Course
-	2,  // 2: catalog.v1.ListAcademicPeriodsResponse.academic_periods:type_name -> catalog.v1.AcademicPeriod
-	3,  // 3: catalog.v1.ListProgramQuotasResponse.program_quotas:type_name -> catalog.v1.ProgramQuota
-	4,  // 4: catalog.v1.ListProgramCoursesResponse.program_courses:type_name -> catalog.v1.ProgramCourse
-	5,  // 5: catalog.v1.CatalogService.CreateProgram:input_type -> catalog.v1.CreateProgramRequest
-	6,  // 6: catalog.v1.CatalogService.UpdateProgram:input_type -> catalog.v1.UpdateProgramRequest
-	7,  // 7: catalog.v1.CatalogService.GetProgram:input_type -> catalog.v1.GetProgramRequest
-	8,  // 8: catalog.v1.CatalogService.ListPrograms:input_type -> catalog.v1.ListProgramsRequest
-	10, // 9: catalog.v1.CatalogService.DeleteProgram:input_type -> catalog.v1.DeleteProgramRequest
-	12, // 10: catalog.v1.CatalogService.CreateCourse:input_type -> catalog.v1.CreateCourseRequest
-	13, // 11: catalog.v1.CatalogService.UpdateCourse:input_type -> catalog.v1.UpdateCourseRequest
-	14, // 12: catalog.v1.CatalogService.GetCourse:input_type -> catalog.v1.GetCourseRequest
-	15, // 13: catalog.v1.CatalogService.ListCourses:input_type -> catalog.v1.ListCoursesRequest
-	17, // 14: catalog.v1.CatalogService.DeleteCourse:input_type -> catalog.v1.DeleteCourseRequest
-	19, // 15: catalog.v1.CatalogService.CreateAcademicPeriod:input_type -> catalog.v1.CreateAcademicPeriodRequest
-	20, // 16: catalog.v1.CatalogService.UpdateAcademicPeriod:input_type -> catalog.v1.UpdateAcademicPeriodRequest
-	21, // 17: catalog.v1.CatalogService.GetAcademicPeriod:input_type -> catalog.v1.GetAcademicPeriodRequest
-	22, // 18: catalog.v1.CatalogService.ListAcademicPeriods:input_type -> catalog.v1.ListAcademicPeriodsRequest
-	24, // 19: catalog.v1.CatalogService.DeleteAcademicPeriod:input_type -> catalog.v1.DeleteAcademicPeriodRequest
-	26, // 20: catalog.v1.CatalogService.CreateProgramQuota:input_type -> catalog.v1.CreateProgramQuotaRequest
-	27, // 21: catalog.v1.CatalogService.UpdateProgramQuota:input_type -> catalog.v1.UpdateProgramQuotaRequest
-	28, // 22: catalog.v1.CatalogService.GetProgramQuota:input_type -> catalog.v1.GetProgramQuotaRequest
-	29, // 23: catalog.v1.CatalogService.ListProgramQuotas:input_type -> catalog.v1.ListProgramQuotasRequest
-	31, // 24: catalog.v1.CatalogService.DeleteProgramQuota:input_type -> catalog.v1.DeleteProgramQuotaRequest
-	33, // 25: catalog.v1.CatalogService.AddCourseToProgram:input_type -> catalog.v1.AddCourseToProgramRequest
-	34, // 26: catalog.v1.CatalogService.RemoveCourseFromProgram:input_type -> catalog.v1.RemoveCourseFromProgramRequest
-	36, // 27: catalog.v1.CatalogService.ListProgramCourses:input_type -> catalog.v1.ListProgramCoursesRequest
-	0,  // 28: catalog.v1.CatalogService.CreateProgram:output_type -> catalog.v1.Program
-	0,  // 29: catalog.v1.CatalogService.UpdateProgram:output_type -> catalog.v1.Program
-	0,  // 30: catalog.v1.CatalogService.GetProgram:output_type -> catalog.v1.Program
-	9,  // 31: catalog.v1.CatalogService.ListPrograms:output_type -> catalog.v1.ListProgramsResponse
-	11, // 32: catalog.v1.CatalogService.DeleteProgram:output_type -> catalog.v1.DeleteProgramResponse
-	1,  // 33: catalog.v1.CatalogService.CreateCourse:output_type -> catalog.v1.Course
-	1,  // 34: catalog.v1.CatalogService.UpdateCourse:output_type -> catalog.v1.Course
-	1,  // 35: catalog.v1.CatalogService.GetCourse:output_type -> catalog.v1.Course
-	16, // 36: catalog.v1.CatalogService.ListCourses:output_type -> catalog.v1.ListCoursesResponse
-	18, // 37: catalog.v1.CatalogService.DeleteCourse:output_type -> catalog.v1.DeleteCourseResponse
-	2,  // 38: catalog.v1.CatalogService.CreateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
-	2,  // 39: catalog.v1.CatalogService.UpdateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
-	2,  // 40: catalog.v1.CatalogService.GetAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
-	23, // 41: catalog.v1.CatalogService.ListAcademicPeriods:output_type -> catalog.v1.ListAcademicPeriodsResponse
-	25, // 42: catalog.v1.CatalogService.DeleteAcademicPeriod:output_type -> catalog.v1.DeleteAcademicPeriodResponse
-	3,  // 43: catalog.v1.CatalogService.CreateProgramQuota:output_type -> catalog.v1.ProgramQuota
-	3,  // 44: catalog.v1.CatalogService.UpdateProgramQuota:output_type -> catalog.v1.ProgramQuota
-	3,  // 45: catalog.v1.CatalogService.GetProgramQuota:output_type -> catalog.v1.ProgramQuota
-	30, // 46: catalog.v1.CatalogService.ListProgramQuotas:output_type -> catalog.v1.ListProgramQuotasResponse
-	32, // 47: catalog.v1.CatalogService.DeleteProgramQuota:output_type -> catalog.v1.DeleteProgramQuotaResponse
-	4,  // 48: catalog.v1.CatalogService.AddCourseToProgram:output_type -> catalog.v1.ProgramCourse
-	35, // 49: catalog.v1.CatalogService.RemoveCourseFromProgram:output_type -> catalog.v1.RemoveCourseFromProgramResponse
-	37, // 50: catalog.v1.CatalogService.ListProgramCourses:output_type -> catalog.v1.ListProgramCoursesResponse
-	28, // [28:51] is the sub-list for method output_type
-	5,  // [5:28] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	5,  // 0: catalog.v1.ListSectionsResponse.sections:type_name -> catalog.v1.Section
+	6,  // 1: catalog.v1.ListSectionTeachersResponse.section_teachers:type_name -> catalog.v1.SectionTeacher
+	0,  // 2: catalog.v1.ListProgramsResponse.programs:type_name -> catalog.v1.Program
+	1,  // 3: catalog.v1.ListCoursesResponse.courses:type_name -> catalog.v1.Course
+	2,  // 4: catalog.v1.ListAcademicPeriodsResponse.academic_periods:type_name -> catalog.v1.AcademicPeriod
+	3,  // 5: catalog.v1.ListProgramQuotasResponse.program_quotas:type_name -> catalog.v1.ProgramQuota
+	4,  // 6: catalog.v1.ListProgramCoursesResponse.program_courses:type_name -> catalog.v1.ProgramCourse
+	19, // 7: catalog.v1.CatalogService.CreateProgram:input_type -> catalog.v1.CreateProgramRequest
+	20, // 8: catalog.v1.CatalogService.UpdateProgram:input_type -> catalog.v1.UpdateProgramRequest
+	21, // 9: catalog.v1.CatalogService.GetProgram:input_type -> catalog.v1.GetProgramRequest
+	22, // 10: catalog.v1.CatalogService.ListPrograms:input_type -> catalog.v1.ListProgramsRequest
+	24, // 11: catalog.v1.CatalogService.DeleteProgram:input_type -> catalog.v1.DeleteProgramRequest
+	26, // 12: catalog.v1.CatalogService.CreateCourse:input_type -> catalog.v1.CreateCourseRequest
+	27, // 13: catalog.v1.CatalogService.UpdateCourse:input_type -> catalog.v1.UpdateCourseRequest
+	28, // 14: catalog.v1.CatalogService.GetCourse:input_type -> catalog.v1.GetCourseRequest
+	29, // 15: catalog.v1.CatalogService.ListCourses:input_type -> catalog.v1.ListCoursesRequest
+	31, // 16: catalog.v1.CatalogService.DeleteCourse:input_type -> catalog.v1.DeleteCourseRequest
+	33, // 17: catalog.v1.CatalogService.CreateAcademicPeriod:input_type -> catalog.v1.CreateAcademicPeriodRequest
+	34, // 18: catalog.v1.CatalogService.UpdateAcademicPeriod:input_type -> catalog.v1.UpdateAcademicPeriodRequest
+	35, // 19: catalog.v1.CatalogService.GetAcademicPeriod:input_type -> catalog.v1.GetAcademicPeriodRequest
+	36, // 20: catalog.v1.CatalogService.ListAcademicPeriods:input_type -> catalog.v1.ListAcademicPeriodsRequest
+	38, // 21: catalog.v1.CatalogService.DeleteAcademicPeriod:input_type -> catalog.v1.DeleteAcademicPeriodRequest
+	40, // 22: catalog.v1.CatalogService.CreateProgramQuota:input_type -> catalog.v1.CreateProgramQuotaRequest
+	41, // 23: catalog.v1.CatalogService.UpdateProgramQuota:input_type -> catalog.v1.UpdateProgramQuotaRequest
+	42, // 24: catalog.v1.CatalogService.GetProgramQuota:input_type -> catalog.v1.GetProgramQuotaRequest
+	43, // 25: catalog.v1.CatalogService.ListProgramQuotas:input_type -> catalog.v1.ListProgramQuotasRequest
+	45, // 26: catalog.v1.CatalogService.DeleteProgramQuota:input_type -> catalog.v1.DeleteProgramQuotaRequest
+	47, // 27: catalog.v1.CatalogService.AddCourseToProgram:input_type -> catalog.v1.AddCourseToProgramRequest
+	48, // 28: catalog.v1.CatalogService.RemoveCourseFromProgram:input_type -> catalog.v1.RemoveCourseFromProgramRequest
+	50, // 29: catalog.v1.CatalogService.ListProgramCourses:input_type -> catalog.v1.ListProgramCoursesRequest
+	7,  // 30: catalog.v1.CatalogService.CreateSection:input_type -> catalog.v1.CreateSectionRequest
+	8,  // 31: catalog.v1.CatalogService.UpdateSection:input_type -> catalog.v1.UpdateSectionRequest
+	9,  // 32: catalog.v1.CatalogService.GetSection:input_type -> catalog.v1.GetSectionRequest
+	10, // 33: catalog.v1.CatalogService.ListSections:input_type -> catalog.v1.ListSectionsRequest
+	12, // 34: catalog.v1.CatalogService.DeleteSection:input_type -> catalog.v1.DeleteSectionRequest
+	14, // 35: catalog.v1.CatalogService.AssignTeacherToSection:input_type -> catalog.v1.AssignTeacherToSectionRequest
+	15, // 36: catalog.v1.CatalogService.RemoveTeacherFromSection:input_type -> catalog.v1.RemoveTeacherFromSectionRequest
+	17, // 37: catalog.v1.CatalogService.ListSectionTeachers:input_type -> catalog.v1.ListSectionTeachersRequest
+	0,  // 38: catalog.v1.CatalogService.CreateProgram:output_type -> catalog.v1.Program
+	0,  // 39: catalog.v1.CatalogService.UpdateProgram:output_type -> catalog.v1.Program
+	0,  // 40: catalog.v1.CatalogService.GetProgram:output_type -> catalog.v1.Program
+	23, // 41: catalog.v1.CatalogService.ListPrograms:output_type -> catalog.v1.ListProgramsResponse
+	25, // 42: catalog.v1.CatalogService.DeleteProgram:output_type -> catalog.v1.DeleteProgramResponse
+	1,  // 43: catalog.v1.CatalogService.CreateCourse:output_type -> catalog.v1.Course
+	1,  // 44: catalog.v1.CatalogService.UpdateCourse:output_type -> catalog.v1.Course
+	1,  // 45: catalog.v1.CatalogService.GetCourse:output_type -> catalog.v1.Course
+	30, // 46: catalog.v1.CatalogService.ListCourses:output_type -> catalog.v1.ListCoursesResponse
+	32, // 47: catalog.v1.CatalogService.DeleteCourse:output_type -> catalog.v1.DeleteCourseResponse
+	2,  // 48: catalog.v1.CatalogService.CreateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
+	2,  // 49: catalog.v1.CatalogService.UpdateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
+	2,  // 50: catalog.v1.CatalogService.GetAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
+	37, // 51: catalog.v1.CatalogService.ListAcademicPeriods:output_type -> catalog.v1.ListAcademicPeriodsResponse
+	39, // 52: catalog.v1.CatalogService.DeleteAcademicPeriod:output_type -> catalog.v1.DeleteAcademicPeriodResponse
+	3,  // 53: catalog.v1.CatalogService.CreateProgramQuota:output_type -> catalog.v1.ProgramQuota
+	3,  // 54: catalog.v1.CatalogService.UpdateProgramQuota:output_type -> catalog.v1.ProgramQuota
+	3,  // 55: catalog.v1.CatalogService.GetProgramQuota:output_type -> catalog.v1.ProgramQuota
+	44, // 56: catalog.v1.CatalogService.ListProgramQuotas:output_type -> catalog.v1.ListProgramQuotasResponse
+	46, // 57: catalog.v1.CatalogService.DeleteProgramQuota:output_type -> catalog.v1.DeleteProgramQuotaResponse
+	4,  // 58: catalog.v1.CatalogService.AddCourseToProgram:output_type -> catalog.v1.ProgramCourse
+	49, // 59: catalog.v1.CatalogService.RemoveCourseFromProgram:output_type -> catalog.v1.RemoveCourseFromProgramResponse
+	51, // 60: catalog.v1.CatalogService.ListProgramCourses:output_type -> catalog.v1.ListProgramCoursesResponse
+	5,  // 61: catalog.v1.CatalogService.CreateSection:output_type -> catalog.v1.Section
+	5,  // 62: catalog.v1.CatalogService.UpdateSection:output_type -> catalog.v1.Section
+	5,  // 63: catalog.v1.CatalogService.GetSection:output_type -> catalog.v1.Section
+	11, // 64: catalog.v1.CatalogService.ListSections:output_type -> catalog.v1.ListSectionsResponse
+	13, // 65: catalog.v1.CatalogService.DeleteSection:output_type -> catalog.v1.DeleteSectionResponse
+	6,  // 66: catalog.v1.CatalogService.AssignTeacherToSection:output_type -> catalog.v1.SectionTeacher
+	16, // 67: catalog.v1.CatalogService.RemoveTeacherFromSection:output_type -> catalog.v1.RemoveTeacherFromSectionResponse
+	18, // 68: catalog.v1.CatalogService.ListSectionTeachers:output_type -> catalog.v1.ListSectionTeachersResponse
+	38, // [38:69] is the sub-list for method output_type
+	7,  // [7:38] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_catalog_v1_catalog_proto_init() }
@@ -2373,13 +3206,15 @@ func file_catalog_v1_catalog_proto_init() {
 	file_catalog_v1_catalog_proto_msgTypes[1].OneofWrappers = []any{}
 	file_catalog_v1_catalog_proto_msgTypes[2].OneofWrappers = []any{}
 	file_catalog_v1_catalog_proto_msgTypes[3].OneofWrappers = []any{}
+	file_catalog_v1_catalog_proto_msgTypes[5].OneofWrappers = []any{}
+	file_catalog_v1_catalog_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_catalog_v1_catalog_proto_rawDesc), len(file_catalog_v1_catalog_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   38,
+			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

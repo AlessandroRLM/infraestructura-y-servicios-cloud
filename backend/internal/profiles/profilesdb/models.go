@@ -81,6 +81,24 @@ type RolePermission struct {
 	CreatedAt    pgtype.Timestamptz
 }
 
+type Section struct {
+	ID               pgtype.UUID
+	CourseID         pgtype.UUID
+	AcademicPeriodID pgtype.UUID
+	Capacity         int32
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
+	DeletedAt        pgtype.Timestamptz
+	CreatedBy        pgtype.UUID
+	UpdatedBy        pgtype.UUID
+}
+
+type SectionTeacher struct {
+	SectionID pgtype.UUID
+	TeacherID pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+}
+
 type StudentProfile struct {
 	UserID        pgtype.UUID
 	AdmissionYear int32

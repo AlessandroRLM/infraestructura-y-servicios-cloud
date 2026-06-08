@@ -102,6 +102,30 @@ const (
 	// CatalogServiceListProgramCoursesProcedure is the fully-qualified name of the CatalogService's
 	// ListProgramCourses RPC.
 	CatalogServiceListProgramCoursesProcedure = "/catalog.v1.CatalogService/ListProgramCourses"
+	// CatalogServiceCreateSectionProcedure is the fully-qualified name of the CatalogService's
+	// CreateSection RPC.
+	CatalogServiceCreateSectionProcedure = "/catalog.v1.CatalogService/CreateSection"
+	// CatalogServiceUpdateSectionProcedure is the fully-qualified name of the CatalogService's
+	// UpdateSection RPC.
+	CatalogServiceUpdateSectionProcedure = "/catalog.v1.CatalogService/UpdateSection"
+	// CatalogServiceGetSectionProcedure is the fully-qualified name of the CatalogService's GetSection
+	// RPC.
+	CatalogServiceGetSectionProcedure = "/catalog.v1.CatalogService/GetSection"
+	// CatalogServiceListSectionsProcedure is the fully-qualified name of the CatalogService's
+	// ListSections RPC.
+	CatalogServiceListSectionsProcedure = "/catalog.v1.CatalogService/ListSections"
+	// CatalogServiceDeleteSectionProcedure is the fully-qualified name of the CatalogService's
+	// DeleteSection RPC.
+	CatalogServiceDeleteSectionProcedure = "/catalog.v1.CatalogService/DeleteSection"
+	// CatalogServiceAssignTeacherToSectionProcedure is the fully-qualified name of the CatalogService's
+	// AssignTeacherToSection RPC.
+	CatalogServiceAssignTeacherToSectionProcedure = "/catalog.v1.CatalogService/AssignTeacherToSection"
+	// CatalogServiceRemoveTeacherFromSectionProcedure is the fully-qualified name of the
+	// CatalogService's RemoveTeacherFromSection RPC.
+	CatalogServiceRemoveTeacherFromSectionProcedure = "/catalog.v1.CatalogService/RemoveTeacherFromSection"
+	// CatalogServiceListSectionTeachersProcedure is the fully-qualified name of the CatalogService's
+	// ListSectionTeachers RPC.
+	CatalogServiceListSectionTeachersProcedure = "/catalog.v1.CatalogService/ListSectionTeachers"
 )
 
 // CatalogServiceClient is a client for the catalog.v1.CatalogService service.
@@ -134,6 +158,16 @@ type CatalogServiceClient interface {
 	AddCourseToProgram(context.Context, *connect.Request[v1.AddCourseToProgramRequest]) (*connect.Response[v1.ProgramCourse], error)
 	RemoveCourseFromProgram(context.Context, *connect.Request[v1.RemoveCourseFromProgramRequest]) (*connect.Response[v1.RemoveCourseFromProgramResponse], error)
 	ListProgramCourses(context.Context, *connect.Request[v1.ListProgramCoursesRequest]) (*connect.Response[v1.ListProgramCoursesResponse], error)
+	// Section procedures — require catalog.manage permission.
+	CreateSection(context.Context, *connect.Request[v1.CreateSectionRequest]) (*connect.Response[v1.Section], error)
+	UpdateSection(context.Context, *connect.Request[v1.UpdateSectionRequest]) (*connect.Response[v1.Section], error)
+	GetSection(context.Context, *connect.Request[v1.GetSectionRequest]) (*connect.Response[v1.Section], error)
+	ListSections(context.Context, *connect.Request[v1.ListSectionsRequest]) (*connect.Response[v1.ListSectionsResponse], error)
+	DeleteSection(context.Context, *connect.Request[v1.DeleteSectionRequest]) (*connect.Response[v1.DeleteSectionResponse], error)
+	// Section-teacher M:N association procedures — require catalog.manage permission.
+	AssignTeacherToSection(context.Context, *connect.Request[v1.AssignTeacherToSectionRequest]) (*connect.Response[v1.SectionTeacher], error)
+	RemoveTeacherFromSection(context.Context, *connect.Request[v1.RemoveTeacherFromSectionRequest]) (*connect.Response[v1.RemoveTeacherFromSectionResponse], error)
+	ListSectionTeachers(context.Context, *connect.Request[v1.ListSectionTeachersRequest]) (*connect.Response[v1.ListSectionTeachersResponse], error)
 }
 
 // NewCatalogServiceClient constructs a client for the catalog.v1.CatalogService service. By
@@ -285,34 +319,90 @@ func NewCatalogServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(catalogServiceMethods.ByName("ListProgramCourses")),
 			connect.WithClientOptions(opts...),
 		),
+		createSection: connect.NewClient[v1.CreateSectionRequest, v1.Section](
+			httpClient,
+			baseURL+CatalogServiceCreateSectionProcedure,
+			connect.WithSchema(catalogServiceMethods.ByName("CreateSection")),
+			connect.WithClientOptions(opts...),
+		),
+		updateSection: connect.NewClient[v1.UpdateSectionRequest, v1.Section](
+			httpClient,
+			baseURL+CatalogServiceUpdateSectionProcedure,
+			connect.WithSchema(catalogServiceMethods.ByName("UpdateSection")),
+			connect.WithClientOptions(opts...),
+		),
+		getSection: connect.NewClient[v1.GetSectionRequest, v1.Section](
+			httpClient,
+			baseURL+CatalogServiceGetSectionProcedure,
+			connect.WithSchema(catalogServiceMethods.ByName("GetSection")),
+			connect.WithClientOptions(opts...),
+		),
+		listSections: connect.NewClient[v1.ListSectionsRequest, v1.ListSectionsResponse](
+			httpClient,
+			baseURL+CatalogServiceListSectionsProcedure,
+			connect.WithSchema(catalogServiceMethods.ByName("ListSections")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteSection: connect.NewClient[v1.DeleteSectionRequest, v1.DeleteSectionResponse](
+			httpClient,
+			baseURL+CatalogServiceDeleteSectionProcedure,
+			connect.WithSchema(catalogServiceMethods.ByName("DeleteSection")),
+			connect.WithClientOptions(opts...),
+		),
+		assignTeacherToSection: connect.NewClient[v1.AssignTeacherToSectionRequest, v1.SectionTeacher](
+			httpClient,
+			baseURL+CatalogServiceAssignTeacherToSectionProcedure,
+			connect.WithSchema(catalogServiceMethods.ByName("AssignTeacherToSection")),
+			connect.WithClientOptions(opts...),
+		),
+		removeTeacherFromSection: connect.NewClient[v1.RemoveTeacherFromSectionRequest, v1.RemoveTeacherFromSectionResponse](
+			httpClient,
+			baseURL+CatalogServiceRemoveTeacherFromSectionProcedure,
+			connect.WithSchema(catalogServiceMethods.ByName("RemoveTeacherFromSection")),
+			connect.WithClientOptions(opts...),
+		),
+		listSectionTeachers: connect.NewClient[v1.ListSectionTeachersRequest, v1.ListSectionTeachersResponse](
+			httpClient,
+			baseURL+CatalogServiceListSectionTeachersProcedure,
+			connect.WithSchema(catalogServiceMethods.ByName("ListSectionTeachers")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // catalogServiceClient implements CatalogServiceClient.
 type catalogServiceClient struct {
-	createProgram           *connect.Client[v1.CreateProgramRequest, v1.Program]
-	updateProgram           *connect.Client[v1.UpdateProgramRequest, v1.Program]
-	getProgram              *connect.Client[v1.GetProgramRequest, v1.Program]
-	listPrograms            *connect.Client[v1.ListProgramsRequest, v1.ListProgramsResponse]
-	deleteProgram           *connect.Client[v1.DeleteProgramRequest, v1.DeleteProgramResponse]
-	createCourse            *connect.Client[v1.CreateCourseRequest, v1.Course]
-	updateCourse            *connect.Client[v1.UpdateCourseRequest, v1.Course]
-	getCourse               *connect.Client[v1.GetCourseRequest, v1.Course]
-	listCourses             *connect.Client[v1.ListCoursesRequest, v1.ListCoursesResponse]
-	deleteCourse            *connect.Client[v1.DeleteCourseRequest, v1.DeleteCourseResponse]
-	createAcademicPeriod    *connect.Client[v1.CreateAcademicPeriodRequest, v1.AcademicPeriod]
-	updateAcademicPeriod    *connect.Client[v1.UpdateAcademicPeriodRequest, v1.AcademicPeriod]
-	getAcademicPeriod       *connect.Client[v1.GetAcademicPeriodRequest, v1.AcademicPeriod]
-	listAcademicPeriods     *connect.Client[v1.ListAcademicPeriodsRequest, v1.ListAcademicPeriodsResponse]
-	deleteAcademicPeriod    *connect.Client[v1.DeleteAcademicPeriodRequest, v1.DeleteAcademicPeriodResponse]
-	createProgramQuota      *connect.Client[v1.CreateProgramQuotaRequest, v1.ProgramQuota]
-	updateProgramQuota      *connect.Client[v1.UpdateProgramQuotaRequest, v1.ProgramQuota]
-	getProgramQuota         *connect.Client[v1.GetProgramQuotaRequest, v1.ProgramQuota]
-	listProgramQuotas       *connect.Client[v1.ListProgramQuotasRequest, v1.ListProgramQuotasResponse]
-	deleteProgramQuota      *connect.Client[v1.DeleteProgramQuotaRequest, v1.DeleteProgramQuotaResponse]
-	addCourseToProgram      *connect.Client[v1.AddCourseToProgramRequest, v1.ProgramCourse]
-	removeCourseFromProgram *connect.Client[v1.RemoveCourseFromProgramRequest, v1.RemoveCourseFromProgramResponse]
-	listProgramCourses      *connect.Client[v1.ListProgramCoursesRequest, v1.ListProgramCoursesResponse]
+	createProgram            *connect.Client[v1.CreateProgramRequest, v1.Program]
+	updateProgram            *connect.Client[v1.UpdateProgramRequest, v1.Program]
+	getProgram               *connect.Client[v1.GetProgramRequest, v1.Program]
+	listPrograms             *connect.Client[v1.ListProgramsRequest, v1.ListProgramsResponse]
+	deleteProgram            *connect.Client[v1.DeleteProgramRequest, v1.DeleteProgramResponse]
+	createCourse             *connect.Client[v1.CreateCourseRequest, v1.Course]
+	updateCourse             *connect.Client[v1.UpdateCourseRequest, v1.Course]
+	getCourse                *connect.Client[v1.GetCourseRequest, v1.Course]
+	listCourses              *connect.Client[v1.ListCoursesRequest, v1.ListCoursesResponse]
+	deleteCourse             *connect.Client[v1.DeleteCourseRequest, v1.DeleteCourseResponse]
+	createAcademicPeriod     *connect.Client[v1.CreateAcademicPeriodRequest, v1.AcademicPeriod]
+	updateAcademicPeriod     *connect.Client[v1.UpdateAcademicPeriodRequest, v1.AcademicPeriod]
+	getAcademicPeriod        *connect.Client[v1.GetAcademicPeriodRequest, v1.AcademicPeriod]
+	listAcademicPeriods      *connect.Client[v1.ListAcademicPeriodsRequest, v1.ListAcademicPeriodsResponse]
+	deleteAcademicPeriod     *connect.Client[v1.DeleteAcademicPeriodRequest, v1.DeleteAcademicPeriodResponse]
+	createProgramQuota       *connect.Client[v1.CreateProgramQuotaRequest, v1.ProgramQuota]
+	updateProgramQuota       *connect.Client[v1.UpdateProgramQuotaRequest, v1.ProgramQuota]
+	getProgramQuota          *connect.Client[v1.GetProgramQuotaRequest, v1.ProgramQuota]
+	listProgramQuotas        *connect.Client[v1.ListProgramQuotasRequest, v1.ListProgramQuotasResponse]
+	deleteProgramQuota       *connect.Client[v1.DeleteProgramQuotaRequest, v1.DeleteProgramQuotaResponse]
+	addCourseToProgram       *connect.Client[v1.AddCourseToProgramRequest, v1.ProgramCourse]
+	removeCourseFromProgram  *connect.Client[v1.RemoveCourseFromProgramRequest, v1.RemoveCourseFromProgramResponse]
+	listProgramCourses       *connect.Client[v1.ListProgramCoursesRequest, v1.ListProgramCoursesResponse]
+	createSection            *connect.Client[v1.CreateSectionRequest, v1.Section]
+	updateSection            *connect.Client[v1.UpdateSectionRequest, v1.Section]
+	getSection               *connect.Client[v1.GetSectionRequest, v1.Section]
+	listSections             *connect.Client[v1.ListSectionsRequest, v1.ListSectionsResponse]
+	deleteSection            *connect.Client[v1.DeleteSectionRequest, v1.DeleteSectionResponse]
+	assignTeacherToSection   *connect.Client[v1.AssignTeacherToSectionRequest, v1.SectionTeacher]
+	removeTeacherFromSection *connect.Client[v1.RemoveTeacherFromSectionRequest, v1.RemoveTeacherFromSectionResponse]
+	listSectionTeachers      *connect.Client[v1.ListSectionTeachersRequest, v1.ListSectionTeachersResponse]
 }
 
 // CreateProgram calls catalog.v1.CatalogService.CreateProgram.
@@ -430,6 +520,46 @@ func (c *catalogServiceClient) ListProgramCourses(ctx context.Context, req *conn
 	return c.listProgramCourses.CallUnary(ctx, req)
 }
 
+// CreateSection calls catalog.v1.CatalogService.CreateSection.
+func (c *catalogServiceClient) CreateSection(ctx context.Context, req *connect.Request[v1.CreateSectionRequest]) (*connect.Response[v1.Section], error) {
+	return c.createSection.CallUnary(ctx, req)
+}
+
+// UpdateSection calls catalog.v1.CatalogService.UpdateSection.
+func (c *catalogServiceClient) UpdateSection(ctx context.Context, req *connect.Request[v1.UpdateSectionRequest]) (*connect.Response[v1.Section], error) {
+	return c.updateSection.CallUnary(ctx, req)
+}
+
+// GetSection calls catalog.v1.CatalogService.GetSection.
+func (c *catalogServiceClient) GetSection(ctx context.Context, req *connect.Request[v1.GetSectionRequest]) (*connect.Response[v1.Section], error) {
+	return c.getSection.CallUnary(ctx, req)
+}
+
+// ListSections calls catalog.v1.CatalogService.ListSections.
+func (c *catalogServiceClient) ListSections(ctx context.Context, req *connect.Request[v1.ListSectionsRequest]) (*connect.Response[v1.ListSectionsResponse], error) {
+	return c.listSections.CallUnary(ctx, req)
+}
+
+// DeleteSection calls catalog.v1.CatalogService.DeleteSection.
+func (c *catalogServiceClient) DeleteSection(ctx context.Context, req *connect.Request[v1.DeleteSectionRequest]) (*connect.Response[v1.DeleteSectionResponse], error) {
+	return c.deleteSection.CallUnary(ctx, req)
+}
+
+// AssignTeacherToSection calls catalog.v1.CatalogService.AssignTeacherToSection.
+func (c *catalogServiceClient) AssignTeacherToSection(ctx context.Context, req *connect.Request[v1.AssignTeacherToSectionRequest]) (*connect.Response[v1.SectionTeacher], error) {
+	return c.assignTeacherToSection.CallUnary(ctx, req)
+}
+
+// RemoveTeacherFromSection calls catalog.v1.CatalogService.RemoveTeacherFromSection.
+func (c *catalogServiceClient) RemoveTeacherFromSection(ctx context.Context, req *connect.Request[v1.RemoveTeacherFromSectionRequest]) (*connect.Response[v1.RemoveTeacherFromSectionResponse], error) {
+	return c.removeTeacherFromSection.CallUnary(ctx, req)
+}
+
+// ListSectionTeachers calls catalog.v1.CatalogService.ListSectionTeachers.
+func (c *catalogServiceClient) ListSectionTeachers(ctx context.Context, req *connect.Request[v1.ListSectionTeachersRequest]) (*connect.Response[v1.ListSectionTeachersResponse], error) {
+	return c.listSectionTeachers.CallUnary(ctx, req)
+}
+
 // CatalogServiceHandler is an implementation of the catalog.v1.CatalogService service.
 type CatalogServiceHandler interface {
 	// Program procedures — require catalog.manage permission.
@@ -460,6 +590,16 @@ type CatalogServiceHandler interface {
 	AddCourseToProgram(context.Context, *connect.Request[v1.AddCourseToProgramRequest]) (*connect.Response[v1.ProgramCourse], error)
 	RemoveCourseFromProgram(context.Context, *connect.Request[v1.RemoveCourseFromProgramRequest]) (*connect.Response[v1.RemoveCourseFromProgramResponse], error)
 	ListProgramCourses(context.Context, *connect.Request[v1.ListProgramCoursesRequest]) (*connect.Response[v1.ListProgramCoursesResponse], error)
+	// Section procedures — require catalog.manage permission.
+	CreateSection(context.Context, *connect.Request[v1.CreateSectionRequest]) (*connect.Response[v1.Section], error)
+	UpdateSection(context.Context, *connect.Request[v1.UpdateSectionRequest]) (*connect.Response[v1.Section], error)
+	GetSection(context.Context, *connect.Request[v1.GetSectionRequest]) (*connect.Response[v1.Section], error)
+	ListSections(context.Context, *connect.Request[v1.ListSectionsRequest]) (*connect.Response[v1.ListSectionsResponse], error)
+	DeleteSection(context.Context, *connect.Request[v1.DeleteSectionRequest]) (*connect.Response[v1.DeleteSectionResponse], error)
+	// Section-teacher M:N association procedures — require catalog.manage permission.
+	AssignTeacherToSection(context.Context, *connect.Request[v1.AssignTeacherToSectionRequest]) (*connect.Response[v1.SectionTeacher], error)
+	RemoveTeacherFromSection(context.Context, *connect.Request[v1.RemoveTeacherFromSectionRequest]) (*connect.Response[v1.RemoveTeacherFromSectionResponse], error)
+	ListSectionTeachers(context.Context, *connect.Request[v1.ListSectionTeachersRequest]) (*connect.Response[v1.ListSectionTeachersResponse], error)
 }
 
 // NewCatalogServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -607,6 +747,54 @@ func NewCatalogServiceHandler(svc CatalogServiceHandler, opts ...connect.Handler
 		connect.WithSchema(catalogServiceMethods.ByName("ListProgramCourses")),
 		connect.WithHandlerOptions(opts...),
 	)
+	catalogServiceCreateSectionHandler := connect.NewUnaryHandler(
+		CatalogServiceCreateSectionProcedure,
+		svc.CreateSection,
+		connect.WithSchema(catalogServiceMethods.ByName("CreateSection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	catalogServiceUpdateSectionHandler := connect.NewUnaryHandler(
+		CatalogServiceUpdateSectionProcedure,
+		svc.UpdateSection,
+		connect.WithSchema(catalogServiceMethods.ByName("UpdateSection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	catalogServiceGetSectionHandler := connect.NewUnaryHandler(
+		CatalogServiceGetSectionProcedure,
+		svc.GetSection,
+		connect.WithSchema(catalogServiceMethods.ByName("GetSection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	catalogServiceListSectionsHandler := connect.NewUnaryHandler(
+		CatalogServiceListSectionsProcedure,
+		svc.ListSections,
+		connect.WithSchema(catalogServiceMethods.ByName("ListSections")),
+		connect.WithHandlerOptions(opts...),
+	)
+	catalogServiceDeleteSectionHandler := connect.NewUnaryHandler(
+		CatalogServiceDeleteSectionProcedure,
+		svc.DeleteSection,
+		connect.WithSchema(catalogServiceMethods.ByName("DeleteSection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	catalogServiceAssignTeacherToSectionHandler := connect.NewUnaryHandler(
+		CatalogServiceAssignTeacherToSectionProcedure,
+		svc.AssignTeacherToSection,
+		connect.WithSchema(catalogServiceMethods.ByName("AssignTeacherToSection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	catalogServiceRemoveTeacherFromSectionHandler := connect.NewUnaryHandler(
+		CatalogServiceRemoveTeacherFromSectionProcedure,
+		svc.RemoveTeacherFromSection,
+		connect.WithSchema(catalogServiceMethods.ByName("RemoveTeacherFromSection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	catalogServiceListSectionTeachersHandler := connect.NewUnaryHandler(
+		CatalogServiceListSectionTeachersProcedure,
+		svc.ListSectionTeachers,
+		connect.WithSchema(catalogServiceMethods.ByName("ListSectionTeachers")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/catalog.v1.CatalogService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CatalogServiceCreateProgramProcedure:
@@ -655,6 +843,22 @@ func NewCatalogServiceHandler(svc CatalogServiceHandler, opts ...connect.Handler
 			catalogServiceRemoveCourseFromProgramHandler.ServeHTTP(w, r)
 		case CatalogServiceListProgramCoursesProcedure:
 			catalogServiceListProgramCoursesHandler.ServeHTTP(w, r)
+		case CatalogServiceCreateSectionProcedure:
+			catalogServiceCreateSectionHandler.ServeHTTP(w, r)
+		case CatalogServiceUpdateSectionProcedure:
+			catalogServiceUpdateSectionHandler.ServeHTTP(w, r)
+		case CatalogServiceGetSectionProcedure:
+			catalogServiceGetSectionHandler.ServeHTTP(w, r)
+		case CatalogServiceListSectionsProcedure:
+			catalogServiceListSectionsHandler.ServeHTTP(w, r)
+		case CatalogServiceDeleteSectionProcedure:
+			catalogServiceDeleteSectionHandler.ServeHTTP(w, r)
+		case CatalogServiceAssignTeacherToSectionProcedure:
+			catalogServiceAssignTeacherToSectionHandler.ServeHTTP(w, r)
+		case CatalogServiceRemoveTeacherFromSectionProcedure:
+			catalogServiceRemoveTeacherFromSectionHandler.ServeHTTP(w, r)
+		case CatalogServiceListSectionTeachersProcedure:
+			catalogServiceListSectionTeachersHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -754,4 +958,36 @@ func (UnimplementedCatalogServiceHandler) RemoveCourseFromProgram(context.Contex
 
 func (UnimplementedCatalogServiceHandler) ListProgramCourses(context.Context, *connect.Request[v1.ListProgramCoursesRequest]) (*connect.Response[v1.ListProgramCoursesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.ListProgramCourses is not implemented"))
+}
+
+func (UnimplementedCatalogServiceHandler) CreateSection(context.Context, *connect.Request[v1.CreateSectionRequest]) (*connect.Response[v1.Section], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.CreateSection is not implemented"))
+}
+
+func (UnimplementedCatalogServiceHandler) UpdateSection(context.Context, *connect.Request[v1.UpdateSectionRequest]) (*connect.Response[v1.Section], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.UpdateSection is not implemented"))
+}
+
+func (UnimplementedCatalogServiceHandler) GetSection(context.Context, *connect.Request[v1.GetSectionRequest]) (*connect.Response[v1.Section], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.GetSection is not implemented"))
+}
+
+func (UnimplementedCatalogServiceHandler) ListSections(context.Context, *connect.Request[v1.ListSectionsRequest]) (*connect.Response[v1.ListSectionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.ListSections is not implemented"))
+}
+
+func (UnimplementedCatalogServiceHandler) DeleteSection(context.Context, *connect.Request[v1.DeleteSectionRequest]) (*connect.Response[v1.DeleteSectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.DeleteSection is not implemented"))
+}
+
+func (UnimplementedCatalogServiceHandler) AssignTeacherToSection(context.Context, *connect.Request[v1.AssignTeacherToSectionRequest]) (*connect.Response[v1.SectionTeacher], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.AssignTeacherToSection is not implemented"))
+}
+
+func (UnimplementedCatalogServiceHandler) RemoveTeacherFromSection(context.Context, *connect.Request[v1.RemoveTeacherFromSectionRequest]) (*connect.Response[v1.RemoveTeacherFromSectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.RemoveTeacherFromSection is not implemented"))
+}
+
+func (UnimplementedCatalogServiceHandler) ListSectionTeachers(context.Context, *connect.Request[v1.ListSectionTeachersRequest]) (*connect.Response[v1.ListSectionTeachersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.ListSectionTeachers is not implemented"))
 }

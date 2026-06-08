@@ -37,6 +37,18 @@ service CatalogService {
   rpc AddCourseToProgram(AddCourseToProgramRequest) returns (ProgramCourse);
   rpc RemoveCourseFromProgram(RemoveCourseFromProgramRequest) returns (RemoveCourseFromProgramResponse);
   rpc ListProgramCourses(ListProgramCoursesRequest) returns (ListProgramCoursesResponse);
+
+  // Section procedures — require catalog.manage permission.
+  rpc CreateSection(CreateSectionRequest) returns (Section);
+  rpc UpdateSection(UpdateSectionRequest) returns (Section);
+  rpc GetSection(GetSectionRequest) returns (Section);
+  rpc ListSections(ListSectionsRequest) returns (ListSectionsResponse);
+  rpc DeleteSection(DeleteSectionRequest) returns (DeleteSectionResponse);
+
+  // Section-teacher M:N association procedures — require catalog.manage permission.
+  rpc AssignTeacherToSection(AssignTeacherToSectionRequest) returns (SectionTeacher);
+  rpc RemoveTeacherFromSection(RemoveTeacherFromSectionRequest) returns (RemoveTeacherFromSectionResponse);
+  rpc ListSectionTeachers(ListSectionTeachersRequest) returns (ListSectionTeachersResponse);
 }
 
 // Program represents an academic program (carrera).
@@ -96,6 +108,81 @@ message ProgramCourse {
   string program_id = 1;
   string course_id  = 2;
   string created_at = 3;
+}
+
+// Section represents a scheduled instance of a course in an academic period.
+// seat_capacity maps to sections.capacity (disambiguated from admission_quota on ProgramQuota).
+message Section {
+  string          id                 = 1;
+  string          course_id          = 2;
+  string          academic_period_id = 3;
+  int32           seat_capacity      = 4;
+  string          created_at         = 5;
+  string          updated_at         = 6;
+  optional string deleted_at         = 7;
+  optional string created_by         = 8;
+  optional string updated_by         = 9;
+}
+
+// SectionTeacher represents a single teacher-to-section assignment.
+message SectionTeacher {
+  string section_id = 1;
+  string teacher_id = 2;
+  string created_at = 3;
+}
+
+// --- Section request/response messages ---
+
+message CreateSectionRequest {
+  string course_id          = 1;
+  string academic_period_id = 2;
+  int32  seat_capacity      = 3;
+}
+
+message UpdateSectionRequest {
+  string id            = 1;
+  int32  seat_capacity = 2;
+}
+
+message GetSectionRequest {
+  string id = 1;
+}
+
+message ListSectionsRequest {
+  optional string course_id          = 1;
+  optional string academic_period_id = 2;
+}
+
+message ListSectionsResponse {
+  repeated Section sections = 1;
+}
+
+message DeleteSectionRequest {
+  string id = 1;
+}
+
+message DeleteSectionResponse {}
+
+// --- Section-teacher M:N request/response messages ---
+
+message AssignTeacherToSectionRequest {
+  string section_id = 1;
+  string teacher_id = 2;
+}
+
+message RemoveTeacherFromSectionRequest {
+  string section_id = 1;
+  string teacher_id = 2;
+}
+
+message RemoveTeacherFromSectionResponse {}
+
+message ListSectionTeachersRequest {
+  string section_id = 1;
+}
+
+message ListSectionTeachersResponse {
+  repeated SectionTeacher section_teachers = 1;
 }
 
 // --- Program request/response messages ---

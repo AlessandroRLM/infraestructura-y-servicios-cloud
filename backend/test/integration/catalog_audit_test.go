@@ -89,6 +89,68 @@ func TestCatalog_Audit_AcademicPeriodNoCreatedBy(t *testing.T) {
 	}
 }
 
+// TestCatalog_Audit_SoftDeleteProgram_UpdatedBySet verifies that soft-deleting a program sets updated_by.
+func TestCatalog_Audit_SoftDeleteProgram_UpdatedBySet(t *testing.T) {
+	ctx := context.Background()
+	adminID := seedUserWithRole(t, "catalog-audit-del-prog@catalog.test", "admin")
+	adminSID := seedSessionInRedis(t, adminID, time.Hour)
+	client := newCatalogClient(nil)
+
+	resp, err := client.CreateProgram(ctx, withSID(connect.NewRequest(&catalogv1.CreateProgramRequest{
+		Code: "AUDIT-DEL-P-" + uuid.New().String()[:8], Name: "Audit Delete Program",
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("CreateProgram: %v", err)
+	}
+	id := resp.Msg.GetId()
+	t.Cleanup(func() {
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM programs WHERE id = $1`, id)
+	})
+
+	if _, err := client.DeleteProgram(ctx, withSID(connect.NewRequest(&catalogv1.DeleteProgramRequest{Id: id}), adminSID)); err != nil {
+		t.Fatalf("DeleteProgram: %v", err)
+	}
+
+	var updatedBy string
+	if err := pgxPool.QueryRow(ctx, `SELECT updated_by::text FROM programs WHERE id = $1`, id).Scan(&updatedBy); err != nil {
+		t.Fatalf("SELECT programs.updated_by after soft-delete: %v", err)
+	}
+	if updatedBy != adminID.String() {
+		t.Errorf("programs.updated_by after soft-delete = %q, want %q", updatedBy, adminID.String())
+	}
+}
+
+// TestCatalog_Audit_SoftDeleteCourse_UpdatedBySet verifies that soft-deleting a course sets updated_by.
+func TestCatalog_Audit_SoftDeleteCourse_UpdatedBySet(t *testing.T) {
+	ctx := context.Background()
+	adminID := seedUserWithRole(t, "catalog-audit-del-course@catalog.test", "admin")
+	adminSID := seedSessionInRedis(t, adminID, time.Hour)
+	client := newCatalogClient(nil)
+
+	resp, err := client.CreateCourse(ctx, withSID(connect.NewRequest(&catalogv1.CreateCourseRequest{
+		Code: "AUDIT-DEL-C-" + uuid.New().String()[:8], Name: "Audit Delete Course", Credits: 3,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+	id := resp.Msg.GetId()
+	t.Cleanup(func() {
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM courses WHERE id = $1`, id)
+	})
+
+	if _, err := client.DeleteCourse(ctx, withSID(connect.NewRequest(&catalogv1.DeleteCourseRequest{Id: id}), adminSID)); err != nil {
+		t.Fatalf("DeleteCourse: %v", err)
+	}
+
+	var updatedBy string
+	if err := pgxPool.QueryRow(ctx, `SELECT updated_by::text FROM courses WHERE id = $1`, id).Scan(&updatedBy); err != nil {
+		t.Fatalf("SELECT courses.updated_by after soft-delete: %v", err)
+	}
+	if updatedBy != adminID.String() {
+		t.Errorf("courses.updated_by after soft-delete = %q, want %q", updatedBy, adminID.String())
+	}
+}
+
 // TestCatalog_Audit_ProgramQuotaCreatedBySet verifies created_by for program_quotas.
 func TestCatalog_Audit_ProgramQuotaCreatedBySet(t *testing.T) {
 	ctx := context.Background()

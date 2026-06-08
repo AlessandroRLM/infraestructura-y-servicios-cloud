@@ -109,7 +109,7 @@ func (s *Service) DeleteProgram(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("%w: program has %d live quota(s)", ErrHasDependents, q)
 	}
 
-	return s.repo.SoftDeleteProgram(ctx, id)
+	return s.repo.SoftDeleteProgram(ctx, id, actorFromContext(ctx))
 }
 
 // --- Courses ---
@@ -152,8 +152,7 @@ func (s *Service) ListCourses(ctx context.Context) ([]catalogdb.Course, error) {
 	return s.repo.ListCourses(ctx)
 }
 
-// DeleteCourse soft-deletes a course after verifying no live program associations exist.
-// Sections dependent check is deferred to PR 2 (sections table does not exist yet).
+// DeleteCourse soft-deletes a course after verifying no live program associations or live sections exist.
 func (s *Service) DeleteCourse(ctx context.Context, id uuid.UUID) error {
 	n, err := s.repo.CountCourseProgramAssociations(ctx, id)
 	if err != nil {
@@ -163,8 +162,15 @@ func (s *Service) DeleteCourse(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("%w: course has %d program association(s)", ErrHasDependents, n)
 	}
 
-	// TODO(PR2): add sections dependent check here once the sections table is introduced.
-	return s.repo.SoftDeleteCourse(ctx, id)
+	sec, err := s.repo.CountLiveSectionsByCourse(ctx, id)
+	if err != nil {
+		return err
+	}
+	if sec > 0 {
+		return fmt.Errorf("%w: course has %d live section(s)", ErrHasDependents, sec)
+	}
+
+	return s.repo.SoftDeleteCourse(ctx, id, actorFromContext(ctx))
 }
 
 // --- Program-course M:N ---
@@ -231,9 +237,16 @@ func (s *Service) ListAcademicPeriods(ctx context.Context) ([]catalogdb.Academic
 	return s.repo.ListAcademicPeriods(ctx)
 }
 
-// DeleteAcademicPeriod soft-deletes an academic period.
-// In PR 1 there are no sections to block on; the check will be wired in PR 2.
+// DeleteAcademicPeriod soft-deletes an academic period after verifying no live sections reference it.
 func (s *Service) DeleteAcademicPeriod(ctx context.Context, id uuid.UUID) error {
+	sec, err := s.repo.CountLiveSectionsByAcademicPeriod(ctx, id)
+	if err != nil {
+		return err
+	}
+	if sec > 0 {
+		return fmt.Errorf("%w: academic period has %d live section(s)", ErrHasDependents, sec)
+	}
+
 	return s.repo.SoftDeleteAcademicPeriod(ctx, id)
 }
 
@@ -286,6 +299,93 @@ func (s *Service) ListProgramQuotas(ctx context.Context, programID uuid.UUID) ([
 // program_quotas has no downstream dependents; the soft-delete always succeeds when the row is live.
 func (s *Service) DeleteProgramQuota(ctx context.Context, id uuid.UUID) error {
 	return s.repo.SoftDeleteProgramQuota(ctx, id, actorFromContext(ctx))
+}
+
+// --- Sections ---
+
+// CreateSectionServiceParams carries the raw inputs from the handler.
+type CreateSectionServiceParams struct {
+	CourseID         string
+	AcademicPeriodID string
+	SeatCapacity     int32
+}
+
+// UpdateSectionServiceParams carries the raw inputs from the handler.
+type UpdateSectionServiceParams struct {
+	SeatCapacity int32
+}
+
+// CreateSection validates input, populates audit columns, and delegates to the repository.
+func (s *Service) CreateSection(ctx context.Context, p CreateSectionServiceParams) (catalogdb.Section, error) {
+	if p.SeatCapacity <= 0 {
+		return catalogdb.Section{}, fmt.Errorf("%w: seat_capacity must be greater than 0", ErrInvalidInput)
+	}
+
+	courseID, err := uuid.Parse(p.CourseID)
+	if err != nil {
+		return catalogdb.Section{}, fmt.Errorf("%w: invalid course_id", ErrInvalidInput)
+	}
+
+	periodID, err := uuid.Parse(p.AcademicPeriodID)
+	if err != nil {
+		return catalogdb.Section{}, fmt.Errorf("%w: invalid academic_period_id", ErrInvalidInput)
+	}
+
+	return s.repo.CreateSection(ctx, CreateSectionParams{
+		CourseID:         courseID,
+		AcademicPeriodID: periodID,
+		SeatCapacity:     p.SeatCapacity,
+	}, actorFromContext(ctx))
+}
+
+// UpdateSection validates input and delegates to the repository.
+func (s *Service) UpdateSection(ctx context.Context, id uuid.UUID, p UpdateSectionServiceParams) (catalogdb.Section, error) {
+	if p.SeatCapacity <= 0 {
+		return catalogdb.Section{}, fmt.Errorf("%w: seat_capacity must be greater than 0", ErrInvalidInput)
+	}
+	return s.repo.UpdateSection(ctx, id, UpdateSectionParams(p), actorFromContext(ctx))
+}
+
+// GetSection retrieves a live section by id.
+func (s *Service) GetSection(ctx context.Context, id uuid.UUID) (catalogdb.Section, error) {
+	return s.repo.GetSection(ctx, id)
+}
+
+// ListSections returns live sections, optionally filtered by course or academic period.
+// Nil filters return all live sections.
+func (s *Service) ListSections(ctx context.Context, courseID *uuid.UUID, academicPeriodID *uuid.UUID) ([]catalogdb.Section, error) {
+	return s.repo.ListSections(ctx, courseID, academicPeriodID)
+}
+
+// DeleteSection soft-deletes a section after verifying no section_teachers rows exist.
+// section_teachers is append-only; any existing row blocks deletion.
+func (s *Service) DeleteSection(ctx context.Context, id uuid.UUID) error {
+	n, err := s.repo.CountSectionTeachers(ctx, id)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("%w: section has %d teacher assignment(s)", ErrHasDependents, n)
+	}
+
+	return s.repo.SoftDeleteSection(ctx, id, actorFromContext(ctx))
+}
+
+// --- Section-teacher M:N ---
+
+// AssignTeacherToSection inserts a section_teachers row. Duplicate returns ErrAlreadyExists; bad FK returns ErrInvalidInput.
+func (s *Service) AssignTeacherToSection(ctx context.Context, sectionID, teacherID uuid.UUID) (catalogdb.SectionTeacher, error) {
+	return s.repo.AssignTeacherToSection(ctx, sectionID, teacherID)
+}
+
+// RemoveTeacherFromSection hard-deletes a section_teachers row. Returns ErrNotFound when absent.
+func (s *Service) RemoveTeacherFromSection(ctx context.Context, sectionID, teacherID uuid.UUID) error {
+	return s.repo.RemoveTeacherFromSection(ctx, sectionID, teacherID)
+}
+
+// ListSectionTeachers returns all teacher assignments for the given section.
+func (s *Service) ListSectionTeachers(ctx context.Context, sectionID uuid.UUID) ([]catalogdb.SectionTeacher, error) {
+	return s.repo.ListSectionTeachers(ctx, sectionID)
 }
 
 // --- Helpers ---
