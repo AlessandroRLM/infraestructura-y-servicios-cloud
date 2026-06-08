@@ -343,7 +343,7 @@ func (s *Service) UpdateSection(ctx context.Context, id uuid.UUID, p UpdateSecti
 	if p.SeatCapacity <= 0 {
 		return catalogdb.Section{}, fmt.Errorf("%w: seat_capacity must be greater than 0", ErrInvalidInput)
 	}
-	return s.repo.UpdateSection(ctx, id, UpdateSectionParams{SeatCapacity: p.SeatCapacity}, actorFromContext(ctx))
+	return s.repo.UpdateSection(ctx, id, UpdateSectionParams(p), actorFromContext(ctx))
 }
 
 // GetSection retrieves a live section by id.

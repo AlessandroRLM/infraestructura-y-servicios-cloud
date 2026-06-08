@@ -31,9 +31,10 @@ func seedTeacherProfile(t *testing.T, email string) (string, string) {
 	client := newProfilesClient(nil)
 	ctx := context.Background()
 
+	dept := "Test Department"
 	_, err := client.UpsertTeacherProfile(ctx, withSID(connect.NewRequest(&profilesv1.UpsertTeacherProfileRequest{
 		UserId:     teacherID.String(),
-		Department: "Test Department",
+		Department: &dept,
 	}), adminSID))
 	if err != nil {
 		t.Fatalf("seedTeacherProfile: UpsertTeacherProfile(%s): %v", email, err)
