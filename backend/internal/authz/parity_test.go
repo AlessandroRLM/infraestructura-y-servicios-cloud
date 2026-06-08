@@ -13,7 +13,7 @@ import (
 func TestAllPermissions_ParityWithSeedData(t *testing.T) {
 	t.Parallel()
 
-	// These are the exact codes inserted by the seed migration.
+	// These are the exact codes inserted by the seed migrations.
 	// The list must match AllPermissions in both count and content.
 	expectedCodes := map[authz.Permission]struct{}{
 		"users.manage":         {},
@@ -27,10 +27,11 @@ func TestAllPermissions_ParityWithSeedData(t *testing.T) {
 		"reports.read":         {},
 		"audit.read":           {},
 		"grades.override":      {},
+		"profile.view_own":     {},
 	}
 
-	if len(authz.AllPermissions) != 11 {
-		t.Errorf("AllPermissions length = %d, want 11", len(authz.AllPermissions))
+	if len(authz.AllPermissions) != 12 {
+		t.Errorf("AllPermissions length = %d, want 12", len(authz.AllPermissions))
 	}
 
 	seen := make(map[authz.Permission]struct{}, len(authz.AllPermissions))

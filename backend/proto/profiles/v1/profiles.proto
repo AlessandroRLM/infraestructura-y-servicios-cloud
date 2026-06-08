@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package profiles.v1;
+
+option go_package = "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1;profilesv1";
+
+service ProfileService {
+  // Management procedures — require users.manage permission.
+  rpc UpsertUserProfile(UpsertUserProfileRequest) returns (UserProfile);
+  rpc GetUserProfile(GetUserProfileRequest) returns (UserProfile);
+  rpc UpsertStudentProfile(UpsertStudentProfileRequest) returns (StudentProfile);
+  rpc GetStudentProfile(GetStudentProfileRequest) returns (StudentProfile);
+  rpc UpsertTeacherProfile(UpsertTeacherProfileRequest) returns (TeacherProfile);
+  rpc GetTeacherProfile(GetTeacherProfileRequest) returns (TeacherProfile);
+  rpc AddTeacherQualification(AddTeacherQualificationRequest) returns (TeacherQualification);
+  rpc ListTeacherQualifications(ListTeacherQualificationsRequest) returns (ListTeacherQualificationsResponse);
+  // Self-read procedure — requires profile.view_own permission.
+  // The caller's identity is taken from the session context; no user_id field is accepted.
+  rpc GetOwnProfile(GetOwnProfileRequest) returns (UserProfile);
+}
+
+// UserProfile holds all personal and contact data for a user.
+message UserProfile {
+  string          user_id                  = 1;
+  string          given_names              = 2;
+  string          last_name_paternal       = 3;
+  optional string last_name_maternal       = 4;
+  string          national_id_type         = 5;
+  string          national_id              = 6;
+  optional string birth_date               = 7;
+  optional string phone                    = 8;
+  optional string personal_email           = 9;
+  optional string address_street           = 10;
+  optional string commune                  = 11;
+  optional string region                   = 12;
+  optional string country                  = 13;
+  optional string postal_code              = 14;
+  optional string sex                      = 15;
+  optional string nationality              = 16;
+  optional string photo_url                = 17;
+  optional string emergency_contact_name   = 18;
+  optional string emergency_contact_phone  = 19;
+}
+
+// StudentProfile holds academic intake data for a student.
+message StudentProfile {
+  string user_id         = 1;
+  int32  admission_year  = 2;
+}
+
+// TeacherProfile holds departmental and title data for a teacher.
+message TeacherProfile {
+  string          user_id    = 1;
+  optional string department = 2;
+  optional string title      = 3;
+}
+
+// TeacherQualification represents a single academic qualification for a teacher.
+message TeacherQualification {
+  string id         = 1;
+  string teacher_id = 2;
+  string degree     = 3;
+  int32  year       = 4;
+}
+
+message UpsertUserProfileRequest {
+  string          user_id                  = 1;
+  string          given_names              = 2;
+  string          last_name_paternal       = 3;
+  optional string last_name_maternal       = 4;
+  string          national_id_type         = 5;
+  string          national_id              = 6;
+  optional string birth_date               = 7;
+  optional string phone                    = 8;
+  optional string personal_email           = 9;
+  optional string address_street           = 10;
+  optional string commune                  = 11;
+  optional string region                   = 12;
+  optional string country                  = 13;
+  optional string postal_code              = 14;
+  optional string sex                      = 15;
+  optional string nationality              = 16;
+  optional string photo_url                = 17;
+  optional string emergency_contact_name   = 18;
+  optional string emergency_contact_phone  = 19;
+}
+
+message GetUserProfileRequest {
+  string user_id = 1;
+}
+
+message UpsertStudentProfileRequest {
+  string user_id         = 1;
+  int32  admission_year  = 2;
+}
+
+message GetStudentProfileRequest {
+  string user_id = 1;
+}
+
+message UpsertTeacherProfileRequest {
+  string          user_id    = 1;
+  optional string department = 2;
+  optional string title      = 3;
+}
+
+message GetTeacherProfileRequest {
+  string user_id = 1;
+}
+
+message AddTeacherQualificationRequest {
+  string teacher_id = 1;
+  string degree     = 2;
+  int32  year       = 3;
+}
+
+message ListTeacherQualificationsRequest {
+  string teacher_id = 1;
+}
+
+message ListTeacherQualificationsResponse {
+  repeated TeacherQualification qualifications = 1;
+}
+
+// GetOwnProfileRequest intentionally has no user_id field.
+// The caller's identity is derived from the session context, enforcing
+// that this procedure can only return the authenticated caller's own profile.
+message GetOwnProfileRequest {}

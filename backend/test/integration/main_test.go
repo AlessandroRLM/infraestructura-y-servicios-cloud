@@ -15,15 +15,22 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
+	profilesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1/profilesv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/health"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
 	platformredis "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/redis"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/server"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/profiles"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/profiles/profilesdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac/rbacdb"
 	migrations "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/migrations"
 )
 
@@ -32,9 +39,9 @@ var (
 	dbDSN   string
 	// dbPool is the minimal Ping interface exposed to health tests.
 	dbPool interface{ Ping(context.Context) error }
-	// pgxPool is the concrete pool used by auth test helpers to run raw SQL.
+	// pgxPool is the concrete pool used by test helpers to run raw SQL.
 	pgxPool *pgxpool.Pool
-	// testRedisClient is the raw Redis client used by auth test helpers to inspect
+	// testRedisClient is the raw Redis client used by test helpers to inspect
 	// and manipulate keys (TTL assertions, expired-session simulation, etc.).
 	testRedisClient *redis.Client
 	// sharedCfg is the config used for the shared test server. Tests that need
@@ -119,7 +126,6 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	// Auth wiring — mirrors cmd/api/main.go so the integration tests can call auth endpoints.
 	redisClient, err := platformredis.NewClient(redisURL)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create redis client for auth: %v\n", err) //nolint:errcheck
@@ -134,20 +140,55 @@ func TestMain(m *testing.M) {
 		CookieSecure:  false,
 	}
 	testCfg := sharedCfg
+
 	sessionStore := session.NewRedisStore(redisClient)
-	roleLoader := auth.NoopRoleLoader{}
+	// Use the real Postgres role loader so that permission-based tests exercise the full chain.
+	roleLoader := rbac.NewPostgresRoleLoader(rbacdb.New(pool))
 	authInterceptor := auth.NewSessionInterceptor(sessionStore, roleLoader, testCfg)
+
+	// exempt mirrors cmd/api/main.go — public and authenticated-but-no-permission procedures.
+	exempt := map[string]struct{}{
+		authv1connect.AuthServiceLoginProcedure:                {},
+		authv1connect.AuthServiceRequestPasswordResetProcedure: {},
+		authv1connect.AuthServiceConfirmPasswordResetProcedure: {},
+		authv1connect.AuthServiceLogoutProcedure:               {},
+	}
+
+	// policies mirrors cmd/api/main.go — all profiles procedures are registered.
+	policies := map[string]authz.PolicyFunc{
+		profilesv1connect.ProfileServiceUpsertUserProfileProcedure:         authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceGetUserProfileProcedure:            authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceUpsertStudentProfileProcedure:      authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceGetStudentProfileProcedure:         authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceUpsertTeacherProfileProcedure:      authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceGetTeacherProfileProcedure:         authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceAddTeacherQualificationProcedure:   authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceListTeacherQualificationsProcedure: authz.RequirePermission(authz.PermUsersManage),
+		profilesv1connect.ProfileServiceGetOwnProfileProcedure:             authz.RequirePermission(authz.PermProfileViewOwn),
+	}
+
+	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
+
 	queries := authdb.New(pool)
 	repo := auth.NewPostgresRepository(queries)
 	svc := auth.NewService(repo, sessionStore, roleLoader, testCfg)
 	authHandler := auth.NewHandler(svc, testCfg)
-	authOpts := server.Chain(authInterceptor)
+	authOpts := server.Chain(authInterceptor, authzInterceptor)
 	authReg := func(mux *http.ServeMux) {
 		auth.Register(mux, authHandler, authOpts...)
 	}
 
+	// Profiles handler wiring.
+	profilesQueries := profilesdb.New(pool)
+	profilesRepo := profiles.NewPostgresRepository(profilesQueries)
+	profilesSvc := profiles.NewService(profilesRepo)
+	profilesHandler := profiles.NewHandler(profilesSvc)
+	profilesReg := func(mux *http.ServeMux) {
+		profiles.Register(mux, profilesHandler, authOpts...)
+	}
+
 	log := logging.New(slog.LevelError) // suppress output in tests
-	srv := server.New(log, pool, rPinger, health.Register, authReg)
+	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
