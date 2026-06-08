@@ -41,6 +41,7 @@ func seedTeacherProfile(t *testing.T, email string) (string, string) {
 	}
 	t.Cleanup(func() {
 		ctx := context.Background()
+		_, _ = pgxPool.Exec(ctx, `DELETE FROM section_teachers WHERE teacher_id = $1`, teacherID)
 		_, _ = pgxPool.Exec(ctx, `DELETE FROM teacher_qualifications WHERE teacher_id = $1`, teacherID)
 		_, _ = pgxPool.Exec(ctx, `DELETE FROM teacher_profiles WHERE user_id = $1`, teacherID)
 	})
@@ -678,6 +679,134 @@ func TestSectionTeacher_Remove_AbsentAssociation_NotFound(t *testing.T) {
 }
 
 // ── Section authz ─────────────────────────────────────────────────────────────
+
+// ── ListSections filtering ────────────────────────────────────────────────────
+
+// TestListSections_FilterByCourseID verifies that course_id filter returns only sections for that course.
+func TestListSections_FilterByCourseID(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "sect-filter-course@catalog.test")
+	client := newCatalogClient(nil)
+
+	// Create two courses and one section for each.
+	s1ID, c1ID, _ := seedSectionFixture(t, adminSID)
+	s2ID, c2ID, _ := seedSectionFixture(t, adminSID)
+
+	// Filter by c1ID — must include s1, must exclude s2.
+	resp, err := client.ListSections(ctx, withSID(connect.NewRequest(&catalogv1.ListSectionsRequest{
+		CourseId: &c1ID,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("ListSections(course_id=%s): %v", c1ID, err)
+	}
+
+	foundS1, foundS2 := false, false
+	for _, s := range resp.Msg.GetSections() {
+		switch s.GetId() {
+		case s1ID:
+			foundS1 = true
+		case s2ID:
+			foundS2 = true
+		}
+	}
+	if !foundS1 {
+		t.Errorf("ListSections by course_id: section %s (for c1) not found", s1ID)
+	}
+	if foundS2 {
+		t.Errorf("ListSections by course_id: section %s (for c2) incorrectly included when filtering by c1", s2ID)
+	}
+
+	// Verify all returned sections belong to c1ID.
+	for _, s := range resp.Msg.GetSections() {
+		if s.GetCourseId() != c1ID {
+			t.Errorf("ListSections by course_id: section %s has course_id %q, want %q", s.GetId(), s.GetCourseId(), c1ID)
+		}
+	}
+	_ = c2ID
+}
+
+// TestListSections_FilterByAcademicPeriodID verifies that academic_period_id filter returns only sections for that period.
+func TestListSections_FilterByAcademicPeriodID(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "sect-filter-period@catalog.test")
+	client := newCatalogClient(nil)
+
+	s1ID, _, p1ID := seedSectionFixture(t, adminSID)
+	s2ID, _, p2ID := seedSectionFixture(t, adminSID)
+
+	// Filter by p1ID — must include s1, must exclude s2.
+	resp, err := client.ListSections(ctx, withSID(connect.NewRequest(&catalogv1.ListSectionsRequest{
+		AcademicPeriodId: &p1ID,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("ListSections(academic_period_id=%s): %v", p1ID, err)
+	}
+
+	foundS1, foundS2 := false, false
+	for _, s := range resp.Msg.GetSections() {
+		switch s.GetId() {
+		case s1ID:
+			foundS1 = true
+		case s2ID:
+			foundS2 = true
+		}
+	}
+	if !foundS1 {
+		t.Errorf("ListSections by academic_period_id: section %s (for p1) not found", s1ID)
+	}
+	if foundS2 {
+		t.Errorf("ListSections by academic_period_id: section %s (for p2) incorrectly included when filtering by p1", s2ID)
+	}
+
+	// Verify all returned sections belong to p1ID.
+	for _, s := range resp.Msg.GetSections() {
+		if s.GetAcademicPeriodId() != p1ID {
+			t.Errorf("ListSections by academic_period_id: section %s has academic_period_id %q, want %q", s.GetId(), s.GetAcademicPeriodId(), p1ID)
+		}
+	}
+	_ = p2ID
+}
+
+// TestListSections_NoFilter_ReturnsAll verifies that omitting all filters returns all live sections
+// (at least those seeded by this test).
+func TestListSections_NoFilter_ReturnsAll(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "sect-filter-all@catalog.test")
+	client := newCatalogClient(nil)
+
+	s1ID, _, _ := seedSectionFixture(t, adminSID)
+	s2ID, _, _ := seedSectionFixture(t, adminSID)
+
+	resp, err := client.ListSections(ctx, withSID(connect.NewRequest(&catalogv1.ListSectionsRequest{}), adminSID))
+	if err != nil {
+		t.Fatalf("ListSections (no filter): %v", err)
+	}
+
+	seen := make(map[string]bool)
+	for _, s := range resp.Msg.GetSections() {
+		seen[s.GetId()] = true
+	}
+	if !seen[s1ID] {
+		t.Errorf("ListSections (no filter): section %s missing", s1ID)
+	}
+	if !seen[s2ID] {
+		t.Errorf("ListSections (no filter): section %s missing", s2ID)
+	}
+}
+
+// TestListSections_MalformedCourseID_InvalidArgument verifies that a malformed course_id UUID
+// returns CodeInvalidArgument.
+func TestListSections_MalformedCourseID_InvalidArgument(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "sect-filter-bad-uuid@catalog.test")
+	client := newCatalogClient(nil)
+
+	badUUID := "not-a-uuid"
+	_, err := client.ListSections(ctx, withSID(connect.NewRequest(&catalogv1.ListSectionsRequest{
+		CourseId: &badUUID,
+	}), adminSID))
+	assertConnectCode(t, err, connect.CodeInvalidArgument)
+}
 
 // TestSection_NonAdmin_PermissionDenied verifies non-admin receives CodePermissionDenied on section procedures.
 func TestSection_NonAdmin_PermissionDenied(t *testing.T) {

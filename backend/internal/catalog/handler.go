@@ -590,9 +590,27 @@ func (h *Handler) GetSection(
 
 func (h *Handler) ListSections(
 	ctx context.Context,
-	_ *connect.Request[catalogv1.ListSectionsRequest],
+	req *connect.Request[catalogv1.ListSectionsRequest],
 ) (*connect.Response[catalogv1.ListSectionsResponse], error) {
-	rows, err := h.svc.ListSections(ctx)
+	var courseID *uuid.UUID
+	if s := req.Msg.GetCourseId(); s != "" {
+		id, err := parseUUID(s)
+		if err != nil {
+			return nil, err
+		}
+		courseID = &id
+	}
+
+	var academicPeriodID *uuid.UUID
+	if s := req.Msg.GetAcademicPeriodId(); s != "" {
+		id, err := parseUUID(s)
+		if err != nil {
+			return nil, err
+		}
+		academicPeriodID = &id
+	}
+
+	rows, err := h.svc.ListSections(ctx, courseID, academicPeriodID)
 	if err != nil {
 		return nil, MapError(err)
 	}
