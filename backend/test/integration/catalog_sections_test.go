@@ -808,6 +808,20 @@ func TestListSections_MalformedCourseID_InvalidArgument(t *testing.T) {
 	assertConnectCode(t, err, connect.CodeInvalidArgument)
 }
 
+// TestListSections_MalformedAcademicPeriodID_InvalidArgument verifies that a malformed
+// academic_period_id UUID returns CodeInvalidArgument (mirror of the course_id filter).
+func TestListSections_MalformedAcademicPeriodID_InvalidArgument(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "sect-filter-bad-period-uuid@catalog.test")
+	client := newCatalogClient(nil)
+
+	badUUID := "not-a-uuid"
+	_, err := client.ListSections(ctx, withSID(connect.NewRequest(&catalogv1.ListSectionsRequest{
+		AcademicPeriodId: &badUUID,
+	}), adminSID))
+	assertConnectCode(t, err, connect.CodeInvalidArgument)
+}
+
 // TestSection_NonAdmin_PermissionDenied verifies non-admin receives CodePermissionDenied on section procedures.
 func TestSection_NonAdmin_PermissionDenied(t *testing.T) {
 	ctx := context.Background()
