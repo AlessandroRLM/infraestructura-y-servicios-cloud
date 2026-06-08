@@ -30,15 +30,17 @@ type fakeRepository struct {
 	countLiveQuotas     int64
 
 	// Courses
-	createCourseRow   catalogdb.Course
-	createCourseErr   error
-	createCourseActor *uuid.UUID
-	updateCourseRow   catalogdb.Course
-	updateCourseErr   error
-	getCourseRow      catalogdb.Course
-	getCourseErr      error
-	listCoursesRows   []catalogdb.Course
-	softDeleteCourseE error
+	createCourseRow              catalogdb.Course
+	createCourseErr              error
+	createCourseActor            *uuid.UUID
+	updateCourseRow              catalogdb.Course
+	updateCourseErr              error
+	getCourseRow                 catalogdb.Course
+	getCourseErr                 error
+	listCoursesRows              []catalogdb.Course
+	softDeleteCourseE            error
+	countCourseAssociations      int64
+	countCourseAssociationsErr   error
 
 	// Program courses
 	addCourseToProgramRow catalogdb.ProgramCourse
@@ -107,6 +109,9 @@ func (f *fakeRepository) ListCourses(_ context.Context) ([]catalogdb.Course, err
 }
 func (f *fakeRepository) SoftDeleteCourse(_ context.Context, _ uuid.UUID) error {
 	return f.softDeleteCourseE
+}
+func (f *fakeRepository) CountCourseProgramAssociations(_ context.Context, _ uuid.UUID) (int64, error) {
+	return f.countCourseAssociations, f.countCourseAssociationsErr
 }
 func (f *fakeRepository) AddCourseToProgram(_ context.Context, _, _ uuid.UUID) (catalogdb.ProgramCourse, error) {
 	return f.addCourseToProgramRow, f.addCourseToProgramErr
@@ -417,6 +422,35 @@ func TestService_DeleteProgramQuota_NoDependentCheck(t *testing.T) {
 	err := svc.DeleteProgramQuota(context.Background(), uuid.New())
 	if err != nil {
 		t.Errorf("DeleteProgramQuota: unexpected error: %v", err)
+	}
+}
+
+func TestService_DeleteCourse_BlockedByProgramAssociations(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{
+		countCourseAssociations: 2,
+	}
+	svc := catalog.NewService(repo)
+
+	err := svc.DeleteCourse(context.Background(), uuid.New())
+	if !errors.Is(err, catalog.ErrHasDependents) {
+		t.Errorf("DeleteCourse (with program associations): got %v, want ErrHasDependents", err)
+	}
+}
+
+func TestService_DeleteCourse_AllowedWhenNoAssociations(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{
+		countCourseAssociations: 0,
+		softDeleteCourseE:       nil,
+	}
+	svc := catalog.NewService(repo)
+
+	err := svc.DeleteCourse(context.Background(), uuid.New())
+	if err != nil {
+		t.Errorf("DeleteCourse (no associations): unexpected error: %v", err)
 	}
 }
 

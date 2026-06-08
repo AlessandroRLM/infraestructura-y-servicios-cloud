@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 
 	catalogv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
@@ -131,18 +132,9 @@ func TestCatalog_Admin_AcademicPeriod(t *testing.T) {
 	}
 }
 
-// uniqueSuffix generates a unique short string for test isolation.
-func uniqueSuffix(t *testing.T) string {
-	t.Helper()
-	return string([]byte(t.Name())[len(t.Name())-min(6, len(t.Name())):])
-}
-
-// min returns the smaller of a and b.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+// uniqueSuffix generates a unique suffix for test isolation using a UUID.
+func uniqueSuffix(_ *testing.T) string {
+	return uuid.New().String()[:8]
 }
 
 // seedUserWithSession seeds a user with the given role, creates a Redis session,

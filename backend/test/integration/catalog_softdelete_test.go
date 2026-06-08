@@ -93,6 +93,119 @@ func TestCatalog_DeleteProgram_BlockedByLiveQuotaThenAllowed(t *testing.T) {
 	}
 }
 
+// TestCatalog_DeleteCourse_BlockedByProgramCourses verifies that deleting a course
+// that still has a live program association returns CodeFailedPrecondition, and that
+// deleting succeeds once the association is removed.
+func TestCatalog_DeleteCourse_BlockedByProgramCourses(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "catalog-del-course-pc@catalog.test")
+	client := newCatalogClient(nil)
+
+	pResp, err := client.CreateProgram(ctx, withSID(connect.NewRequest(&catalogv1.CreateProgramRequest{
+		Code: "DEL-CPC-P-" + uuid.New().String()[:8], Name: "P",
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("CreateProgram: %v", err)
+	}
+	progID := pResp.Msg.GetId()
+	t.Cleanup(func() { cleanupProgram(t, progID) })
+
+	cResp, err := client.CreateCourse(ctx, withSID(connect.NewRequest(&catalogv1.CreateCourseRequest{
+		Code: "DEL-CPC-C-" + uuid.New().String()[:8], Name: "C", Credits: 3,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+	courseID := cResp.Msg.GetId()
+	t.Cleanup(func() { cleanupCourse(t, courseID) })
+
+	// Associate course to program.
+	if _, err := client.AddCourseToProgram(ctx, withSID(connect.NewRequest(&catalogv1.AddCourseToProgramRequest{
+		ProgramId: progID, CourseId: courseID,
+	}), adminSID)); err != nil {
+		t.Fatalf("AddCourseToProgram: %v", err)
+	}
+
+	// Delete course while associated — must be blocked.
+	_, err = client.DeleteCourse(ctx, withSID(connect.NewRequest(&catalogv1.DeleteCourseRequest{Id: courseID}), adminSID))
+	assertConnectCode(t, err, connect.CodeFailedPrecondition)
+
+	// Remove association.
+	if _, err := client.RemoveCourseFromProgram(ctx, withSID(connect.NewRequest(&catalogv1.RemoveCourseFromProgramRequest{
+		ProgramId: progID, CourseId: courseID,
+	}), adminSID)); err != nil {
+		t.Fatalf("RemoveCourseFromProgram: %v", err)
+	}
+
+	// Delete course after association removed — must succeed.
+	if _, err := client.DeleteCourse(ctx, withSID(connect.NewRequest(&catalogv1.DeleteCourseRequest{Id: courseID}), adminSID)); err != nil {
+		t.Errorf("DeleteCourse (after association removed): %v", err)
+	}
+}
+
+// TestCatalog_DeleteProgram_AbsentID_NotFound verifies that deleting a non-existent
+// or already-deleted program returns CodeNotFound.
+func TestCatalog_DeleteProgram_AbsentID_NotFound(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "catalog-del-absent-prog@catalog.test")
+	client := newCatalogClient(nil)
+
+	_, err := client.DeleteProgram(ctx, withSID(connect.NewRequest(&catalogv1.DeleteProgramRequest{
+		Id: uuid.New().String(),
+	}), adminSID))
+	assertConnectCode(t, err, connect.CodeNotFound)
+}
+
+// TestCatalog_DeleteCourse_AbsentID_NotFound verifies CodeNotFound for absent course.
+func TestCatalog_DeleteCourse_AbsentID_NotFound(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "catalog-del-absent-course@catalog.test")
+	client := newCatalogClient(nil)
+
+	_, err := client.DeleteCourse(ctx, withSID(connect.NewRequest(&catalogv1.DeleteCourseRequest{
+		Id: uuid.New().String(),
+	}), adminSID))
+	assertConnectCode(t, err, connect.CodeNotFound)
+}
+
+// TestCatalog_DeleteAcademicPeriod_AbsentID_NotFound verifies CodeNotFound for absent period.
+func TestCatalog_DeleteAcademicPeriod_AbsentID_NotFound(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "catalog-del-absent-ap@catalog.test")
+	client := newCatalogClient(nil)
+
+	_, err := client.DeleteAcademicPeriod(ctx, withSID(connect.NewRequest(&catalogv1.DeleteAcademicPeriodRequest{
+		Id: uuid.New().String(),
+	}), adminSID))
+	assertConnectCode(t, err, connect.CodeNotFound)
+}
+
+// TestCatalog_DeleteProgramQuota_AbsentID_NotFound verifies CodeNotFound for absent quota.
+func TestCatalog_DeleteProgramQuota_AbsentID_NotFound(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "catalog-del-absent-quota@catalog.test")
+	client := newCatalogClient(nil)
+
+	_, err := client.DeleteProgramQuota(ctx, withSID(connect.NewRequest(&catalogv1.DeleteProgramQuotaRequest{
+		Id: uuid.New().String(),
+	}), adminSID))
+	assertConnectCode(t, err, connect.CodeNotFound)
+}
+
+// TestCatalog_RemoveCourseFromProgram_AbsentAssociation_NotFound verifies CodeNotFound
+// when the association does not exist.
+func TestCatalog_RemoveCourseFromProgram_AbsentAssociation_NotFound(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "catalog-remove-absent-assoc@catalog.test")
+	client := newCatalogClient(nil)
+
+	_, err := client.RemoveCourseFromProgram(ctx, withSID(connect.NewRequest(&catalogv1.RemoveCourseFromProgramRequest{
+		ProgramId: uuid.New().String(),
+		CourseId:  uuid.New().String(),
+	}), adminSID))
+	assertConnectCode(t, err, connect.CodeNotFound)
+}
+
 // TestCatalog_DeleteProgramQuota_NoDependents always succeeds.
 func TestCatalog_DeleteProgramQuota_NoDependents(t *testing.T) {
 	ctx := context.Background()
