@@ -109,7 +109,7 @@ func (s *Service) DeleteProgram(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("%w: program has %d live quota(s)", ErrHasDependents, q)
 	}
 
-	return s.repo.SoftDeleteProgram(ctx, id)
+	return s.repo.SoftDeleteProgram(ctx, id, actorFromContext(ctx))
 }
 
 // --- Courses ---
@@ -170,7 +170,7 @@ func (s *Service) DeleteCourse(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("%w: course has %d live section(s)", ErrHasDependents, sec)
 	}
 
-	return s.repo.SoftDeleteCourse(ctx, id)
+	return s.repo.SoftDeleteCourse(ctx, id, actorFromContext(ctx))
 }
 
 // --- Program-course M:N ---
@@ -351,9 +351,10 @@ func (s *Service) GetSection(ctx context.Context, id uuid.UUID) (catalogdb.Secti
 	return s.repo.GetSection(ctx, id)
 }
 
-// ListSections returns all live sections.
-func (s *Service) ListSections(ctx context.Context) ([]catalogdb.Section, error) {
-	return s.repo.ListSections(ctx)
+// ListSections returns live sections, optionally filtered by course or academic period.
+// Nil filters return all live sections.
+func (s *Service) ListSections(ctx context.Context, courseID *uuid.UUID, academicPeriodID *uuid.UUID) ([]catalogdb.Section, error) {
+	return s.repo.ListSections(ctx, courseID, academicPeriodID)
 }
 
 // DeleteSection soft-deletes a section after verifying no section_teachers rows exist.

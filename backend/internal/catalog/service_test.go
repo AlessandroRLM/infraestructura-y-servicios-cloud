@@ -105,7 +105,7 @@ func (f *fakeRepository) GetProgram(_ context.Context, _ uuid.UUID) (catalogdb.P
 func (f *fakeRepository) ListPrograms(_ context.Context) ([]catalogdb.Program, error) {
 	return f.listProgramsRows, nil
 }
-func (f *fakeRepository) SoftDeleteProgram(_ context.Context, _ uuid.UUID) error {
+func (f *fakeRepository) SoftDeleteProgram(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
 	return f.softDeleteProgramE
 }
 func (f *fakeRepository) CountProgramCourses(_ context.Context, _ uuid.UUID) (int64, error) {
@@ -127,7 +127,7 @@ func (f *fakeRepository) GetCourse(_ context.Context, _ uuid.UUID) (catalogdb.Co
 func (f *fakeRepository) ListCourses(_ context.Context) ([]catalogdb.Course, error) {
 	return f.listCoursesRows, nil
 }
-func (f *fakeRepository) SoftDeleteCourse(_ context.Context, _ uuid.UUID) error {
+func (f *fakeRepository) SoftDeleteCourse(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
 	return f.softDeleteCourseE
 }
 func (f *fakeRepository) CountCourseProgramAssociations(_ context.Context, _ uuid.UUID) (int64, error) {
@@ -183,7 +183,7 @@ func (f *fakeRepository) UpdateSection(_ context.Context, _ uuid.UUID, _ catalog
 func (f *fakeRepository) GetSection(_ context.Context, _ uuid.UUID) (catalogdb.Section, error) {
 	return f.getSectionRow, f.getSectionErr
 }
-func (f *fakeRepository) ListSections(_ context.Context) ([]catalogdb.Section, error) {
+func (f *fakeRepository) ListSections(_ context.Context, _ *uuid.UUID, _ *uuid.UUID) ([]catalogdb.Section, error) {
 	return f.listSectionsRows, nil
 }
 func (f *fakeRepository) SoftDeleteSection(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
@@ -477,6 +477,77 @@ func TestService_DeleteProgramQuota_NoDependentCheck(t *testing.T) {
 	if err != nil {
 		t.Errorf("DeleteProgramQuota: unexpected error: %v", err)
 	}
+}
+
+func TestService_DeleteProgram_ActorPassedToRepo(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+
+	var capturedActor *uuid.UUID
+	repo := &fakeRepositoryWithDeleteActor{
+		fakeRepository: fakeRepository{
+			countProgramCourses: 0,
+			countLiveQuotas:     0,
+		},
+		captureActor: &capturedActor,
+	}
+	svc := catalog.NewService(repo)
+
+	if err := svc.DeleteProgram(ctx, uuid.New()); err != nil {
+		t.Fatalf("DeleteProgram: unexpected error: %v", err)
+	}
+	if capturedActor == nil || *capturedActor != actorID {
+		t.Errorf("SoftDeleteProgram actor = %v, want %v", capturedActor, actorID)
+	}
+}
+
+func TestService_DeleteCourse_ActorPassedToRepo(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+
+	var capturedActor *uuid.UUID
+	repo := &fakeRepositoryWithDeleteActor{
+		fakeRepository: fakeRepository{
+			countCourseAssociations:    0,
+			countLiveSectionsByCourse:  0,
+		},
+		captureActor:  &capturedActor,
+		captureIsCourse: true,
+	}
+	svc := catalog.NewService(repo)
+
+	if err := svc.DeleteCourse(ctx, uuid.New()); err != nil {
+		t.Fatalf("DeleteCourse: unexpected error: %v", err)
+	}
+	if capturedActor == nil || *capturedActor != actorID {
+		t.Errorf("SoftDeleteCourse actor = %v, want %v", capturedActor, actorID)
+	}
+}
+
+// fakeRepositoryWithDeleteActor extends fakeRepository to capture the actor
+// passed to SoftDeleteProgram / SoftDeleteCourse.
+type fakeRepositoryWithDeleteActor struct {
+	fakeRepository
+	captureActor    **uuid.UUID
+	captureIsCourse bool
+}
+
+func (f *fakeRepositoryWithDeleteActor) SoftDeleteProgram(_ context.Context, _ uuid.UUID, actor *uuid.UUID) error {
+	if !f.captureIsCourse {
+		*f.captureActor = actor
+	}
+	return f.softDeleteProgramE
+}
+
+func (f *fakeRepositoryWithDeleteActor) SoftDeleteCourse(_ context.Context, _ uuid.UUID, actor *uuid.UUID) error {
+	if f.captureIsCourse {
+		*f.captureActor = actor
+	}
+	return f.softDeleteCourseE
 }
 
 func TestService_DeleteCourse_BlockedByProgramAssociations(t *testing.T) {

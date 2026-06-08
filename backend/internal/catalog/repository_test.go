@@ -113,7 +113,7 @@ func (f *fakeQuerier) GetProgram(_ context.Context, _ pgtype.UUID) (catalogdb.Pr
 func (f *fakeQuerier) ListPrograms(_ context.Context) ([]catalogdb.Program, error) {
 	return f.listProgramsRows, f.listProgramsErr
 }
-func (f *fakeQuerier) SoftDeleteProgram(_ context.Context, _ pgtype.UUID) (int64, error) {
+func (f *fakeQuerier) SoftDeleteProgram(_ context.Context, _ catalogdb.SoftDeleteProgramParams) (int64, error) {
 	return f.softDeleteProgRows, f.softDeleteProgErr
 }
 func (f *fakeQuerier) CountProgramCourses(_ context.Context, _ pgtype.UUID) (int64, error) {
@@ -134,7 +134,7 @@ func (f *fakeQuerier) GetCourse(_ context.Context, _ pgtype.UUID) (catalogdb.Cou
 func (f *fakeQuerier) ListCourses(_ context.Context) ([]catalogdb.Course, error) {
 	return f.listCoursesRows, f.listCoursesErr
 }
-func (f *fakeQuerier) SoftDeleteCourse(_ context.Context, _ pgtype.UUID) (int64, error) {
+func (f *fakeQuerier) SoftDeleteCourse(_ context.Context, _ catalogdb.SoftDeleteCourseParams) (int64, error) {
 	return f.softDeleteCourseRows, f.softDeleteCourseE
 }
 func (f *fakeQuerier) CountCourseProgramAssociations(_ context.Context, _ pgtype.UUID) (int64, error) {
@@ -188,7 +188,7 @@ func (f *fakeQuerier) UpdateSection(_ context.Context, _ catalogdb.UpdateSection
 func (f *fakeQuerier) GetSection(_ context.Context, _ pgtype.UUID) (catalogdb.Section, error) {
 	return f.getSectionRow, f.getSectionErr
 }
-func (f *fakeQuerier) ListSections(_ context.Context) ([]catalogdb.Section, error) {
+func (f *fakeQuerier) ListSections(_ context.Context, _ catalogdb.ListSectionsParams) ([]catalogdb.Section, error) {
 	return f.listSectionsRows, f.listSectionsErr
 }
 func (f *fakeQuerier) SoftDeleteSection(_ context.Context, _ catalogdb.SoftDeleteSectionParams) (int64, error) {
@@ -306,7 +306,7 @@ func TestRepository_SoftDeleteProgram_NotFound(t *testing.T) {
 	q := &fakeQuerier{softDeleteProgRows: 0}
 	repo := catalog.NewPostgresRepository(q)
 
-	err := repo.SoftDeleteProgram(context.Background(), uuid.New())
+	err := repo.SoftDeleteProgram(context.Background(), uuid.New(), nil)
 	if !errors.Is(err, catalog.ErrNotFound) {
 		t.Errorf("SoftDeleteProgram (0 rows): got %v, want ErrNotFound", err)
 	}
@@ -318,7 +318,7 @@ func TestRepository_SoftDeleteCourse_NotFound(t *testing.T) {
 	q := &fakeQuerier{softDeleteCourseRows: 0}
 	repo := catalog.NewPostgresRepository(q)
 
-	err := repo.SoftDeleteCourse(context.Background(), uuid.New())
+	err := repo.SoftDeleteCourse(context.Background(), uuid.New(), nil)
 	if !errors.Is(err, catalog.ErrNotFound) {
 		t.Errorf("SoftDeleteCourse (0 rows): got %v, want ErrNotFound", err)
 	}

@@ -22,7 +22,7 @@ ORDER BY created_at;
 
 -- name: SoftDeleteProgram :execrows
 UPDATE programs
-SET deleted_at = now()
+SET deleted_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: CountProgramCourses :one
@@ -61,7 +61,7 @@ WHERE course_id = $1;
 
 -- name: SoftDeleteCourse :execrows
 UPDATE courses
-SET deleted_at = now()
+SET deleted_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- Program courses (M:N append-only)
@@ -159,6 +159,8 @@ WHERE id = $1 AND deleted_at IS NULL;
 -- name: ListSections :many
 SELECT * FROM sections
 WHERE deleted_at IS NULL
+  AND (sqlc.narg('course_id')::uuid IS NULL OR course_id = sqlc.narg('course_id')::uuid)
+  AND (sqlc.narg('academic_period_id')::uuid IS NULL OR academic_period_id = sqlc.narg('academic_period_id')::uuid)
 ORDER BY created_at;
 
 -- name: SoftDeleteSection :execrows

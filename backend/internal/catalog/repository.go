@@ -17,7 +17,7 @@ type Repository interface {
 	UpdateProgram(ctx context.Context, id uuid.UUID, p UpdateProgramParams, actor *uuid.UUID) (catalogdb.Program, error)
 	GetProgram(ctx context.Context, id uuid.UUID) (catalogdb.Program, error)
 	ListPrograms(ctx context.Context) ([]catalogdb.Program, error)
-	SoftDeleteProgram(ctx context.Context, id uuid.UUID) error
+	SoftDeleteProgram(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
 	CountProgramCourses(ctx context.Context, programID uuid.UUID) (int64, error)
 	CountLiveProgramQuotas(ctx context.Context, programID uuid.UUID) (int64, error)
 
@@ -26,7 +26,7 @@ type Repository interface {
 	UpdateCourse(ctx context.Context, id uuid.UUID, p UpdateCourseParams, actor *uuid.UUID) (catalogdb.Course, error)
 	GetCourse(ctx context.Context, id uuid.UUID) (catalogdb.Course, error)
 	ListCourses(ctx context.Context) ([]catalogdb.Course, error)
-	SoftDeleteCourse(ctx context.Context, id uuid.UUID) error
+	SoftDeleteCourse(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
 	CountCourseProgramAssociations(ctx context.Context, courseID uuid.UUID) (int64, error)
 
 	// Program-course M:N
@@ -52,7 +52,7 @@ type Repository interface {
 	CreateSection(ctx context.Context, p CreateSectionParams, actor *uuid.UUID) (catalogdb.Section, error)
 	UpdateSection(ctx context.Context, id uuid.UUID, p UpdateSectionParams, actor *uuid.UUID) (catalogdb.Section, error)
 	GetSection(ctx context.Context, id uuid.UUID) (catalogdb.Section, error)
-	ListSections(ctx context.Context) ([]catalogdb.Section, error)
+	ListSections(ctx context.Context, courseID *uuid.UUID, academicPeriodID *uuid.UUID) ([]catalogdb.Section, error)
 	SoftDeleteSection(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
 	CountLiveSectionsByCourse(ctx context.Context, courseID uuid.UUID) (int64, error)
 	CountLiveSectionsByAcademicPeriod(ctx context.Context, academicPeriodID uuid.UUID) (int64, error)
@@ -187,8 +187,11 @@ func (r *postgresRepository) ListPrograms(ctx context.Context) ([]catalogdb.Prog
 	return rows, nil
 }
 
-func (r *postgresRepository) SoftDeleteProgram(ctx context.Context, id uuid.UUID) error {
-	n, err := r.q.SoftDeleteProgram(ctx, pgtype.UUID{Bytes: id, Valid: true})
+func (r *postgresRepository) SoftDeleteProgram(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error {
+	n, err := r.q.SoftDeleteProgram(ctx, catalogdb.SoftDeleteProgramParams{
+		ID:        pgtype.UUID{Bytes: id, Valid: true},
+		UpdatedBy: optionalUUID(actor),
+	})
 	if err != nil {
 		return fmt.Errorf("catalog: SoftDeleteProgram: %w", err)
 	}
@@ -260,8 +263,11 @@ func (r *postgresRepository) ListCourses(ctx context.Context) ([]catalogdb.Cours
 	return rows, nil
 }
 
-func (r *postgresRepository) SoftDeleteCourse(ctx context.Context, id uuid.UUID) error {
-	n, err := r.q.SoftDeleteCourse(ctx, pgtype.UUID{Bytes: id, Valid: true})
+func (r *postgresRepository) SoftDeleteCourse(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error {
+	n, err := r.q.SoftDeleteCourse(ctx, catalogdb.SoftDeleteCourseParams{
+		ID:        pgtype.UUID{Bytes: id, Valid: true},
+		UpdatedBy: optionalUUID(actor),
+	})
 	if err != nil {
 		return fmt.Errorf("catalog: SoftDeleteCourse: %w", err)
 	}
@@ -465,8 +471,11 @@ func (r *postgresRepository) GetSection(ctx context.Context, id uuid.UUID) (cata
 	return row, nil
 }
 
-func (r *postgresRepository) ListSections(ctx context.Context) ([]catalogdb.Section, error) {
-	rows, err := r.q.ListSections(ctx)
+func (r *postgresRepository) ListSections(ctx context.Context, courseID *uuid.UUID, academicPeriodID *uuid.UUID) ([]catalogdb.Section, error) {
+	rows, err := r.q.ListSections(ctx, catalogdb.ListSectionsParams{
+		CourseID:         optionalUUID(courseID),
+		AcademicPeriodID: optionalUUID(academicPeriodID),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("catalog: ListSections: %w", err)
 	}

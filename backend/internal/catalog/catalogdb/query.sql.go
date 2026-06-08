@@ -614,11 +614,18 @@ func (q *Queries) ListSectionTeachers(ctx context.Context, sectionID pgtype.UUID
 const listSections = `-- name: ListSections :many
 SELECT id, course_id, academic_period_id, capacity, created_at, updated_at, deleted_at, created_by, updated_by FROM sections
 WHERE deleted_at IS NULL
+  AND ($1::uuid IS NULL OR course_id = $1::uuid)
+  AND ($2::uuid IS NULL OR academic_period_id = $2::uuid)
 ORDER BY created_at
 `
 
-func (q *Queries) ListSections(ctx context.Context) ([]Section, error) {
-	rows, err := q.db.Query(ctx, listSections)
+type ListSectionsParams struct {
+	CourseID         pgtype.UUID
+	AcademicPeriodID pgtype.UUID
+}
+
+func (q *Queries) ListSections(ctx context.Context, arg ListSectionsParams) ([]Section, error) {
+	rows, err := q.db.Query(ctx, listSections, arg.CourseID, arg.AcademicPeriodID)
 	if err != nil {
 		return nil, err
 	}
@@ -663,12 +670,17 @@ func (q *Queries) SoftDeleteAcademicPeriod(ctx context.Context, id pgtype.UUID) 
 
 const softDeleteCourse = `-- name: SoftDeleteCourse :execrows
 UPDATE courses
-SET deleted_at = now()
+SET deleted_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL
 `
 
-func (q *Queries) SoftDeleteCourse(ctx context.Context, id pgtype.UUID) (int64, error) {
-	result, err := q.db.Exec(ctx, softDeleteCourse, id)
+type SoftDeleteCourseParams struct {
+	ID        pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
+func (q *Queries) SoftDeleteCourse(ctx context.Context, arg SoftDeleteCourseParams) (int64, error) {
+	result, err := q.db.Exec(ctx, softDeleteCourse, arg.ID, arg.UpdatedBy)
 	if err != nil {
 		return 0, err
 	}
@@ -677,12 +689,17 @@ func (q *Queries) SoftDeleteCourse(ctx context.Context, id pgtype.UUID) (int64, 
 
 const softDeleteProgram = `-- name: SoftDeleteProgram :execrows
 UPDATE programs
-SET deleted_at = now()
+SET deleted_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL
 `
 
-func (q *Queries) SoftDeleteProgram(ctx context.Context, id pgtype.UUID) (int64, error) {
-	result, err := q.db.Exec(ctx, softDeleteProgram, id)
+type SoftDeleteProgramParams struct {
+	ID        pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
+func (q *Queries) SoftDeleteProgram(ctx context.Context, arg SoftDeleteProgramParams) (int64, error) {
+	result, err := q.db.Exec(ctx, softDeleteProgram, arg.ID, arg.UpdatedBy)
 	if err != nil {
 		return 0, err
 	}
