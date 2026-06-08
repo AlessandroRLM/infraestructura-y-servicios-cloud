@@ -539,6 +539,176 @@ func programCourseToProto(r catalogdb.ProgramCourse) *catalogv1.ProgramCourse {
 	}
 }
 
+// --- Sections ---
+
+func (h *Handler) CreateSection(
+	ctx context.Context,
+	req *connect.Request[catalogv1.CreateSectionRequest],
+) (*connect.Response[catalogv1.Section], error) {
+	row, err := h.svc.CreateSection(ctx, CreateSectionServiceParams{
+		CourseID:         req.Msg.GetCourseId(),
+		AcademicPeriodID: req.Msg.GetAcademicPeriodId(),
+		SeatCapacity:     req.Msg.GetSeatCapacity(),
+	})
+	if err != nil {
+		return nil, MapError(err)
+	}
+	return connect.NewResponse(sectionToProto(row)), nil
+}
+
+func (h *Handler) UpdateSection(
+	ctx context.Context,
+	req *connect.Request[catalogv1.UpdateSectionRequest],
+) (*connect.Response[catalogv1.Section], error) {
+	id, err := parseUUID(req.Msg.GetId())
+	if err != nil {
+		return nil, err
+	}
+	row, err := h.svc.UpdateSection(ctx, id, UpdateSectionServiceParams{
+		SeatCapacity: req.Msg.GetSeatCapacity(),
+	})
+	if err != nil {
+		return nil, MapError(err)
+	}
+	return connect.NewResponse(sectionToProto(row)), nil
+}
+
+func (h *Handler) GetSection(
+	ctx context.Context,
+	req *connect.Request[catalogv1.GetSectionRequest],
+) (*connect.Response[catalogv1.Section], error) {
+	id, err := parseUUID(req.Msg.GetId())
+	if err != nil {
+		return nil, err
+	}
+	row, err := h.svc.GetSection(ctx, id)
+	if err != nil {
+		return nil, MapError(err)
+	}
+	return connect.NewResponse(sectionToProto(row)), nil
+}
+
+func (h *Handler) ListSections(
+	ctx context.Context,
+	_ *connect.Request[catalogv1.ListSectionsRequest],
+) (*connect.Response[catalogv1.ListSectionsResponse], error) {
+	rows, err := h.svc.ListSections(ctx)
+	if err != nil {
+		return nil, MapError(err)
+	}
+	protos := make([]*catalogv1.Section, 0, len(rows))
+	for _, r := range rows {
+		protos = append(protos, sectionToProto(r))
+	}
+	return connect.NewResponse(&catalogv1.ListSectionsResponse{Sections: protos}), nil
+}
+
+func (h *Handler) DeleteSection(
+	ctx context.Context,
+	req *connect.Request[catalogv1.DeleteSectionRequest],
+) (*connect.Response[catalogv1.DeleteSectionResponse], error) {
+	id, err := parseUUID(req.Msg.GetId())
+	if err != nil {
+		return nil, err
+	}
+	if err := h.svc.DeleteSection(ctx, id); err != nil {
+		return nil, MapError(err)
+	}
+	return connect.NewResponse(&catalogv1.DeleteSectionResponse{}), nil
+}
+
+// --- Section-teacher M:N ---
+
+func (h *Handler) AssignTeacherToSection(
+	ctx context.Context,
+	req *connect.Request[catalogv1.AssignTeacherToSectionRequest],
+) (*connect.Response[catalogv1.SectionTeacher], error) {
+	sectionID, err := parseUUID(req.Msg.GetSectionId())
+	if err != nil {
+		return nil, err
+	}
+	teacherID, err := parseUUID(req.Msg.GetTeacherId())
+	if err != nil {
+		return nil, err
+	}
+	row, err := h.svc.AssignTeacherToSection(ctx, sectionID, teacherID)
+	if err != nil {
+		return nil, MapError(err)
+	}
+	return connect.NewResponse(sectionTeacherToProto(row)), nil
+}
+
+func (h *Handler) RemoveTeacherFromSection(
+	ctx context.Context,
+	req *connect.Request[catalogv1.RemoveTeacherFromSectionRequest],
+) (*connect.Response[catalogv1.RemoveTeacherFromSectionResponse], error) {
+	sectionID, err := parseUUID(req.Msg.GetSectionId())
+	if err != nil {
+		return nil, err
+	}
+	teacherID, err := parseUUID(req.Msg.GetTeacherId())
+	if err != nil {
+		return nil, err
+	}
+	if err := h.svc.RemoveTeacherFromSection(ctx, sectionID, teacherID); err != nil {
+		return nil, MapError(err)
+	}
+	return connect.NewResponse(&catalogv1.RemoveTeacherFromSectionResponse{}), nil
+}
+
+func (h *Handler) ListSectionTeachers(
+	ctx context.Context,
+	req *connect.Request[catalogv1.ListSectionTeachersRequest],
+) (*connect.Response[catalogv1.ListSectionTeachersResponse], error) {
+	sectionID, err := parseUUID(req.Msg.GetSectionId())
+	if err != nil {
+		return nil, err
+	}
+	rows, err := h.svc.ListSectionTeachers(ctx, sectionID)
+	if err != nil {
+		return nil, MapError(err)
+	}
+	protos := make([]*catalogv1.SectionTeacher, 0, len(rows))
+	for _, r := range rows {
+		protos = append(protos, sectionTeacherToProto(r))
+	}
+	return connect.NewResponse(&catalogv1.ListSectionTeachersResponse{SectionTeachers: protos}), nil
+}
+
+// --- Proto converters (sections) ---
+
+func sectionToProto(r catalogdb.Section) *catalogv1.Section {
+	s := &catalogv1.Section{
+		Id:               uuidToString(r.ID),
+		CourseId:         uuidToString(r.CourseID),
+		AcademicPeriodId: uuidToString(r.AcademicPeriodID),
+		SeatCapacity:     r.Capacity,
+		CreatedAt:        r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:        r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+	}
+	if r.DeletedAt.Valid {
+		ts := r.DeletedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+		s.DeletedAt = &ts
+	}
+	if r.CreatedBy.Valid {
+		id := uuidToString(r.CreatedBy)
+		s.CreatedBy = &id
+	}
+	if r.UpdatedBy.Valid {
+		id := uuidToString(r.UpdatedBy)
+		s.UpdatedBy = &id
+	}
+	return s
+}
+
+func sectionTeacherToProto(r catalogdb.SectionTeacher) *catalogv1.SectionTeacher {
+	return &catalogv1.SectionTeacher{
+		SectionId: uuidToString(r.SectionID),
+		TeacherId: uuidToString(r.TeacherID),
+		CreatedAt: r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
 // uuidToString converts a pgtype.UUID to a standard hyphenated string.
 func uuidToString(id pgtype.UUID) string {
 	return uuid.UUID(id.Bytes).String()

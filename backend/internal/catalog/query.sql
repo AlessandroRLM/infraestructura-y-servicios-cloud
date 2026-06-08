@@ -138,3 +138,58 @@ ORDER BY year;
 UPDATE program_quotas
 SET deleted_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
+
+-- Sections
+
+-- name: InsertSection :one
+INSERT INTO sections (course_id, academic_period_id, capacity, created_by, updated_by)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: UpdateSection :one
+UPDATE sections
+SET capacity = $2, updated_at = now(), updated_by = $3
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING *;
+
+-- name: GetSection :one
+SELECT * FROM sections
+WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: ListSections :many
+SELECT * FROM sections
+WHERE deleted_at IS NULL
+ORDER BY created_at;
+
+-- name: SoftDeleteSection :execrows
+UPDATE sections
+SET deleted_at = now(), updated_by = $2
+WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: CountLiveSectionsByCourse :one
+SELECT count(*) FROM sections
+WHERE course_id = $1 AND deleted_at IS NULL;
+
+-- name: CountLiveSectionsByAcademicPeriod :one
+SELECT count(*) FROM sections
+WHERE academic_period_id = $1 AND deleted_at IS NULL;
+
+-- Section teachers (M:N append-only)
+
+-- name: InsertSectionTeacher :one
+INSERT INTO section_teachers (section_id, teacher_id)
+VALUES ($1, $2)
+RETURNING *;
+
+-- name: DeleteSectionTeacher :execrows
+DELETE FROM section_teachers
+WHERE section_id = $1 AND teacher_id = $2;
+
+-- name: ListSectionTeachers :many
+SELECT * FROM section_teachers
+WHERE section_id = $1
+ORDER BY created_at;
+
+-- name: CountSectionTeachers :one
+SELECT count(*) FROM section_teachers
+WHERE section_id = $1;

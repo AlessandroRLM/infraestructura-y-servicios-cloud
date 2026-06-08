@@ -35,6 +35,30 @@ func (q *Queries) CountLiveProgramQuotas(ctx context.Context, programID pgtype.U
 	return count, err
 }
 
+const countLiveSectionsByAcademicPeriod = `-- name: CountLiveSectionsByAcademicPeriod :one
+SELECT count(*) FROM sections
+WHERE academic_period_id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) CountLiveSectionsByAcademicPeriod(ctx context.Context, academicPeriodID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveSectionsByAcademicPeriod, academicPeriodID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countLiveSectionsByCourse = `-- name: CountLiveSectionsByCourse :one
+SELECT count(*) FROM sections
+WHERE course_id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) CountLiveSectionsByCourse(ctx context.Context, courseID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveSectionsByCourse, courseID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countProgramCourses = `-- name: CountProgramCourses :one
 SELECT count(*) FROM program_courses
 WHERE program_id = $1
@@ -42,6 +66,18 @@ WHERE program_id = $1
 
 func (q *Queries) CountProgramCourses(ctx context.Context, programID pgtype.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countProgramCourses, programID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSectionTeachers = `-- name: CountSectionTeachers :one
+SELECT count(*) FROM section_teachers
+WHERE section_id = $1
+`
+
+func (q *Queries) CountSectionTeachers(ctx context.Context, sectionID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countSectionTeachers, sectionID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -59,6 +95,24 @@ type DeleteProgramCourseParams struct {
 
 func (q *Queries) DeleteProgramCourse(ctx context.Context, arg DeleteProgramCourseParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteProgramCourse, arg.ProgramID, arg.CourseID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteSectionTeacher = `-- name: DeleteSectionTeacher :execrows
+DELETE FROM section_teachers
+WHERE section_id = $1 AND teacher_id = $2
+`
+
+type DeleteSectionTeacherParams struct {
+	SectionID pgtype.UUID
+	TeacherID pgtype.UUID
+}
+
+func (q *Queries) DeleteSectionTeacher(ctx context.Context, arg DeleteSectionTeacherParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteSectionTeacher, arg.SectionID, arg.TeacherID)
 	if err != nil {
 		return 0, err
 	}
@@ -141,6 +195,28 @@ func (q *Queries) GetProgramQuota(ctx context.Context, id pgtype.UUID) (ProgramQ
 		&i.ID,
 		&i.ProgramID,
 		&i.Year,
+		&i.Capacity,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const getSection = `-- name: GetSection :one
+SELECT id, course_id, academic_period_id, capacity, created_at, updated_at, deleted_at, created_by, updated_by FROM sections
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetSection(ctx context.Context, id pgtype.UUID) (Section, error) {
+	row := q.db.QueryRow(ctx, getSection, id)
+	var i Section
+	err := row.Scan(
+		&i.ID,
+		&i.CourseID,
+		&i.AcademicPeriodID,
 		&i.Capacity,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -279,6 +355,65 @@ func (q *Queries) InsertProgramCourse(ctx context.Context, arg InsertProgramCour
 	row := q.db.QueryRow(ctx, insertProgramCourse, arg.ProgramID, arg.CourseID)
 	var i ProgramCourse
 	err := row.Scan(&i.ProgramID, &i.CourseID, &i.CreatedAt)
+	return i, err
+}
+
+const insertSection = `-- name: InsertSection :one
+
+INSERT INTO sections (course_id, academic_period_id, capacity, created_by, updated_by)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, course_id, academic_period_id, capacity, created_at, updated_at, deleted_at, created_by, updated_by
+`
+
+type InsertSectionParams struct {
+	CourseID         pgtype.UUID
+	AcademicPeriodID pgtype.UUID
+	Capacity         int32
+	CreatedBy        pgtype.UUID
+	UpdatedBy        pgtype.UUID
+}
+
+// Sections
+func (q *Queries) InsertSection(ctx context.Context, arg InsertSectionParams) (Section, error) {
+	row := q.db.QueryRow(ctx, insertSection,
+		arg.CourseID,
+		arg.AcademicPeriodID,
+		arg.Capacity,
+		arg.CreatedBy,
+		arg.UpdatedBy,
+	)
+	var i Section
+	err := row.Scan(
+		&i.ID,
+		&i.CourseID,
+		&i.AcademicPeriodID,
+		&i.Capacity,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const insertSectionTeacher = `-- name: InsertSectionTeacher :one
+
+INSERT INTO section_teachers (section_id, teacher_id)
+VALUES ($1, $2)
+RETURNING section_id, teacher_id, created_at
+`
+
+type InsertSectionTeacherParams struct {
+	SectionID pgtype.UUID
+	TeacherID pgtype.UUID
+}
+
+// Section teachers (M:N append-only)
+func (q *Queries) InsertSectionTeacher(ctx context.Context, arg InsertSectionTeacherParams) (SectionTeacher, error) {
+	row := q.db.QueryRow(ctx, insertSectionTeacher, arg.SectionID, arg.TeacherID)
+	var i SectionTeacher
+	err := row.Scan(&i.SectionID, &i.TeacherID, &i.CreatedAt)
 	return i, err
 }
 
@@ -450,6 +585,68 @@ func (q *Queries) ListPrograms(ctx context.Context) ([]Program, error) {
 	return items, nil
 }
 
+const listSectionTeachers = `-- name: ListSectionTeachers :many
+SELECT section_id, teacher_id, created_at FROM section_teachers
+WHERE section_id = $1
+ORDER BY created_at
+`
+
+func (q *Queries) ListSectionTeachers(ctx context.Context, sectionID pgtype.UUID) ([]SectionTeacher, error) {
+	rows, err := q.db.Query(ctx, listSectionTeachers, sectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SectionTeacher
+	for rows.Next() {
+		var i SectionTeacher
+		if err := rows.Scan(&i.SectionID, &i.TeacherID, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSections = `-- name: ListSections :many
+SELECT id, course_id, academic_period_id, capacity, created_at, updated_at, deleted_at, created_by, updated_by FROM sections
+WHERE deleted_at IS NULL
+ORDER BY created_at
+`
+
+func (q *Queries) ListSections(ctx context.Context) ([]Section, error) {
+	rows, err := q.db.Query(ctx, listSections)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Section
+	for rows.Next() {
+		var i Section
+		if err := rows.Scan(
+			&i.ID,
+			&i.CourseID,
+			&i.AcademicPeriodID,
+			&i.Capacity,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const softDeleteAcademicPeriod = `-- name: SoftDeleteAcademicPeriod :execrows
 UPDATE academic_periods
 SET deleted_at = now()
@@ -505,6 +702,25 @@ type SoftDeleteProgramQuotaParams struct {
 
 func (q *Queries) SoftDeleteProgramQuota(ctx context.Context, arg SoftDeleteProgramQuotaParams) (int64, error) {
 	result, err := q.db.Exec(ctx, softDeleteProgramQuota, arg.ID, arg.UpdatedBy)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const softDeleteSection = `-- name: SoftDeleteSection :execrows
+UPDATE sections
+SET deleted_at = now(), updated_by = $2
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+type SoftDeleteSectionParams struct {
+	ID        pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
+func (q *Queries) SoftDeleteSection(ctx context.Context, arg SoftDeleteSectionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, softDeleteSection, arg.ID, arg.UpdatedBy)
 	if err != nil {
 		return 0, err
 	}
@@ -647,6 +863,36 @@ func (q *Queries) UpdateProgramQuota(ctx context.Context, arg UpdateProgramQuota
 		&i.ID,
 		&i.ProgramID,
 		&i.Year,
+		&i.Capacity,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const updateSection = `-- name: UpdateSection :one
+UPDATE sections
+SET capacity = $2, updated_at = now(), updated_by = $3
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, course_id, academic_period_id, capacity, created_at, updated_at, deleted_at, created_by, updated_by
+`
+
+type UpdateSectionParams struct {
+	ID        pgtype.UUID
+	Capacity  int32
+	UpdatedBy pgtype.UUID
+}
+
+func (q *Queries) UpdateSection(ctx context.Context, arg UpdateSectionParams) (Section, error) {
+	row := q.db.QueryRow(ctx, updateSection, arg.ID, arg.Capacity, arg.UpdatedBy)
+	var i Section
+	err := row.Scan(
+		&i.ID,
+		&i.CourseID,
+		&i.AcademicPeriodID,
 		&i.Capacity,
 		&i.CreatedAt,
 		&i.UpdatedAt,

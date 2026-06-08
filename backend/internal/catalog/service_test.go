@@ -67,6 +67,26 @@ type fakeRepository struct {
 	getProgramQuotaErr     error
 	listProgramQuotasRows  []catalogdb.ProgramQuota
 	softDeleteProgramQuotaE error
+
+	// Sections
+	createSectionRow               catalogdb.Section
+	createSectionErr               error
+	createSectionActor             *uuid.UUID
+	updateSectionRow               catalogdb.Section
+	updateSectionErr               error
+	getSectionRow                  catalogdb.Section
+	getSectionErr                  error
+	listSectionsRows               []catalogdb.Section
+	softDeleteSectionE             error
+	countLiveSectionsByCourse      int64
+	countLiveSectionsByPeriod      int64
+	countSectionTeachersN          int64
+
+	// Section teachers
+	assignTeacherRow               catalogdb.SectionTeacher
+	assignTeacherErr               error
+	removeTeacherErr               error
+	listSectionTeachersRows        []catalogdb.SectionTeacher
 }
 
 // Compile-time check: fakeRepository must satisfy catalog.Repository.
@@ -152,6 +172,40 @@ func (f *fakeRepository) ListProgramQuotas(_ context.Context, _ uuid.UUID) ([]ca
 }
 func (f *fakeRepository) SoftDeleteProgramQuota(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
 	return f.softDeleteProgramQuotaE
+}
+func (f *fakeRepository) CreateSection(_ context.Context, _ catalog.CreateSectionParams, actor *uuid.UUID) (catalogdb.Section, error) {
+	f.createSectionActor = actor
+	return f.createSectionRow, f.createSectionErr
+}
+func (f *fakeRepository) UpdateSection(_ context.Context, _ uuid.UUID, _ catalog.UpdateSectionParams, _ *uuid.UUID) (catalogdb.Section, error) {
+	return f.updateSectionRow, f.updateSectionErr
+}
+func (f *fakeRepository) GetSection(_ context.Context, _ uuid.UUID) (catalogdb.Section, error) {
+	return f.getSectionRow, f.getSectionErr
+}
+func (f *fakeRepository) ListSections(_ context.Context) ([]catalogdb.Section, error) {
+	return f.listSectionsRows, nil
+}
+func (f *fakeRepository) SoftDeleteSection(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
+	return f.softDeleteSectionE
+}
+func (f *fakeRepository) CountLiveSectionsByCourse(_ context.Context, _ uuid.UUID) (int64, error) {
+	return f.countLiveSectionsByCourse, nil
+}
+func (f *fakeRepository) CountLiveSectionsByAcademicPeriod(_ context.Context, _ uuid.UUID) (int64, error) {
+	return f.countLiveSectionsByPeriod, nil
+}
+func (f *fakeRepository) CountSectionTeachers(_ context.Context, _ uuid.UUID) (int64, error) {
+	return f.countSectionTeachersN, nil
+}
+func (f *fakeRepository) AssignTeacherToSection(_ context.Context, _, _ uuid.UUID) (catalogdb.SectionTeacher, error) {
+	return f.assignTeacherRow, f.assignTeacherErr
+}
+func (f *fakeRepository) RemoveTeacherFromSection(_ context.Context, _, _ uuid.UUID) error {
+	return f.removeTeacherErr
+}
+func (f *fakeRepository) ListSectionTeachers(_ context.Context, _ uuid.UUID) ([]catalogdb.SectionTeacher, error) {
+	return f.listSectionTeachersRows, nil
 }
 
 // --- Validation tests ---
@@ -479,6 +533,141 @@ func TestService_AddCourseToProgram_AlreadyExists(t *testing.T) {
 	_, err := svc.AddCourseToProgram(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, catalog.ErrAlreadyExists) {
 		t.Errorf("AddCourseToProgram (duplicate): got %v, want ErrAlreadyExists", err)
+	}
+}
+
+// --- Section validation tests ---
+
+func TestService_CreateSection_Validation(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		params catalog.CreateSectionServiceParams
+	}{
+		{"zero capacity", catalog.CreateSectionServiceParams{
+			CourseID:         uuid.New().String(),
+			AcademicPeriodID: uuid.New().String(),
+			SeatCapacity:     0,
+		}},
+		{"negative capacity", catalog.CreateSectionServiceParams{
+			CourseID:         uuid.New().String(),
+			AcademicPeriodID: uuid.New().String(),
+			SeatCapacity:     -5,
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeRepository{}
+			svc := catalog.NewService(repo)
+			_, err := svc.CreateSection(context.Background(), tc.params)
+			if !errors.Is(err, catalog.ErrInvalidInput) {
+				t.Errorf("CreateSection(%s): got %v, want ErrInvalidInput", tc.name, err)
+			}
+		})
+	}
+}
+
+func TestService_CreateSection_AuditFromContext(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+
+	repo := &fakeRepository{
+		createSectionRow: catalogdb.Section{
+			ID:        pgtype.UUID{Bytes: uuid.New(), Valid: true},
+			CreatedBy: pgtype.UUID{Bytes: actorID, Valid: true},
+		},
+	}
+	svc := catalog.NewService(repo)
+
+	_, err := svc.CreateSection(ctx, catalog.CreateSectionServiceParams{
+		CourseID:         uuid.New().String(),
+		AcademicPeriodID: uuid.New().String(),
+		SeatCapacity:     20,
+	})
+	if err != nil {
+		t.Fatalf("CreateSection: unexpected error: %v", err)
+	}
+	if repo.createSectionActor == nil || *repo.createSectionActor != actorID {
+		t.Errorf("createSection actor = %v, want %v", repo.createSectionActor, actorID)
+	}
+}
+
+func TestService_DeleteSection_BlockedBySectionTeachers(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{countSectionTeachersN: 1}
+	svc := catalog.NewService(repo)
+
+	err := svc.DeleteSection(context.Background(), uuid.New())
+	if !errors.Is(err, catalog.ErrHasDependents) {
+		t.Errorf("DeleteSection (with teachers): got %v, want ErrHasDependents", err)
+	}
+}
+
+func TestService_DeleteSection_AllowedWhenNoTeachers(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{countSectionTeachersN: 0}
+	svc := catalog.NewService(repo)
+
+	err := svc.DeleteSection(context.Background(), uuid.New())
+	if err != nil {
+		t.Errorf("DeleteSection (no teachers): unexpected error: %v", err)
+	}
+}
+
+func TestService_DeleteCourse_BlockedByLiveSections(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{
+		countCourseAssociations:  0,
+		countLiveSectionsByCourse: 3,
+	}
+	svc := catalog.NewService(repo)
+
+	err := svc.DeleteCourse(context.Background(), uuid.New())
+	if !errors.Is(err, catalog.ErrHasDependents) {
+		t.Errorf("DeleteCourse (with live sections): got %v, want ErrHasDependents", err)
+	}
+}
+
+func TestService_DeleteAcademicPeriod_BlockedByLiveSections(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{countLiveSectionsByPeriod: 2}
+	svc := catalog.NewService(repo)
+
+	err := svc.DeleteAcademicPeriod(context.Background(), uuid.New())
+	if !errors.Is(err, catalog.ErrHasDependents) {
+		t.Errorf("DeleteAcademicPeriod (with live sections): got %v, want ErrHasDependents", err)
+	}
+}
+
+func TestService_DeleteAcademicPeriod_AllowedWhenNoSections(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{countLiveSectionsByPeriod: 0}
+	svc := catalog.NewService(repo)
+
+	err := svc.DeleteAcademicPeriod(context.Background(), uuid.New())
+	if err != nil {
+		t.Errorf("DeleteAcademicPeriod (no sections): unexpected error: %v", err)
+	}
+}
+
+func TestService_AssignTeacherToSection_AlreadyExists(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{assignTeacherErr: catalog.ErrAlreadyExists}
+	svc := catalog.NewService(repo)
+
+	_, err := svc.AssignTeacherToSection(context.Background(), uuid.New(), uuid.New())
+	if !errors.Is(err, catalog.ErrAlreadyExists) {
+		t.Errorf("AssignTeacherToSection (duplicate): got %v, want ErrAlreadyExists", err)
 	}
 }
 

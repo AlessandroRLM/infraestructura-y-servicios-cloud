@@ -126,6 +126,14 @@ func main() {
 		catalogv1connect.CatalogServiceAddCourseToProgramProcedure:        authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceRemoveCourseFromProgramProcedure:   authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceListProgramCoursesProcedure:        authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceCreateSectionProcedure:             authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceUpdateSectionProcedure:             authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceGetSectionProcedure:                authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListSectionsProcedure:              authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceDeleteSectionProcedure:             authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceAssignTeacherToSectionProcedure:    authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceRemoveTeacherFromSectionProcedure:  authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListSectionTeachersProcedure:       authz.RequirePermission(authz.PermCatalogManage),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)

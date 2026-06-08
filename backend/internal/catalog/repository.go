@@ -47,6 +47,21 @@ type Repository interface {
 	GetProgramQuota(ctx context.Context, id uuid.UUID) (catalogdb.ProgramQuota, error)
 	ListProgramQuotas(ctx context.Context, programID uuid.UUID) ([]catalogdb.ProgramQuota, error)
 	SoftDeleteProgramQuota(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
+
+	// Sections
+	CreateSection(ctx context.Context, p CreateSectionParams, actor *uuid.UUID) (catalogdb.Section, error)
+	UpdateSection(ctx context.Context, id uuid.UUID, p UpdateSectionParams, actor *uuid.UUID) (catalogdb.Section, error)
+	GetSection(ctx context.Context, id uuid.UUID) (catalogdb.Section, error)
+	ListSections(ctx context.Context) ([]catalogdb.Section, error)
+	SoftDeleteSection(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
+	CountLiveSectionsByCourse(ctx context.Context, courseID uuid.UUID) (int64, error)
+	CountLiveSectionsByAcademicPeriod(ctx context.Context, academicPeriodID uuid.UUID) (int64, error)
+	CountSectionTeachers(ctx context.Context, sectionID uuid.UUID) (int64, error)
+
+	// Section-teacher M:N
+	AssignTeacherToSection(ctx context.Context, sectionID, teacherID uuid.UUID) (catalogdb.SectionTeacher, error)
+	RemoveTeacherFromSection(ctx context.Context, sectionID, teacherID uuid.UUID) error
+	ListSectionTeachers(ctx context.Context, sectionID uuid.UUID) ([]catalogdb.SectionTeacher, error)
 }
 
 // Parameter types for repository operations.
@@ -104,6 +119,18 @@ type CreateProgramQuotaParams struct {
 type UpdateProgramQuotaParams struct {
 	Year     int32
 	Capacity int32
+}
+
+// CreateSectionParams holds data for inserting a new section.
+type CreateSectionParams struct {
+	CourseID         uuid.UUID
+	AcademicPeriodID uuid.UUID
+	SeatCapacity     int32
+}
+
+// UpdateSectionParams holds data for updating an existing section.
+type UpdateSectionParams struct {
+	SeatCapacity int32
 }
 
 // postgresRepository is the production implementation backed by a sqlc Querier.
@@ -400,6 +427,123 @@ func (r *postgresRepository) SoftDeleteProgramQuota(ctx context.Context, id uuid
 		return fmt.Errorf("%w", ErrNotFound)
 	}
 	return nil
+}
+
+// --- Sections ---
+
+func (r *postgresRepository) CreateSection(ctx context.Context, p CreateSectionParams, actor *uuid.UUID) (catalogdb.Section, error) {
+	row, err := r.q.InsertSection(ctx, catalogdb.InsertSectionParams{
+		CourseID:         pgtype.UUID{Bytes: p.CourseID, Valid: true},
+		AcademicPeriodID: pgtype.UUID{Bytes: p.AcademicPeriodID, Valid: true},
+		Capacity:         p.SeatCapacity,
+		CreatedBy:        optionalUUID(actor),
+		UpdatedBy:        optionalUUID(actor),
+	})
+	if err != nil {
+		return catalogdb.Section{}, TranslatePgError(err)
+	}
+	return row, nil
+}
+
+func (r *postgresRepository) UpdateSection(ctx context.Context, id uuid.UUID, p UpdateSectionParams, actor *uuid.UUID) (catalogdb.Section, error) {
+	row, err := r.q.UpdateSection(ctx, catalogdb.UpdateSectionParams{
+		ID:        pgtype.UUID{Bytes: id, Valid: true},
+		Capacity:  p.SeatCapacity,
+		UpdatedBy: optionalUUID(actor),
+	})
+	if err != nil {
+		return catalogdb.Section{}, TranslatePgError(err)
+	}
+	return row, nil
+}
+
+func (r *postgresRepository) GetSection(ctx context.Context, id uuid.UUID) (catalogdb.Section, error) {
+	row, err := r.q.GetSection(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		return catalogdb.Section{}, TranslatePgError(err)
+	}
+	return row, nil
+}
+
+func (r *postgresRepository) ListSections(ctx context.Context) ([]catalogdb.Section, error) {
+	rows, err := r.q.ListSections(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: ListSections: %w", err)
+	}
+	return rows, nil
+}
+
+func (r *postgresRepository) SoftDeleteSection(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error {
+	n, err := r.q.SoftDeleteSection(ctx, catalogdb.SoftDeleteSectionParams{
+		ID:        pgtype.UUID{Bytes: id, Valid: true},
+		UpdatedBy: optionalUUID(actor),
+	})
+	if err != nil {
+		return fmt.Errorf("catalog: SoftDeleteSection: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
+	}
+	return nil
+}
+
+func (r *postgresRepository) CountLiveSectionsByCourse(ctx context.Context, courseID uuid.UUID) (int64, error) {
+	n, err := r.q.CountLiveSectionsByCourse(ctx, pgtype.UUID{Bytes: courseID, Valid: true})
+	if err != nil {
+		return 0, fmt.Errorf("catalog: CountLiveSectionsByCourse: %w", err)
+	}
+	return n, nil
+}
+
+func (r *postgresRepository) CountLiveSectionsByAcademicPeriod(ctx context.Context, academicPeriodID uuid.UUID) (int64, error) {
+	n, err := r.q.CountLiveSectionsByAcademicPeriod(ctx, pgtype.UUID{Bytes: academicPeriodID, Valid: true})
+	if err != nil {
+		return 0, fmt.Errorf("catalog: CountLiveSectionsByAcademicPeriod: %w", err)
+	}
+	return n, nil
+}
+
+func (r *postgresRepository) CountSectionTeachers(ctx context.Context, sectionID uuid.UUID) (int64, error) {
+	n, err := r.q.CountSectionTeachers(ctx, pgtype.UUID{Bytes: sectionID, Valid: true})
+	if err != nil {
+		return 0, fmt.Errorf("catalog: CountSectionTeachers: %w", err)
+	}
+	return n, nil
+}
+
+// --- Section-teacher M:N ---
+
+func (r *postgresRepository) AssignTeacherToSection(ctx context.Context, sectionID, teacherID uuid.UUID) (catalogdb.SectionTeacher, error) {
+	row, err := r.q.InsertSectionTeacher(ctx, catalogdb.InsertSectionTeacherParams{
+		SectionID: pgtype.UUID{Bytes: sectionID, Valid: true},
+		TeacherID: pgtype.UUID{Bytes: teacherID, Valid: true},
+	})
+	if err != nil {
+		return catalogdb.SectionTeacher{}, TranslatePgError(err)
+	}
+	return row, nil
+}
+
+func (r *postgresRepository) RemoveTeacherFromSection(ctx context.Context, sectionID, teacherID uuid.UUID) error {
+	n, err := r.q.DeleteSectionTeacher(ctx, catalogdb.DeleteSectionTeacherParams{
+		SectionID: pgtype.UUID{Bytes: sectionID, Valid: true},
+		TeacherID: pgtype.UUID{Bytes: teacherID, Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("catalog: RemoveTeacherFromSection: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
+	}
+	return nil
+}
+
+func (r *postgresRepository) ListSectionTeachers(ctx context.Context, sectionID uuid.UUID) ([]catalogdb.SectionTeacher, error) {
+	rows, err := r.q.ListSectionTeachers(ctx, pgtype.UUID{Bytes: sectionID, Valid: true})
+	if err != nil {
+		return nil, fmt.Errorf("catalog: ListSectionTeachers: %w", err)
+	}
+	return rows, nil
 }
 
 // optionalUUID converts a *uuid.UUID to pgtype.UUID.
