@@ -11,6 +11,18 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countCourseProgramAssociations = `-- name: CountCourseProgramAssociations :one
+SELECT count(*) FROM program_courses
+WHERE course_id = $1
+`
+
+func (q *Queries) CountCourseProgramAssociations(ctx context.Context, courseID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countCourseProgramAssociations, courseID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countLiveProgramQuotas = `-- name: CountLiveProgramQuotas :one
 SELECT count(*) FROM program_quotas
 WHERE program_id = $1 AND deleted_at IS NULL
@@ -35,7 +47,7 @@ func (q *Queries) CountProgramCourses(ctx context.Context, programID pgtype.UUID
 	return count, err
 }
 
-const deleteProgramCourse = `-- name: DeleteProgramCourse :exec
+const deleteProgramCourse = `-- name: DeleteProgramCourse :execrows
 DELETE FROM program_courses
 WHERE program_id = $1 AND course_id = $2
 `
@@ -45,9 +57,12 @@ type DeleteProgramCourseParams struct {
 	CourseID  pgtype.UUID
 }
 
-func (q *Queries) DeleteProgramCourse(ctx context.Context, arg DeleteProgramCourseParams) error {
-	_, err := q.db.Exec(ctx, deleteProgramCourse, arg.ProgramID, arg.CourseID)
-	return err
+func (q *Queries) DeleteProgramCourse(ctx context.Context, arg DeleteProgramCourseParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteProgramCourse, arg.ProgramID, arg.CourseID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getAcademicPeriod = `-- name: GetAcademicPeriod :one
@@ -267,45 +282,6 @@ func (q *Queries) InsertProgramCourse(ctx context.Context, arg InsertProgramCour
 	return i, err
 }
 
-const insertProgramQuota = `-- name: InsertProgramQuota :one
-
-INSERT INTO program_quotas (program_id, year, capacity, created_by, updated_by)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, program_id, year, capacity, created_at, updated_at, deleted_at, created_by, updated_by
-`
-
-type InsertProgramQuotaParams struct {
-	ProgramID pgtype.UUID
-	Year      int32
-	Capacity  int32
-	CreatedBy pgtype.UUID
-	UpdatedBy pgtype.UUID
-}
-
-// Program quotas
-func (q *Queries) InsertProgramQuota(ctx context.Context, arg InsertProgramQuotaParams) (ProgramQuota, error) {
-	row := q.db.QueryRow(ctx, insertProgramQuota,
-		arg.ProgramID,
-		arg.Year,
-		arg.Capacity,
-		arg.CreatedBy,
-		arg.UpdatedBy,
-	)
-	var i ProgramQuota
-	err := row.Scan(
-		&i.ID,
-		&i.ProgramID,
-		&i.Year,
-		&i.Capacity,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-		&i.CreatedBy,
-		&i.UpdatedBy,
-	)
-	return i, err
-}
-
 const listAcademicPeriods = `-- name: ListAcademicPeriods :many
 SELECT id, year, term, start_date, end_date, created_at, updated_at, deleted_at FROM academic_periods
 WHERE deleted_at IS NULL
@@ -474,40 +450,49 @@ func (q *Queries) ListPrograms(ctx context.Context) ([]Program, error) {
 	return items, nil
 }
 
-const softDeleteAcademicPeriod = `-- name: SoftDeleteAcademicPeriod :exec
+const softDeleteAcademicPeriod = `-- name: SoftDeleteAcademicPeriod :execrows
 UPDATE academic_periods
 SET deleted_at = now()
 WHERE id = $1 AND deleted_at IS NULL
 `
 
-func (q *Queries) SoftDeleteAcademicPeriod(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, softDeleteAcademicPeriod, id)
-	return err
+func (q *Queries) SoftDeleteAcademicPeriod(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, softDeleteAcademicPeriod, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const softDeleteCourse = `-- name: SoftDeleteCourse :exec
+const softDeleteCourse = `-- name: SoftDeleteCourse :execrows
 UPDATE courses
 SET deleted_at = now()
 WHERE id = $1 AND deleted_at IS NULL
 `
 
-func (q *Queries) SoftDeleteCourse(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, softDeleteCourse, id)
-	return err
+func (q *Queries) SoftDeleteCourse(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, softDeleteCourse, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const softDeleteProgram = `-- name: SoftDeleteProgram :exec
+const softDeleteProgram = `-- name: SoftDeleteProgram :execrows
 UPDATE programs
 SET deleted_at = now()
 WHERE id = $1 AND deleted_at IS NULL
 `
 
-func (q *Queries) SoftDeleteProgram(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, softDeleteProgram, id)
-	return err
+func (q *Queries) SoftDeleteProgram(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, softDeleteProgram, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const softDeleteProgramQuota = `-- name: SoftDeleteProgramQuota :exec
+const softDeleteProgramQuota = `-- name: SoftDeleteProgramQuota :execrows
 UPDATE program_quotas
 SET deleted_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL
@@ -518,9 +503,12 @@ type SoftDeleteProgramQuotaParams struct {
 	UpdatedBy pgtype.UUID
 }
 
-func (q *Queries) SoftDeleteProgramQuota(ctx context.Context, arg SoftDeleteProgramQuotaParams) error {
-	_, err := q.db.Exec(ctx, softDeleteProgramQuota, arg.ID, arg.UpdatedBy)
-	return err
+func (q *Queries) SoftDeleteProgramQuota(ctx context.Context, arg SoftDeleteProgramQuotaParams) (int64, error) {
+	result, err := q.db.Exec(ctx, softDeleteProgramQuota, arg.ID, arg.UpdatedBy)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateAcademicPeriod = `-- name: UpdateAcademicPeriod :one
@@ -652,6 +640,50 @@ func (q *Queries) UpdateProgramQuota(ctx context.Context, arg UpdateProgramQuota
 		arg.ID,
 		arg.Year,
 		arg.Capacity,
+		arg.UpdatedBy,
+	)
+	var i ProgramQuota
+	err := row.Scan(
+		&i.ID,
+		&i.ProgramID,
+		&i.Year,
+		&i.Capacity,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const upsertProgramQuota = `-- name: UpsertProgramQuota :one
+
+INSERT INTO program_quotas (program_id, year, capacity, created_by, updated_by)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (program_id, year) DO UPDATE
+  SET capacity   = EXCLUDED.capacity,
+      updated_at = now(),
+      updated_by = EXCLUDED.updated_by,
+      deleted_at = NULL
+RETURNING id, program_id, year, capacity, created_at, updated_at, deleted_at, created_by, updated_by
+`
+
+type UpsertProgramQuotaParams struct {
+	ProgramID pgtype.UUID
+	Year      int32
+	Capacity  int32
+	CreatedBy pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
+// Program quotas
+func (q *Queries) UpsertProgramQuota(ctx context.Context, arg UpsertProgramQuotaParams) (ProgramQuota, error) {
+	row := q.db.QueryRow(ctx, upsertProgramQuota,
+		arg.ProgramID,
+		arg.Year,
+		arg.Capacity,
+		arg.CreatedBy,
 		arg.UpdatedBy,
 	)
 	var i ProgramQuota

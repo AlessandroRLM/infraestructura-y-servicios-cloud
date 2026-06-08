@@ -20,7 +20,7 @@ SELECT * FROM programs
 WHERE deleted_at IS NULL
 ORDER BY created_at;
 
--- name: SoftDeleteProgram :exec
+-- name: SoftDeleteProgram :execrows
 UPDATE programs
 SET deleted_at = now()
 WHERE id = $1 AND deleted_at IS NULL;
@@ -55,7 +55,11 @@ SELECT * FROM courses
 WHERE deleted_at IS NULL
 ORDER BY created_at;
 
--- name: SoftDeleteCourse :exec
+-- name: CountCourseProgramAssociations :one
+SELECT count(*) FROM program_courses
+WHERE course_id = $1;
+
+-- name: SoftDeleteCourse :execrows
 UPDATE courses
 SET deleted_at = now()
 WHERE id = $1 AND deleted_at IS NULL;
@@ -67,7 +71,7 @@ INSERT INTO program_courses (program_id, course_id)
 VALUES ($1, $2)
 RETURNING *;
 
--- name: DeleteProgramCourse :exec
+-- name: DeleteProgramCourse :execrows
 DELETE FROM program_courses
 WHERE program_id = $1 AND course_id = $2;
 
@@ -98,16 +102,21 @@ SELECT * FROM academic_periods
 WHERE deleted_at IS NULL
 ORDER BY year, term;
 
--- name: SoftDeleteAcademicPeriod :exec
+-- name: SoftDeleteAcademicPeriod :execrows
 UPDATE academic_periods
 SET deleted_at = now()
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- Program quotas
 
--- name: InsertProgramQuota :one
+-- name: UpsertProgramQuota :one
 INSERT INTO program_quotas (program_id, year, capacity, created_by, updated_by)
 VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (program_id, year) DO UPDATE
+  SET capacity   = EXCLUDED.capacity,
+      updated_at = now(),
+      updated_by = EXCLUDED.updated_by,
+      deleted_at = NULL
 RETURNING *;
 
 -- name: UpdateProgramQuota :one
@@ -125,7 +134,7 @@ SELECT * FROM program_quotas
 WHERE program_id = $1 AND deleted_at IS NULL
 ORDER BY year;
 
--- name: SoftDeleteProgramQuota :exec
+-- name: SoftDeleteProgramQuota :execrows
 UPDATE program_quotas
 SET deleted_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;

@@ -11,9 +11,10 @@ import (
 )
 
 type Querier interface {
+	CountCourseProgramAssociations(ctx context.Context, courseID pgtype.UUID) (int64, error)
 	CountLiveProgramQuotas(ctx context.Context, programID pgtype.UUID) (int64, error)
 	CountProgramCourses(ctx context.Context, programID pgtype.UUID) (int64, error)
-	DeleteProgramCourse(ctx context.Context, arg DeleteProgramCourseParams) error
+	DeleteProgramCourse(ctx context.Context, arg DeleteProgramCourseParams) (int64, error)
 	GetAcademicPeriod(ctx context.Context, id pgtype.UUID) (AcademicPeriod, error)
 	GetCourse(ctx context.Context, id pgtype.UUID) (Course, error)
 	GetProgram(ctx context.Context, id pgtype.UUID) (Program, error)
@@ -26,21 +27,21 @@ type Querier interface {
 	InsertProgram(ctx context.Context, arg InsertProgramParams) (Program, error)
 	// Program courses (M:N append-only)
 	InsertProgramCourse(ctx context.Context, arg InsertProgramCourseParams) (ProgramCourse, error)
-	// Program quotas
-	InsertProgramQuota(ctx context.Context, arg InsertProgramQuotaParams) (ProgramQuota, error)
 	ListAcademicPeriods(ctx context.Context) ([]AcademicPeriod, error)
 	ListCourses(ctx context.Context) ([]Course, error)
 	ListProgramCourses(ctx context.Context, programID pgtype.UUID) ([]ProgramCourse, error)
 	ListProgramQuotas(ctx context.Context, programID pgtype.UUID) ([]ProgramQuota, error)
 	ListPrograms(ctx context.Context) ([]Program, error)
-	SoftDeleteAcademicPeriod(ctx context.Context, id pgtype.UUID) error
-	SoftDeleteCourse(ctx context.Context, id pgtype.UUID) error
-	SoftDeleteProgram(ctx context.Context, id pgtype.UUID) error
-	SoftDeleteProgramQuota(ctx context.Context, arg SoftDeleteProgramQuotaParams) error
+	SoftDeleteAcademicPeriod(ctx context.Context, id pgtype.UUID) (int64, error)
+	SoftDeleteCourse(ctx context.Context, id pgtype.UUID) (int64, error)
+	SoftDeleteProgram(ctx context.Context, id pgtype.UUID) (int64, error)
+	SoftDeleteProgramQuota(ctx context.Context, arg SoftDeleteProgramQuotaParams) (int64, error)
 	UpdateAcademicPeriod(ctx context.Context, arg UpdateAcademicPeriodParams) (AcademicPeriod, error)
 	UpdateCourse(ctx context.Context, arg UpdateCourseParams) (Course, error)
 	UpdateProgram(ctx context.Context, arg UpdateProgramParams) (Program, error)
 	UpdateProgramQuota(ctx context.Context, arg UpdateProgramQuotaParams) (ProgramQuota, error)
+	// Program quotas
+	UpsertProgramQuota(ctx context.Context, arg UpsertProgramQuotaParams) (ProgramQuota, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -8,12 +8,64 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AcademicPeriod struct {
+	ID        pgtype.UUID
+	Year      int32
+	Term      int32
+	StartDate pgtype.Date
+	EndDate   pgtype.Date
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+}
+
+type Course struct {
+	ID        pgtype.UUID
+	Code      string
+	Name      string
+	Credits   int32
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+	CreatedBy pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
 type Permission struct {
 	ID          pgtype.UUID
 	Code        string
 	Description string
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
+}
+
+type Program struct {
+	ID        pgtype.UUID
+	Code      string
+	Name      string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+	CreatedBy pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
+type ProgramCourse struct {
+	ProgramID pgtype.UUID
+	CourseID  pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+}
+
+type ProgramQuota struct {
+	ID        pgtype.UUID
+	ProgramID pgtype.UUID
+	Year      int32
+	Capacity  int32
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+	CreatedBy pgtype.UUID
+	UpdatedBy pgtype.UUID
 }
 
 type Role struct {
