@@ -201,9 +201,8 @@ message CreateProgramQuotaRequest {
 
 message UpdateProgramQuotaRequest {
   string id              = 1;
-  string program_id      = 2;
-  int32  year            = 3;
-  int32  admission_quota = 4;
+  int32  year            = 2;
+  int32  admission_quota = 3;
 }
 
 message GetProgramQuotaRequest {

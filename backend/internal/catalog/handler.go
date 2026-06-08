@@ -32,6 +32,9 @@ func Register(mux *http.ServeMux, h *Handler, opts ...connect.HandlerOption) {
 
 // MapError converts domain errors to connect.Error codes.
 // Exported so that the handler_test package can validate the mapping.
+// Unrecognized errors map to CodeInternal with a generic message — the raw error
+// is never forwarded so that internal details (table names, constraint text) cannot
+// leak to callers.
 func MapError(err error) error {
 	if errors.Is(err, ErrInvalidInput) {
 		return connect.NewError(connect.CodeInvalidArgument, err)
@@ -45,7 +48,7 @@ func MapError(err error) error {
 	if errors.Is(err, ErrHasDependents) {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	}
-	return connect.NewError(connect.CodeInternal, err)
+	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 }
 
 // parseUUID parses a string UUID and returns CodeInvalidArgument on failure.

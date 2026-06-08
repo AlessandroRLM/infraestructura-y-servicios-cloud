@@ -152,10 +152,18 @@ func (s *Service) ListCourses(ctx context.Context) ([]catalogdb.Course, error) {
 	return s.repo.ListCourses(ctx)
 }
 
-// DeleteCourse soft-deletes a course after verifying no live sections reference it.
-// For PR 1 there are no sections; the count query is still wired for correctness.
+// DeleteCourse soft-deletes a course after verifying no live program associations exist.
+// Sections dependent check is deferred to PR 2 (sections table does not exist yet).
 func (s *Service) DeleteCourse(ctx context.Context, id uuid.UUID) error {
-	// Sections are introduced in PR 2. No dependent count here yet.
+	n, err := s.repo.CountCourseProgramAssociations(ctx, id)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("%w: course has %d program association(s)", ErrHasDependents, n)
+	}
+
+	// TODO(PR2): add sections dependent check here once the sections table is introduced.
 	return s.repo.SoftDeleteCourse(ctx, id)
 }
 

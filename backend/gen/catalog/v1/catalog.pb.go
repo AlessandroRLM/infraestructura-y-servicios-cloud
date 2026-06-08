@@ -1563,9 +1563,8 @@ func (x *CreateProgramQuotaRequest) GetAdmissionQuota() int32 {
 type UpdateProgramQuotaRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	ProgramId      string                 `protobuf:"bytes,2,opt,name=program_id,json=programId,proto3" json:"program_id,omitempty"`
-	Year           int32                  `protobuf:"varint,3,opt,name=year,proto3" json:"year,omitempty"`
-	AdmissionQuota int32                  `protobuf:"varint,4,opt,name=admission_quota,json=admissionQuota,proto3" json:"admission_quota,omitempty"`
+	Year           int32                  `protobuf:"varint,2,opt,name=year,proto3" json:"year,omitempty"`
+	AdmissionQuota int32                  `protobuf:"varint,3,opt,name=admission_quota,json=admissionQuota,proto3" json:"admission_quota,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1603,13 +1602,6 @@ func (*UpdateProgramQuotaRequest) Descriptor() ([]byte, []int) {
 func (x *UpdateProgramQuotaRequest) GetId() string {
 	if x != nil {
 		return x.Id
-	}
-	return ""
-}
-
-func (x *UpdateProgramQuotaRequest) GetProgramId() string {
-	if x != nil {
-		return x.ProgramId
 	}
 	return ""
 }
@@ -2205,13 +2197,11 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"\n" +
 	"program_id\x18\x01 \x01(\tR\tprogramId\x12\x12\n" +
 	"\x04year\x18\x02 \x01(\x05R\x04year\x12'\n" +
-	"\x0fadmission_quota\x18\x03 \x01(\x05R\x0eadmissionQuota\"\x87\x01\n" +
+	"\x0fadmission_quota\x18\x03 \x01(\x05R\x0eadmissionQuota\"h\n" +
 	"\x19UpdateProgramQuotaRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
-	"\n" +
-	"program_id\x18\x02 \x01(\tR\tprogramId\x12\x12\n" +
-	"\x04year\x18\x03 \x01(\x05R\x04year\x12'\n" +
-	"\x0fadmission_quota\x18\x04 \x01(\x05R\x0eadmissionQuota\"(\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04year\x18\x02 \x01(\x05R\x04year\x12'\n" +
+	"\x0fadmission_quota\x18\x03 \x01(\x05R\x0eadmissionQuota\"(\n" +
 	"\x16GetProgramQuotaRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"9\n" +
 	"\x18ListProgramQuotasRequest\x12\x1d\n" +

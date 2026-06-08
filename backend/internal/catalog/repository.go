@@ -27,6 +27,7 @@ type Repository interface {
 	GetCourse(ctx context.Context, id uuid.UUID) (catalogdb.Course, error)
 	ListCourses(ctx context.Context) ([]catalogdb.Course, error)
 	SoftDeleteCourse(ctx context.Context, id uuid.UUID) error
+	CountCourseProgramAssociations(ctx context.Context, courseID uuid.UUID) (int64, error)
 
 	// Program-course M:N
 	AddCourseToProgram(ctx context.Context, programID, courseID uuid.UUID) (catalogdb.ProgramCourse, error)
@@ -160,8 +161,12 @@ func (r *postgresRepository) ListPrograms(ctx context.Context) ([]catalogdb.Prog
 }
 
 func (r *postgresRepository) SoftDeleteProgram(ctx context.Context, id uuid.UUID) error {
-	if err := r.q.SoftDeleteProgram(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
+	n, err := r.q.SoftDeleteProgram(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
 		return fmt.Errorf("catalog: SoftDeleteProgram: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
 	}
 	return nil
 }
@@ -229,10 +234,22 @@ func (r *postgresRepository) ListCourses(ctx context.Context) ([]catalogdb.Cours
 }
 
 func (r *postgresRepository) SoftDeleteCourse(ctx context.Context, id uuid.UUID) error {
-	if err := r.q.SoftDeleteCourse(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
+	n, err := r.q.SoftDeleteCourse(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
 		return fmt.Errorf("catalog: SoftDeleteCourse: %w", err)
 	}
+	if n == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
+	}
 	return nil
+}
+
+func (r *postgresRepository) CountCourseProgramAssociations(ctx context.Context, courseID uuid.UUID) (int64, error) {
+	n, err := r.q.CountCourseProgramAssociations(ctx, pgtype.UUID{Bytes: courseID, Valid: true})
+	if err != nil {
+		return 0, fmt.Errorf("catalog: CountCourseProgramAssociations: %w", err)
+	}
+	return n, nil
 }
 
 // --- Program courses (M:N) ---
@@ -249,11 +266,15 @@ func (r *postgresRepository) AddCourseToProgram(ctx context.Context, programID, 
 }
 
 func (r *postgresRepository) RemoveCourseFromProgram(ctx context.Context, programID, courseID uuid.UUID) error {
-	if err := r.q.DeleteProgramCourse(ctx, catalogdb.DeleteProgramCourseParams{
+	n, err := r.q.DeleteProgramCourse(ctx, catalogdb.DeleteProgramCourseParams{
 		ProgramID: pgtype.UUID{Bytes: programID, Valid: true},
 		CourseID:  pgtype.UUID{Bytes: courseID, Valid: true},
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("catalog: RemoveCourseFromProgram: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
 	}
 	return nil
 }
@@ -312,8 +333,12 @@ func (r *postgresRepository) ListAcademicPeriods(ctx context.Context) ([]catalog
 }
 
 func (r *postgresRepository) SoftDeleteAcademicPeriod(ctx context.Context, id uuid.UUID) error {
-	if err := r.q.SoftDeleteAcademicPeriod(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
+	n, err := r.q.SoftDeleteAcademicPeriod(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
 		return fmt.Errorf("catalog: SoftDeleteAcademicPeriod: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
 	}
 	return nil
 }
@@ -321,7 +346,7 @@ func (r *postgresRepository) SoftDeleteAcademicPeriod(ctx context.Context, id uu
 // --- Program quotas ---
 
 func (r *postgresRepository) CreateProgramQuota(ctx context.Context, p CreateProgramQuotaParams, actor *uuid.UUID) (catalogdb.ProgramQuota, error) {
-	row, err := r.q.InsertProgramQuota(ctx, catalogdb.InsertProgramQuotaParams{
+	row, err := r.q.UpsertProgramQuota(ctx, catalogdb.UpsertProgramQuotaParams{
 		ProgramID: pgtype.UUID{Bytes: p.ProgramID, Valid: true},
 		Year:      p.Year,
 		Capacity:  p.Capacity,
@@ -364,11 +389,15 @@ func (r *postgresRepository) ListProgramQuotas(ctx context.Context, programID uu
 }
 
 func (r *postgresRepository) SoftDeleteProgramQuota(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error {
-	if err := r.q.SoftDeleteProgramQuota(ctx, catalogdb.SoftDeleteProgramQuotaParams{
+	n, err := r.q.SoftDeleteProgramQuota(ctx, catalogdb.SoftDeleteProgramQuotaParams{
 		ID:        pgtype.UUID{Bytes: id, Valid: true},
 		UpdatedBy: optionalUUID(actor),
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("catalog: SoftDeleteProgramQuota: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
 	}
 	return nil
 }
