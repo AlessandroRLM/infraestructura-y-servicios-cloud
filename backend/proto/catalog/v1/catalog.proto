@@ -1,0 +1,247 @@
+syntax = "proto3";
+
+package catalog.v1;
+
+option go_package = "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1;catalogv1";
+
+service CatalogService {
+  // Program procedures — require catalog.manage permission.
+  rpc CreateProgram(CreateProgramRequest) returns (Program);
+  rpc UpdateProgram(UpdateProgramRequest) returns (Program);
+  rpc GetProgram(GetProgramRequest) returns (Program);
+  rpc ListPrograms(ListProgramsRequest) returns (ListProgramsResponse);
+  rpc DeleteProgram(DeleteProgramRequest) returns (DeleteProgramResponse);
+
+  // Course procedures — require catalog.manage permission.
+  rpc CreateCourse(CreateCourseRequest) returns (Course);
+  rpc UpdateCourse(UpdateCourseRequest) returns (Course);
+  rpc GetCourse(GetCourseRequest) returns (Course);
+  rpc ListCourses(ListCoursesRequest) returns (ListCoursesResponse);
+  rpc DeleteCourse(DeleteCourseRequest) returns (DeleteCourseResponse);
+
+  // Academic period procedures — require catalog.manage permission.
+  rpc CreateAcademicPeriod(CreateAcademicPeriodRequest) returns (AcademicPeriod);
+  rpc UpdateAcademicPeriod(UpdateAcademicPeriodRequest) returns (AcademicPeriod);
+  rpc GetAcademicPeriod(GetAcademicPeriodRequest) returns (AcademicPeriod);
+  rpc ListAcademicPeriods(ListAcademicPeriodsRequest) returns (ListAcademicPeriodsResponse);
+  rpc DeleteAcademicPeriod(DeleteAcademicPeriodRequest) returns (DeleteAcademicPeriodResponse);
+
+  // Program quota procedures — require catalog.manage permission.
+  rpc CreateProgramQuota(CreateProgramQuotaRequest) returns (ProgramQuota);
+  rpc UpdateProgramQuota(UpdateProgramQuotaRequest) returns (ProgramQuota);
+  rpc GetProgramQuota(GetProgramQuotaRequest) returns (ProgramQuota);
+  rpc ListProgramQuotas(ListProgramQuotasRequest) returns (ListProgramQuotasResponse);
+  rpc DeleteProgramQuota(DeleteProgramQuotaRequest) returns (DeleteProgramQuotaResponse);
+
+  // Program-course M:N association procedures — require catalog.manage permission.
+  rpc AddCourseToProgram(AddCourseToProgramRequest) returns (ProgramCourse);
+  rpc RemoveCourseFromProgram(RemoveCourseFromProgramRequest) returns (RemoveCourseFromProgramResponse);
+  rpc ListProgramCourses(ListProgramCoursesRequest) returns (ListProgramCoursesResponse);
+}
+
+// Program represents an academic program (carrera).
+message Program {
+  string          id         = 1;
+  string          code       = 2;
+  string          name       = 3;
+  string          created_at = 4;
+  string          updated_at = 5;
+  optional string deleted_at = 6;
+  optional string created_by = 7;
+  optional string updated_by = 8;
+}
+
+// Course represents a course that can be shared across programs.
+message Course {
+  string          id         = 1;
+  string          code       = 2;
+  string          name       = 3;
+  int32           credits    = 4;
+  string          created_at = 5;
+  string          updated_at = 6;
+  optional string deleted_at = 7;
+  optional string created_by = 8;
+  optional string updated_by = 9;
+}
+
+// AcademicPeriod represents a semester (term 1 or 2) in a given year.
+// It carries no created_by/updated_by fields per the audit matrix.
+message AcademicPeriod {
+  string          id         = 1;
+  int32           year       = 2;
+  int32           term       = 3;
+  string          start_date = 4;
+  string          end_date   = 5;
+  string          created_at = 6;
+  string          updated_at = 7;
+  optional string deleted_at = 8;
+}
+
+// ProgramQuota records the admission capacity for a program in a given year.
+// The field admission_quota maps to the program_quotas.capacity column.
+message ProgramQuota {
+  string          id              = 1;
+  string          program_id      = 2;
+  int32           year            = 3;
+  int32           admission_quota = 4;
+  string          created_at      = 5;
+  string          updated_at      = 6;
+  optional string deleted_at      = 7;
+  optional string created_by      = 8;
+  optional string updated_by      = 9;
+}
+
+// ProgramCourse represents a single course-to-program association.
+message ProgramCourse {
+  string program_id = 1;
+  string course_id  = 2;
+  string created_at = 3;
+}
+
+// --- Program request/response messages ---
+
+message CreateProgramRequest {
+  string code = 1;
+  string name = 2;
+}
+
+message UpdateProgramRequest {
+  string id   = 1;
+  string code = 2;
+  string name = 3;
+}
+
+message GetProgramRequest {
+  string id = 1;
+}
+
+message ListProgramsRequest {}
+
+message ListProgramsResponse {
+  repeated Program programs = 1;
+}
+
+message DeleteProgramRequest {
+  string id = 1;
+}
+
+message DeleteProgramResponse {}
+
+// --- Course request/response messages ---
+
+message CreateCourseRequest {
+  string code    = 1;
+  string name    = 2;
+  int32  credits = 3;
+}
+
+message UpdateCourseRequest {
+  string id      = 1;
+  string code    = 2;
+  string name    = 3;
+  int32  credits = 4;
+}
+
+message GetCourseRequest {
+  string id = 1;
+}
+
+message ListCoursesRequest {}
+
+message ListCoursesResponse {
+  repeated Course courses = 1;
+}
+
+message DeleteCourseRequest {
+  string id = 1;
+}
+
+message DeleteCourseResponse {}
+
+// --- Academic period request/response messages ---
+
+message CreateAcademicPeriodRequest {
+  int32  year       = 1;
+  int32  term       = 2;
+  string start_date = 3;
+  string end_date   = 4;
+}
+
+message UpdateAcademicPeriodRequest {
+  string id         = 1;
+  int32  year       = 2;
+  int32  term       = 3;
+  string start_date = 4;
+  string end_date   = 5;
+}
+
+message GetAcademicPeriodRequest {
+  string id = 1;
+}
+
+message ListAcademicPeriodsRequest {}
+
+message ListAcademicPeriodsResponse {
+  repeated AcademicPeriod academic_periods = 1;
+}
+
+message DeleteAcademicPeriodRequest {
+  string id = 1;
+}
+
+message DeleteAcademicPeriodResponse {}
+
+// --- Program quota request/response messages ---
+
+message CreateProgramQuotaRequest {
+  string program_id      = 1;
+  int32  year            = 2;
+  int32  admission_quota = 3;
+}
+
+message UpdateProgramQuotaRequest {
+  string id              = 1;
+  string program_id      = 2;
+  int32  year            = 3;
+  int32  admission_quota = 4;
+}
+
+message GetProgramQuotaRequest {
+  string id = 1;
+}
+
+message ListProgramQuotasRequest {
+  string program_id = 1;
+}
+
+message ListProgramQuotasResponse {
+  repeated ProgramQuota program_quotas = 1;
+}
+
+message DeleteProgramQuotaRequest {
+  string id = 1;
+}
+
+message DeleteProgramQuotaResponse {}
+
+// --- Program-course M:N request/response messages ---
+
+message AddCourseToProgramRequest {
+  string program_id = 1;
+  string course_id  = 2;
+}
+
+message RemoveCourseFromProgramRequest {
+  string program_id = 1;
+  string course_id  = 2;
+}
+
+message RemoveCourseFromProgramResponse {}
+
+message ListProgramCoursesRequest {
+  string program_id = 1;
+}
+
+message ListProgramCoursesResponse {
+  repeated ProgramCourse program_courses = 1;
+}

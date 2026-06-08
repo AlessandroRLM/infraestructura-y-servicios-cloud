@@ -36,3 +36,12 @@ sql:
         out: "internal/profiles/profilesdb"
         sql_package: "pgx/v5"
         emit_interface: true
+  - engine: "postgresql"
+    queries: "internal/catalog/query.sql"
+    schema: "migrations/"
+    gen:
+      go:
+        package: "catalogdb"
+        out: "internal/catalog/catalogdb"
+        sql_package: "pgx/v5"
+        emit_interface: true
