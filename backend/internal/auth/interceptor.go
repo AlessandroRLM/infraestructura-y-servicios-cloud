@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"connectrpc.com/connect"
 
@@ -49,14 +50,16 @@ func NewSessionInterceptor(store session.Store, loader RoleLoader, cfg config.Co
 				if errors.Is(err, session.ErrNotFound) {
 					return nil, connect.NewError(connect.CodeUnauthenticated, errSessionInvalid)
 				}
-				return nil, connect.NewError(connect.CodeInternal, err)
+				slog.ErrorContext(ctx, "session store touch failure", "error", err)
+				return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 			}
 
 			ctx = WithUserID(ctx, sess.UserID)
 
 			perms, err := loader.Load(ctx, sess.UserID)
 			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+				slog.ErrorContext(ctx, "role loader failure", "error", err)
+				return nil, connect.NewError(connect.CodeInternal, errors.New("internal error"))
 			}
 			ctx = authz.WithPermissions(ctx, perms)
 

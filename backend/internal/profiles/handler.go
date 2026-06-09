@@ -241,7 +241,8 @@ func mapError(err error) error {
 	if errors.Is(err, ErrNotFound) {
 		return connect.NewError(connect.CodeNotFound, err)
 	}
-	return connect.NewError(connect.CodeInternal, err)
+	// Do not forward the raw error chain to the client; internal details must not leak.
+	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 }
 
 // parseUUID parses a string UUID.
