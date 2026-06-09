@@ -50,6 +50,34 @@ func (q *Queries) CourseInProgram(ctx context.Context, arg CourseInProgramParams
 	return exists, err
 }
 
+const getSectionCapacity = `-- name: GetSectionCapacity :one
+
+SELECT
+    s.capacity,
+    s.course_id
+FROM sections s
+WHERE s.id = $1 AND s.deleted_at IS NULL
+`
+
+type GetSectionCapacityRow struct {
+	Capacity int32
+	CourseID pgtype.UUID
+}
+
+// Cross-domain read strategy: queries here read enrollment, sections, academic_periods,
+// and program_courses schema directly. Coupling is to the shared migration schema, not
+// to Go service layers. The single transaction boundary is what makes paid+program+seat
+// checks atomic. This is the canonical approach for this codebase.
+// Non-locking read of section capacity and course_id.
+// Used for the pre-check fast-fail BEFORE BeginTx; avoids acquiring the row lock
+// for sections that are obviously full or missing. Returns ErrNoRows when absent.
+func (q *Queries) GetSectionCapacity(ctx context.Context, id pgtype.UUID) (GetSectionCapacityRow, error) {
+	row := q.db.QueryRow(ctx, getSectionCapacity, id)
+	var i GetSectionCapacityRow
+	err := row.Scan(&i.Capacity, &i.CourseID)
+	return i, err
+}
+
 const getSectionEnrollmentByID = `-- name: GetSectionEnrollmentByID :one
 SELECT id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at FROM section_enrollments
 WHERE id = $1 AND deleted_at IS NULL
@@ -73,7 +101,7 @@ func (q *Queries) GetSectionEnrollmentByID(ctx context.Context, id pgtype.UUID) 
 
 const getSectionEnrollmentByKeyForUpdate = `-- name: GetSectionEnrollmentByKeyForUpdate :one
 SELECT id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at FROM section_enrollments
-WHERE enrollment_id = $1 AND section_id = $2
+WHERE enrollment_id = $1 AND section_id = $2 AND deleted_at IS NULL
 FOR UPDATE
 `
 
@@ -82,8 +110,9 @@ type GetSectionEnrollmentByKeyForUpdateParams struct {
 	SectionID    pgtype.UUID
 }
 
-// Fetches the inscription row for (enrollment_id, section_id), including withdrawn rows,
-// with a FOR UPDATE lock for revival detection. Lock order: acquired after section lock.
+// Fetches a LIVE inscription row for (enrollment_id, section_id) with a FOR UPDATE lock
+// for revival detection. Filters deleted_at IS NULL so that a soft-deleted row never
+// triggers AlreadyExists or revival logic. Lock order: acquired after section lock.
 func (q *Queries) GetSectionEnrollmentByKeyForUpdate(ctx context.Context, arg GetSectionEnrollmentByKeyForUpdateParams) (SectionEnrollment, error) {
 	row := q.db.QueryRow(ctx, getSectionEnrollmentByKeyForUpdate, arg.EnrollmentID, arg.SectionID)
 	var i SectionEnrollment
@@ -101,12 +130,14 @@ func (q *Queries) GetSectionEnrollmentByKeyForUpdate(ctx context.Context, arg Ge
 }
 
 const getSectionForUpdateWithWindow = `-- name: GetSectionForUpdateWithWindow :one
-
 SELECT
     s.capacity,
     s.course_id,
-    ap.enrollment_starts_at,
-    ap.enrollment_ends_at
+    (
+        ap.enrollment_starts_at IS NOT NULL
+        AND ap.enrollment_ends_at IS NOT NULL
+        AND now() BETWEEN ap.enrollment_starts_at AND ap.enrollment_ends_at
+    ) AS window_open
 FROM sections s
 JOIN academic_periods ap ON ap.id = s.academic_period_id
 WHERE s.id = $1 AND s.deleted_at IS NULL
@@ -114,27 +145,19 @@ FOR UPDATE OF s
 `
 
 type GetSectionForUpdateWithWindowRow struct {
-	Capacity           int32
-	CourseID           pgtype.UUID
-	EnrollmentStartsAt pgtype.Timestamptz
-	EnrollmentEndsAt   pgtype.Timestamptz
+	Capacity   int32
+	CourseID   pgtype.UUID
+	WindowOpen pgtype.Bool
 }
 
-// Cross-domain read strategy: queries here read enrollment, sections, academic_periods,
-// and program_courses schema directly. Coupling is to the shared migration schema, not
-// to Go service layers. The single transaction boundary is what makes paid+program+seat
-// checks atomic. This is the canonical approach for this codebase.
-// Locks the section row and fetches window columns from the joined academic period.
+// Locks the section row FOR UPDATE and fetches capacity, course_id, and whether
+// now() falls within the academic period's enrollment window (inclusive on both ends).
+// window_open=false when the window is not configured (fail-closed).
 // Used as lock step #1 in EnrollSectionTx; lock order is section → key row.
 func (q *Queries) GetSectionForUpdateWithWindow(ctx context.Context, id pgtype.UUID) (GetSectionForUpdateWithWindowRow, error) {
 	row := q.db.QueryRow(ctx, getSectionForUpdateWithWindow, id)
 	var i GetSectionForUpdateWithWindowRow
-	err := row.Scan(
-		&i.Capacity,
-		&i.CourseID,
-		&i.EnrollmentStartsAt,
-		&i.EnrollmentEndsAt,
-	)
+	err := row.Scan(&i.Capacity, &i.CourseID, &i.WindowOpen)
 	return i, err
 }
 
@@ -248,104 +271,79 @@ func (q *Queries) ListSectionEnrollments(ctx context.Context, arg ListSectionEnr
 	return items, nil
 }
 
-const resolvePaidEnrollmentByID = `-- name: ResolvePaidEnrollmentByID :one
-SELECT e.id, e.student_id, e.program_id, e.status
+const resolveEnrollmentByID = `-- name: ResolveEnrollmentByID :one
+SELECT e.id, e.student_id, e.program_id, e.status, e.deleted_at
 FROM enrollments e
 WHERE e.id = $1
-  AND e.status = 'paid'
   AND e.deleted_at IS NULL
 `
 
-type ResolvePaidEnrollmentByIDRow struct {
+type ResolveEnrollmentByIDRow struct {
 	ID        pgtype.UUID
 	StudentID pgtype.UUID
 	ProgramID pgtype.UUID
 	Status    string
+	DeletedAt pgtype.Timestamptz
 }
 
-// Fetches an enrollment by id and verifies it is paid (used in admin path).
-func (q *Queries) ResolvePaidEnrollmentByID(ctx context.Context, id pgtype.UUID) (ResolvePaidEnrollmentByIDRow, error) {
-	row := q.db.QueryRow(ctx, resolvePaidEnrollmentByID, id)
-	var i ResolvePaidEnrollmentByIDRow
+// Resolves an enrollment by id without filtering on status.
+// Returns the full status and deleted_at so the caller can distinguish:
+//
+//	not found / soft-deleted → ErrNotFound
+//	found but status != 'paid' → ErrNotPaid
+func (q *Queries) ResolveEnrollmentByID(ctx context.Context, id pgtype.UUID) (ResolveEnrollmentByIDRow, error) {
+	row := q.db.QueryRow(ctx, resolveEnrollmentByID, id)
+	var i ResolveEnrollmentByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.StudentID,
 		&i.ProgramID,
 		&i.Status,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
-const resolvePaidEnrollmentForProgram = `-- name: ResolvePaidEnrollmentForProgram :one
-SELECT e.id, e.student_id, e.program_id, e.status
+const resolveEnrollmentByStudentAndProgram = `-- name: ResolveEnrollmentByStudentAndProgram :one
+SELECT e.id, e.student_id, e.program_id, e.status, e.deleted_at
 FROM enrollments e
 WHERE e.student_id = $1
   AND e.program_id = $2
-  AND e.status = 'paid'
   AND e.deleted_at IS NULL
+ORDER BY e.year DESC
 LIMIT 1
 `
 
-type ResolvePaidEnrollmentForProgramParams struct {
+type ResolveEnrollmentByStudentAndProgramParams struct {
 	StudentID pgtype.UUID
 	ProgramID pgtype.UUID
 }
 
-type ResolvePaidEnrollmentForProgramRow struct {
+type ResolveEnrollmentByStudentAndProgramRow struct {
 	ID        pgtype.UUID
 	StudentID pgtype.UUID
 	ProgramID pgtype.UUID
 	Status    string
+	DeletedAt pgtype.Timestamptz
 }
 
-// Resolves the paid enrollment for a student in a given program.
-// Returns ErrNoRows when no paid enrollment exists (pending/cancelled/missing).
-func (q *Queries) ResolvePaidEnrollmentForProgram(ctx context.Context, arg ResolvePaidEnrollmentForProgramParams) (ResolvePaidEnrollmentForProgramRow, error) {
-	row := q.db.QueryRow(ctx, resolvePaidEnrollmentForProgram, arg.StudentID, arg.ProgramID)
-	var i ResolvePaidEnrollmentForProgramRow
+// Resolves an enrollment for a student in a specific program by (student_id, program_id).
+// Returns the full status and deleted_at so the caller can distinguish:
+//
+//	not found / soft-deleted → ErrNotFound
+//	found but status != 'paid' → ErrNotPaid
+//
+// Ordered by year DESC so that if a student has multiple enrollments in the same program
+// at different years, the most recent one is returned.
+func (q *Queries) ResolveEnrollmentByStudentAndProgram(ctx context.Context, arg ResolveEnrollmentByStudentAndProgramParams) (ResolveEnrollmentByStudentAndProgramRow, error) {
+	row := q.db.QueryRow(ctx, resolveEnrollmentByStudentAndProgram, arg.StudentID, arg.ProgramID)
+	var i ResolveEnrollmentByStudentAndProgramRow
 	err := row.Scan(
 		&i.ID,
 		&i.StudentID,
 		&i.ProgramID,
 		&i.Status,
-	)
-	return i, err
-}
-
-const resolvePaidEnrollmentForStudentAndCourse = `-- name: ResolvePaidEnrollmentForStudentAndCourse :one
-SELECT e.id, e.student_id, e.program_id, e.status
-FROM enrollments e
-JOIN program_courses pc ON pc.program_id = e.program_id
-WHERE e.student_id = $1
-  AND pc.course_id = $2
-  AND e.status = 'paid'
-  AND e.deleted_at IS NULL
-LIMIT 1
-`
-
-type ResolvePaidEnrollmentForStudentAndCourseParams struct {
-	StudentID pgtype.UUID
-	CourseID  pgtype.UUID
-}
-
-type ResolvePaidEnrollmentForStudentAndCourseRow struct {
-	ID        pgtype.UUID
-	StudentID pgtype.UUID
-	ProgramID pgtype.UUID
-	Status    string
-}
-
-// Resolves the paid enrollment for a student whose enrolled program contains the given
-// course. Used by the student self-service path when no enrollment_id is provided in
-// the request: the program is inferred from the section's course_id.
-func (q *Queries) ResolvePaidEnrollmentForStudentAndCourse(ctx context.Context, arg ResolvePaidEnrollmentForStudentAndCourseParams) (ResolvePaidEnrollmentForStudentAndCourseRow, error) {
-	row := q.db.QueryRow(ctx, resolvePaidEnrollmentForStudentAndCourse, arg.StudentID, arg.CourseID)
-	var i ResolvePaidEnrollmentForStudentAndCourseRow
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.ProgramID,
-		&i.Status,
+		&i.DeletedAt,
 	)
 	return i, err
 }

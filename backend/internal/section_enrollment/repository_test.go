@@ -17,30 +17,30 @@ import (
 // fakeQuerier is a fake implementation of section_enrollmentdb.Querier for unit testing.
 // It uses explicit called bool sentinels and configurable responses.
 type fakeQuerier struct {
+	// GetSectionCapacity (non-locking pre-check)
+	getSectionCapacityCalled bool
+	getSectionCapacityRow    section_enrollmentdb.GetSectionCapacityRow
+	getSectionCapacityErr    error
+
 	// GetSectionForUpdateWithWindow
-	getSectionCalled   bool
-	getSectionRow      section_enrollmentdb.GetSectionForUpdateWithWindowRow
-	getSectionErr      error
+	getSectionCalled bool
+	getSectionRow    section_enrollmentdb.GetSectionForUpdateWithWindowRow
+	getSectionErr    error
 
 	// CountActiveSeats
 	countSeatsCalled bool
 	countSeatsResult int64
 	countSeatsErr    error
 
-	// ResolvePaidEnrollmentByID
-	resolvePaidByIDCalled bool
-	resolvePaidByIDRow    section_enrollmentdb.ResolvePaidEnrollmentByIDRow
-	resolvePaidByIDErr    error
+	// ResolveEnrollmentByID (admin path)
+	resolveByIDCalled bool
+	resolveByIDRow    section_enrollmentdb.ResolveEnrollmentByIDRow
+	resolveByIDErr    error
 
-	// ResolvePaidEnrollmentForProgram
-	resolvePaidCalled bool
-	resolvePaidRow    section_enrollmentdb.ResolvePaidEnrollmentForProgramRow
-	resolvePaidErr    error
-
-	// ResolvePaidEnrollmentForStudentAndCourse
-	resolvePaidForCourseCalled bool
-	resolvePaidForCourseRow    section_enrollmentdb.ResolvePaidEnrollmentForStudentAndCourseRow
-	resolvePaidForCourseErr    error
+	// ResolveEnrollmentByStudentAndProgram (student path)
+	resolveByStudentProgramCalled bool
+	resolveByStudentProgramRow    section_enrollmentdb.ResolveEnrollmentByStudentAndProgramRow
+	resolveByStudentProgramErr    error
 
 	// CourseInProgram
 	courseInProgramCalled bool
@@ -83,6 +83,11 @@ type fakeQuerier struct {
 	listOwnErr    error
 }
 
+func (f *fakeQuerier) GetSectionCapacity(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.GetSectionCapacityRow, error) {
+	f.getSectionCapacityCalled = true
+	return f.getSectionCapacityRow, f.getSectionCapacityErr
+}
+
 func (f *fakeQuerier) GetSectionForUpdateWithWindow(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.GetSectionForUpdateWithWindowRow, error) {
 	f.getSectionCalled = true
 	return f.getSectionRow, f.getSectionErr
@@ -93,19 +98,14 @@ func (f *fakeQuerier) CountActiveSeats(_ context.Context, _ pgtype.UUID) (int64,
 	return f.countSeatsResult, f.countSeatsErr
 }
 
-func (f *fakeQuerier) ResolvePaidEnrollmentForProgram(_ context.Context, _ section_enrollmentdb.ResolvePaidEnrollmentForProgramParams) (section_enrollmentdb.ResolvePaidEnrollmentForProgramRow, error) {
-	f.resolvePaidCalled = true
-	return f.resolvePaidRow, f.resolvePaidErr
+func (f *fakeQuerier) ResolveEnrollmentByID(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.ResolveEnrollmentByIDRow, error) {
+	f.resolveByIDCalled = true
+	return f.resolveByIDRow, f.resolveByIDErr
 }
 
-func (f *fakeQuerier) ResolvePaidEnrollmentForStudentAndCourse(_ context.Context, _ section_enrollmentdb.ResolvePaidEnrollmentForStudentAndCourseParams) (section_enrollmentdb.ResolvePaidEnrollmentForStudentAndCourseRow, error) {
-	f.resolvePaidForCourseCalled = true
-	return f.resolvePaidForCourseRow, f.resolvePaidForCourseErr
-}
-
-func (f *fakeQuerier) ResolvePaidEnrollmentByID(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.ResolvePaidEnrollmentByIDRow, error) {
-	f.resolvePaidByIDCalled = true
-	return f.resolvePaidByIDRow, f.resolvePaidByIDErr
+func (f *fakeQuerier) ResolveEnrollmentByStudentAndProgram(_ context.Context, _ section_enrollmentdb.ResolveEnrollmentByStudentAndProgramParams) (section_enrollmentdb.ResolveEnrollmentByStudentAndProgramRow, error) {
+	f.resolveByStudentProgramCalled = true
+	return f.resolveByStudentProgramRow, f.resolveByStudentProgramErr
 }
 
 func (f *fakeQuerier) CourseInProgram(_ context.Context, _ section_enrollmentdb.CourseInProgramParams) (bool, error) {

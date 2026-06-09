@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -49,8 +48,11 @@ type EnrollSectionParams struct {
 	// self-service path — the repository resolves the paid enrollment for the student.
 	EnrollmentID uuid.UUID
 	// StudentID is used only on the self-service path (isAdmin=false) to resolve the
-	// paid enrollment for the section's program. Not used when isAdmin=true.
+	// paid enrollment by (student_id, program_id). Not used when isAdmin=true.
 	StudentID uuid.UUID
+	// ProgramID is required on the self-service path to identify which enrollment to link.
+	// The student passes this explicitly to disambiguate when enrolled in multiple programs.
+	ProgramID uuid.UUID
 }
 
 // ListSectionEnrollmentsFilter holds optional filter parameters.
@@ -84,24 +86,36 @@ func NewPostgresRepository(q section_enrollmentdb.Querier, pool *pgxpool.Pool) R
 //
 // Transaction steps:
 //  1. SET LOCAL lock_timeout='2500ms' — aborts if lock #1 waits too long.
-//  2. Lock section row FOR UPDATE; fetch capacity, course_id, window columns.
-//  3. Window gate (self-enroll only): now() ∈ [starts, ends]; null window → fail-closed.
+//  2. Lock section row FOR UPDATE; fetch capacity, course_id, and window_open (DB clock).
+//  3. Window gate (self-enroll only): window_open evaluated by DB clock; null window → fail-closed.
 //  4. Paid gate: enrollment must have status='paid'.
 //  5. Course-in-program gate: section.course_id ∈ program_courses[enrollment.program_id].
-//  6. Lock key row (enrollment_id, section_id) FOR UPDATE; detect existing/withdrawn.
+//  6. Lock key row (enrollment_id, section_id) FOR UPDATE; detect existing/withdrawn/terminal.
 //  7. COUNT active seats under the lock; n >= capacity → ErrSectionFull.
 //  8. INSERT (fresh) or UPDATE (revival, admin only).
 func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectionParams, isAdmin bool) (section_enrollmentdb.SectionEnrollment, error) {
 	// Non-locking fast-fail pre-check: avoids queuing on the lock for obviously-full sections.
+	// Run BEFORE BeginTx so that a full section is rejected without ever acquiring the row lock.
 	// The under-lock count below is authoritative; this is a stale-tolerant optimisation only.
-	preCount, err := r.q.CountActiveSeats(ctx, pgtype.UUID{Bytes: p.SectionID, Valid: true})
+	// ErrNoRows here means the section doesn't exist — skip the pre-check and fall through to
+	// the transaction, which will surface NotFound authoritatively.
+	preCapRow, err := r.q.GetSectionCapacity(ctx, pgtype.UUID{Bytes: p.SectionID, Valid: true})
 	if err != nil {
-		slog.ErrorContext(ctx, "section_enrollment: pre-check count failed", "err", err)
-		return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w", ErrInvalidInput)
+		if !errors.Is(err, pgx.ErrNoRows) {
+			slog.ErrorContext(ctx, "section_enrollment: pre-check capacity read failed", "err", err)
+			return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		}
+		// Section absent at pre-check: fall through to the tx, which will return NotFound.
+	} else {
+		preCount, err := r.q.CountActiveSeats(ctx, pgtype.UUID{Bytes: p.SectionID, Valid: true})
+		if err != nil {
+			slog.ErrorContext(ctx, "section_enrollment: pre-check count failed", "err", err)
+			return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		}
+		if preCount >= int64(preCapRow.Capacity) {
+			return section_enrollmentdb.SectionEnrollment{}, ErrSectionFull
+		}
 	}
-	// We need the capacity for the pre-check comparison. Fetch it without locking.
-	// The section capacity is read again under the lock for authoritative enforcement.
-	// If the section is absent at pre-check we fall through to the tx (which will NotFound).
 
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -117,54 +131,59 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 
-	// 2. Lock section row FOR UPDATE. Fetches capacity, course_id, and enrollment window.
+	// 2. Lock section row FOR UPDATE. Fetches capacity, course_id, period_year, and
+	//    window_open (computed by the DB clock — avoids Go clock skew).
 	sectionRow, err := q.GetSectionForUpdateWithWindow(ctx, pgtype.UUID{Bytes: p.SectionID, Valid: true})
 	if err != nil {
 		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 
-	// Now that we have the capacity we can apply the pre-check result.
-	// If the pre-check already showed full, abort without lock overhead (optimisation only).
-	if preCount >= int64(sectionRow.Capacity) {
-		return section_enrollmentdb.SectionEnrollment{}, ErrSectionFull
-	}
-
-	// 3. Window gate (self-enrollment only). Admin path is never window-gated.
+	// 3. Window gate (self-enrollment only). The window_open boolean is evaluated by the
+	//    database server clock, making this skew-free. NULL window columns → window_open=false
+	//    (fail-closed). Admin path is never window-gated.
 	if !isAdmin {
-		if err := checkEnrollmentWindow(sectionRow); err != nil {
-			return section_enrollmentdb.SectionEnrollment{}, err
+		if !sectionRow.WindowOpen.Valid || !sectionRow.WindowOpen.Bool {
+			return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: enrollment window is closed or not configured", ErrWindowClosed)
 		}
 	}
 
 	// 4. Paid gate: resolve the linked enrollment and verify status='paid'.
-	// Admin path: enrollment_id is supplied directly; student path resolves via student+program.
+	// Admin path: enrollment_id is supplied directly.
+	// Student path: enrollment is resolved by (student_id, program_id, period_year) so
+	//   the student explicitly identifies which program they are enrolling under, removing
+	//   ambiguity when a student has paid enrollments in multiple programs.
 	var enrollmentID pgtype.UUID
 	var programID pgtype.UUID
 
 	if isAdmin {
-		eRow, err := q.ResolvePaidEnrollmentByID(ctx, pgtype.UUID{Bytes: p.EnrollmentID, Valid: true})
+		eRow, err := q.ResolveEnrollmentByID(ctx, pgtype.UUID{Bytes: p.EnrollmentID, Valid: true})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return section_enrollmentdb.SectionEnrollment{}, ErrNotPaid
+				return section_enrollmentdb.SectionEnrollment{}, ErrNotFound
 			}
 			return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		}
+		if eRow.Status != "paid" {
+			return section_enrollmentdb.SectionEnrollment{}, ErrNotPaid
 		}
 		enrollmentID = eRow.ID
 		programID = eRow.ProgramID
 	} else {
-		// Self-service path: the request carries no enrollment_id.
-		// Resolve the paid enrollment for this student by joining through program_courses
-		// using the section's course_id. A student has at most one paid enrollment per program,
-		// and the section's course appears in exactly the programs they are enrolled in.
-		eRow, err := q.ResolvePaidEnrollmentForStudentAndCourse(ctx, section_enrollmentdb.ResolvePaidEnrollmentForStudentAndCourseParams{
+		// Self-service path: resolve the enrollment by (student_id, program_id).
+		// The student passes program_id explicitly to disambiguate when they are enrolled
+		// in multiple programs. Within a program a student has at most one live paid enrollment.
+		eRow, err := q.ResolveEnrollmentByStudentAndProgram(ctx, section_enrollmentdb.ResolveEnrollmentByStudentAndProgramParams{
 			StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
-			CourseID:  sectionRow.CourseID,
+			ProgramID: pgtype.UUID{Bytes: p.ProgramID, Valid: true},
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return section_enrollmentdb.SectionEnrollment{}, ErrNotPaid
+				return section_enrollmentdb.SectionEnrollment{}, ErrNotFound
 			}
 			return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		}
+		if eRow.Status != "paid" {
+			return section_enrollmentdb.SectionEnrollment{}, ErrNotPaid
 		}
 		enrollmentID = eRow.ID
 		programID = eRow.ProgramID
@@ -182,7 +201,8 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 		return section_enrollmentdb.SectionEnrollment{}, ErrCourseNotInProgram
 	}
 
-	// 6. Lock key row FOR UPDATE (revival detection). Includes withdrawn rows.
+	// 6. Lock key row FOR UPDATE (revival detection). Only LIVE rows are returned by the query
+	//    (deleted_at IS NULL filter) so a soft-deleted row never triggers AlreadyExists or revival.
 	existingRow, keyErr := q.GetSectionEnrollmentByKeyForUpdate(ctx, section_enrollmentdb.GetSectionEnrollmentByKeyForUpdateParams{
 		EnrollmentID: enrollmentID,
 		SectionID:    pgtype.UUID{Bytes: p.SectionID, Valid: true},
@@ -191,19 +211,22 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 	var isRevival bool
 	switch {
 	case keyErr == nil:
-		if existingRow.Status == "in_progress" && !existingRow.DeletedAt.Valid {
-			// Live in_progress row exists.
+		switch existingRow.Status {
+		case "in_progress":
+			// Live active row — duplicate enrollment attempt.
 			return section_enrollmentdb.SectionEnrollment{}, ErrAlreadyExists
-		}
-		if existingRow.Status == "withdrawn" {
+		case "withdrawn":
 			if !isAdmin {
 				// Students cannot self-revive a withdrawn inscription.
 				return section_enrollmentdb.SectionEnrollment{}, ErrWithdrawnNotRevivable
 			}
 			isRevival = true
+		default:
+			// passed or failed: a completed course may not be re-enrolled.
+			return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: inscription is in terminal status %q", ErrInvalidTransition, existingRow.Status)
 		}
 	case errors.Is(keyErr, pgx.ErrNoRows):
-		// No existing row — fresh insert path.
+		// No existing live row — fresh insert path.
 	default:
 		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(keyErr)
 	}
@@ -288,21 +311,6 @@ func (r *postgresRepository) ListOwnSectionEnrollments(ctx context.Context, stud
 		return nil, TranslatePgError(err)
 	}
 	return rows, nil
-}
-
-// checkEnrollmentWindow verifies that the current time falls within the section's
-// academic period enrollment window. Null/unset window columns → fail-closed.
-func checkEnrollmentWindow(row section_enrollmentdb.GetSectionForUpdateWithWindowRow) error {
-	if !row.EnrollmentStartsAt.Valid || !row.EnrollmentEndsAt.Valid {
-		return fmt.Errorf("%w: window not configured", ErrWindowClosed)
-	}
-	now := time.Now().UTC()
-	starts := row.EnrollmentStartsAt.Time.UTC()
-	ends := row.EnrollmentEndsAt.Time.UTC()
-	if now.Before(starts) || now.After(ends) {
-		return fmt.Errorf("%w: current time is outside [%s, %s]", ErrWindowClosed, starts.Format(time.RFC3339), ends.Format(time.RFC3339))
-	}
-	return nil
 }
 
 // newFakeRepository constructs a repository backed by the given Querier without a

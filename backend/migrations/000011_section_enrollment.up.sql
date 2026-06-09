@@ -16,11 +16,19 @@ CREATE TABLE section_enrollments (
     registered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at    TIMESTAMPTZ,
     -- No created_by / updated_by: section_enrollments is not in the "sensitive human
     -- changes" list per the operations matrix.
-    UNIQUE (enrollment_id, section_id)
+    -- No table-level UNIQUE here: uniqueness for live rows is enforced by the partial
+    -- index below so that soft-deleted rows never block a fresh enrollment.
+    deleted_at    TIMESTAMPTZ
 );
+
+-- Partial unique index: enforces (enrollment_id, section_id) uniqueness only for live rows.
+-- Soft-deleted rows are excluded so that a fresh enrollment can be created after a soft-delete
+-- without violating the constraint.
+CREATE UNIQUE INDEX section_enrollments_live_key_idx
+    ON section_enrollments (enrollment_id, section_id)
+    WHERE deleted_at IS NULL;
 
 -- Partial index on active seats: bounds the per-section COUNT to at most capacity
 -- live rows (withdrawn and soft-deleted excluded), keeping the critical section O(small).

@@ -50,8 +50,8 @@ var ErrWithdrawnNotRevivable = fmt.Errorf("section_enrollment: withdrawn inscrip
 
 // ErrLockTimeout is returned when the FOR UPDATE lock acquisition on the section row
 // exceeds the configured lock_timeout budget (Postgres error 55P03).
-// Maps to CodeUnavailable — transient contention; the client should retry with backoff.
-var ErrLockTimeout = fmt.Errorf("section_enrollment: lock timeout — transaction aborted due to contention; retry with backoff")
+// Maps to CodeUnavailable — transient contention.
+var ErrLockTimeout = fmt.Errorf("section_enrollment: lock timeout")
 
 // ErrAdmissionSaturated is returned by the concurrency limiter when the configured
 // in-flight cap for inscription transactions is reached.

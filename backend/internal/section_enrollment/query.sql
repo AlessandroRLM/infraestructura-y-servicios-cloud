@@ -3,14 +3,29 @@
 -- to Go service layers. The single transaction boundary is what makes paid+program+seat
 -- checks atomic. This is the canonical approach for this codebase.
 
+-- name: GetSectionCapacity :one
+-- Non-locking read of section capacity and course_id.
+-- Used for the pre-check fast-fail BEFORE BeginTx; avoids acquiring the row lock
+-- for sections that are obviously full or missing. Returns ErrNoRows when absent.
+SELECT
+    s.capacity,
+    s.course_id
+FROM sections s
+WHERE s.id = $1 AND s.deleted_at IS NULL;
+
 -- name: GetSectionForUpdateWithWindow :one
--- Locks the section row and fetches window columns from the joined academic period.
+-- Locks the section row FOR UPDATE and fetches capacity, course_id, and whether
+-- now() falls within the academic period's enrollment window (inclusive on both ends).
+-- window_open=false when the window is not configured (fail-closed).
 -- Used as lock step #1 in EnrollSectionTx; lock order is section → key row.
 SELECT
     s.capacity,
     s.course_id,
-    ap.enrollment_starts_at,
-    ap.enrollment_ends_at
+    (
+        ap.enrollment_starts_at IS NOT NULL
+        AND ap.enrollment_ends_at IS NOT NULL
+        AND now() BETWEEN ap.enrollment_starts_at AND ap.enrollment_ends_at
+    ) AS window_open
 FROM sections s
 JOIN academic_periods ap ON ap.id = s.academic_period_id
 WHERE s.id = $1 AND s.deleted_at IS NULL
@@ -26,37 +41,30 @@ WHERE section_id = $1
   AND status <> 'withdrawn'
   AND deleted_at IS NULL;
 
--- name: ResolvePaidEnrollmentForProgram :one
--- Resolves the paid enrollment for a student in a given program.
--- Returns ErrNoRows when no paid enrollment exists (pending/cancelled/missing).
-SELECT e.id, e.student_id, e.program_id, e.status
+-- name: ResolveEnrollmentByStudentAndProgram :one
+-- Resolves an enrollment for a student in a specific program by (student_id, program_id).
+-- Returns the full status and deleted_at so the caller can distinguish:
+--   not found / soft-deleted → ErrNotFound
+--   found but status != 'paid' → ErrNotPaid
+-- Ordered by year DESC so that if a student has multiple enrollments in the same program
+-- at different years, the most recent one is returned.
+SELECT e.id, e.student_id, e.program_id, e.status, e.deleted_at
 FROM enrollments e
 WHERE e.student_id = $1
   AND e.program_id = $2
-  AND e.status = 'paid'
   AND e.deleted_at IS NULL
+ORDER BY e.year DESC
 LIMIT 1;
 
--- name: ResolvePaidEnrollmentByID :one
--- Fetches an enrollment by id and verifies it is paid (used in admin path).
-SELECT e.id, e.student_id, e.program_id, e.status
+-- name: ResolveEnrollmentByID :one
+-- Resolves an enrollment by id without filtering on status.
+-- Returns the full status and deleted_at so the caller can distinguish:
+--   not found / soft-deleted → ErrNotFound
+--   found but status != 'paid' → ErrNotPaid
+SELECT e.id, e.student_id, e.program_id, e.status, e.deleted_at
 FROM enrollments e
 WHERE e.id = $1
-  AND e.status = 'paid'
   AND e.deleted_at IS NULL;
-
--- name: ResolvePaidEnrollmentForStudentAndCourse :one
--- Resolves the paid enrollment for a student whose enrolled program contains the given
--- course. Used by the student self-service path when no enrollment_id is provided in
--- the request: the program is inferred from the section's course_id.
-SELECT e.id, e.student_id, e.program_id, e.status
-FROM enrollments e
-JOIN program_courses pc ON pc.program_id = e.program_id
-WHERE e.student_id = $1
-  AND pc.course_id = $2
-  AND e.status = 'paid'
-  AND e.deleted_at IS NULL
-LIMIT 1;
 
 -- name: CourseInProgram :one
 -- Checks whether a course belongs to a program's course list.
@@ -67,10 +75,11 @@ SELECT EXISTS(
 ) AS exists;
 
 -- name: GetSectionEnrollmentByKeyForUpdate :one
--- Fetches the inscription row for (enrollment_id, section_id), including withdrawn rows,
--- with a FOR UPDATE lock for revival detection. Lock order: acquired after section lock.
+-- Fetches a LIVE inscription row for (enrollment_id, section_id) with a FOR UPDATE lock
+-- for revival detection. Filters deleted_at IS NULL so that a soft-deleted row never
+-- triggers AlreadyExists or revival logic. Lock order: acquired after section lock.
 SELECT * FROM section_enrollments
-WHERE enrollment_id = $1 AND section_id = $2
+WHERE enrollment_id = $1 AND section_id = $2 AND deleted_at IS NULL
 FOR UPDATE;
 
 -- name: InsertSectionEnrollment :one

@@ -18,30 +18,40 @@ type Querier interface {
 	// Checks whether a course belongs to a program's course list.
 	// Returns a boolean; false (no row) means the course is not in the program.
 	CourseInProgram(ctx context.Context, arg CourseInProgramParams) (bool, error)
-	GetSectionEnrollmentByID(ctx context.Context, id pgtype.UUID) (SectionEnrollment, error)
-	// Fetches the inscription row for (enrollment_id, section_id), including withdrawn rows,
-	// with a FOR UPDATE lock for revival detection. Lock order: acquired after section lock.
-	GetSectionEnrollmentByKeyForUpdate(ctx context.Context, arg GetSectionEnrollmentByKeyForUpdateParams) (SectionEnrollment, error)
 	// Cross-domain read strategy: queries here read enrollment, sections, academic_periods,
 	// and program_courses schema directly. Coupling is to the shared migration schema, not
 	// to Go service layers. The single transaction boundary is what makes paid+program+seat
 	// checks atomic. This is the canonical approach for this codebase.
-	// Locks the section row and fetches window columns from the joined academic period.
+	// Non-locking read of section capacity and course_id.
+	// Used for the pre-check fast-fail BEFORE BeginTx; avoids acquiring the row lock
+	// for sections that are obviously full or missing. Returns ErrNoRows when absent.
+	GetSectionCapacity(ctx context.Context, id pgtype.UUID) (GetSectionCapacityRow, error)
+	GetSectionEnrollmentByID(ctx context.Context, id pgtype.UUID) (SectionEnrollment, error)
+	// Fetches a LIVE inscription row for (enrollment_id, section_id) with a FOR UPDATE lock
+	// for revival detection. Filters deleted_at IS NULL so that a soft-deleted row never
+	// triggers AlreadyExists or revival logic. Lock order: acquired after section lock.
+	GetSectionEnrollmentByKeyForUpdate(ctx context.Context, arg GetSectionEnrollmentByKeyForUpdateParams) (SectionEnrollment, error)
+	// Locks the section row FOR UPDATE and fetches capacity, course_id, and whether
+	// now() falls within the academic period's enrollment window (inclusive on both ends).
+	// window_open=false when the window is not configured (fail-closed).
 	// Used as lock step #1 in EnrollSectionTx; lock order is section → key row.
 	GetSectionForUpdateWithWindow(ctx context.Context, id pgtype.UUID) (GetSectionForUpdateWithWindowRow, error)
 	InsertSectionEnrollment(ctx context.Context, arg InsertSectionEnrollmentParams) (SectionEnrollment, error)
 	// Returns all live inscriptions for a student by joining enrollments on student_id.
 	ListOwnSectionEnrollments(ctx context.Context, studentID pgtype.UUID) ([]SectionEnrollment, error)
 	ListSectionEnrollments(ctx context.Context, arg ListSectionEnrollmentsParams) ([]SectionEnrollment, error)
-	// Fetches an enrollment by id and verifies it is paid (used in admin path).
-	ResolvePaidEnrollmentByID(ctx context.Context, id pgtype.UUID) (ResolvePaidEnrollmentByIDRow, error)
-	// Resolves the paid enrollment for a student in a given program.
-	// Returns ErrNoRows when no paid enrollment exists (pending/cancelled/missing).
-	ResolvePaidEnrollmentForProgram(ctx context.Context, arg ResolvePaidEnrollmentForProgramParams) (ResolvePaidEnrollmentForProgramRow, error)
-	// Resolves the paid enrollment for a student whose enrolled program contains the given
-	// course. Used by the student self-service path when no enrollment_id is provided in
-	// the request: the program is inferred from the section's course_id.
-	ResolvePaidEnrollmentForStudentAndCourse(ctx context.Context, arg ResolvePaidEnrollmentForStudentAndCourseParams) (ResolvePaidEnrollmentForStudentAndCourseRow, error)
+	// Resolves an enrollment by id without filtering on status.
+	// Returns the full status and deleted_at so the caller can distinguish:
+	//   not found / soft-deleted → ErrNotFound
+	//   found but status != 'paid' → ErrNotPaid
+	ResolveEnrollmentByID(ctx context.Context, id pgtype.UUID) (ResolveEnrollmentByIDRow, error)
+	// Resolves an enrollment for a student in a specific program by (student_id, program_id).
+	// Returns the full status and deleted_at so the caller can distinguish:
+	//   not found / soft-deleted → ErrNotFound
+	//   found but status != 'paid' → ErrNotPaid
+	// Ordered by year DESC so that if a student has multiple enrollments in the same program
+	// at different years, the most recent one is returned.
+	ResolveEnrollmentByStudentAndProgram(ctx context.Context, arg ResolveEnrollmentByStudentAndProgramParams) (ResolveEnrollmentByStudentAndProgramRow, error)
 	// Revives a withdrawn inscription: sets status back to in_progress and clears deleted_at.
 	ReviveSectionEnrollment(ctx context.Context, id pgtype.UUID) (SectionEnrollment, error)
 	// Transitions an in_progress inscription to withdrawn.
