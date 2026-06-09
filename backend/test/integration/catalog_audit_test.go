@@ -151,6 +151,199 @@ func TestCatalog_Audit_SoftDeleteCourse_UpdatedBySet(t *testing.T) {
 	}
 }
 
+// TestCatalog_Audit_SoftDelete_UpdatedAtBumped verifies that every soft-delete operation advances
+// updated_at past created_at, satisfying the §10.1 rule that every update sets updated_at=now().
+func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
+	ctx := context.Background()
+	adminID := seedUserWithRole(t, "catalog-audit-updat@catalog.test", "admin")
+	adminSID := seedSessionInRedis(t, adminID, time.Hour)
+	client := newCatalogClient(nil)
+
+	t.Run("program", func(t *testing.T) {
+		resp, err := client.CreateProgram(ctx, withSID(connect.NewRequest(&catalogv1.CreateProgramRequest{
+			Code: "UDAT-P-" + uuid.New().String()[:8], Name: "UpdatedAt Program",
+		}), adminSID))
+		if err != nil {
+			t.Fatalf("CreateProgram: %v", err)
+		}
+		id := resp.Msg.GetId()
+		t.Cleanup(func() {
+			_, _ = pgxPool.Exec(context.Background(), `DELETE FROM programs WHERE id = $1`, id)
+		})
+
+		var createdAt time.Time
+		if err := pgxPool.QueryRow(ctx, `SELECT created_at FROM programs WHERE id = $1`, id).Scan(&createdAt); err != nil {
+			t.Fatalf("SELECT created_at: %v", err)
+		}
+
+		if _, err := client.DeleteProgram(ctx, withSID(connect.NewRequest(&catalogv1.DeleteProgramRequest{Id: id}), adminSID)); err != nil {
+			t.Fatalf("DeleteProgram: %v", err)
+		}
+
+		var updatedAt time.Time
+		if err := pgxPool.QueryRow(ctx, `SELECT updated_at FROM programs WHERE id = $1`, id).Scan(&updatedAt); err != nil {
+			t.Fatalf("SELECT updated_at after soft-delete: %v", err)
+		}
+		if !updatedAt.After(createdAt) {
+			t.Errorf("programs.updated_at not bumped on soft-delete: created_at=%v updated_at=%v", createdAt, updatedAt)
+		}
+	})
+
+	t.Run("course", func(t *testing.T) {
+		resp, err := client.CreateCourse(ctx, withSID(connect.NewRequest(&catalogv1.CreateCourseRequest{
+			Code: "UDAT-C-" + uuid.New().String()[:8], Name: "UpdatedAt Course", Credits: 3,
+		}), adminSID))
+		if err != nil {
+			t.Fatalf("CreateCourse: %v", err)
+		}
+		id := resp.Msg.GetId()
+		t.Cleanup(func() {
+			_, _ = pgxPool.Exec(context.Background(), `DELETE FROM courses WHERE id = $1`, id)
+		})
+
+		var createdAt time.Time
+		if err := pgxPool.QueryRow(ctx, `SELECT created_at FROM courses WHERE id = $1`, id).Scan(&createdAt); err != nil {
+			t.Fatalf("SELECT created_at: %v", err)
+		}
+
+		if _, err := client.DeleteCourse(ctx, withSID(connect.NewRequest(&catalogv1.DeleteCourseRequest{Id: id}), adminSID)); err != nil {
+			t.Fatalf("DeleteCourse: %v", err)
+		}
+
+		var updatedAt time.Time
+		if err := pgxPool.QueryRow(ctx, `SELECT updated_at FROM courses WHERE id = $1`, id).Scan(&updatedAt); err != nil {
+			t.Fatalf("SELECT updated_at after soft-delete: %v", err)
+		}
+		if !updatedAt.After(createdAt) {
+			t.Errorf("courses.updated_at not bumped on soft-delete: created_at=%v updated_at=%v", createdAt, updatedAt)
+		}
+	})
+
+	t.Run("academic_period", func(t *testing.T) {
+		resp, err := client.CreateAcademicPeriod(ctx, withSID(connect.NewRequest(&catalogv1.CreateAcademicPeriodRequest{
+			Year: 6000, Term: 1, StartDate: "6000-03-01", EndDate: "6000-07-31",
+		}), adminSID))
+		if err != nil {
+			t.Fatalf("CreateAcademicPeriod: %v", err)
+		}
+		id := resp.Msg.GetId()
+		t.Cleanup(func() { cleanupAcademicPeriod(t, id) })
+
+		var createdAt time.Time
+		if err := pgxPool.QueryRow(ctx, `SELECT created_at FROM academic_periods WHERE id = $1`, id).Scan(&createdAt); err != nil {
+			t.Fatalf("SELECT created_at: %v", err)
+		}
+
+		if _, err := client.DeleteAcademicPeriod(ctx, withSID(connect.NewRequest(&catalogv1.DeleteAcademicPeriodRequest{Id: id}), adminSID)); err != nil {
+			t.Fatalf("DeleteAcademicPeriod: %v", err)
+		}
+
+		var updatedAt time.Time
+		if err := pgxPool.QueryRow(ctx, `SELECT updated_at FROM academic_periods WHERE id = $1`, id).Scan(&updatedAt); err != nil {
+			t.Fatalf("SELECT updated_at after soft-delete: %v", err)
+		}
+		if !updatedAt.After(createdAt) {
+			t.Errorf("academic_periods.updated_at not bumped on soft-delete: created_at=%v updated_at=%v", createdAt, updatedAt)
+		}
+	})
+
+	t.Run("program_quota", func(t *testing.T) {
+		pResp, err := client.CreateProgram(ctx, withSID(connect.NewRequest(&catalogv1.CreateProgramRequest{
+			Code: "UDAT-PQ-P-" + uuid.New().String()[:8], Name: "P",
+		}), adminSID))
+		if err != nil {
+			t.Fatalf("CreateProgram: %v", err)
+		}
+		progID := pResp.Msg.GetId()
+		t.Cleanup(func() { cleanupProgram(t, progID) })
+
+		qResp, err := client.CreateProgramQuota(ctx, withSID(connect.NewRequest(&catalogv1.CreateProgramQuotaRequest{
+			ProgramId: progID, Year: 7001, AdmissionQuota: 15,
+		}), adminSID))
+		if err != nil {
+			t.Fatalf("CreateProgramQuota: %v", err)
+		}
+		quotaID := qResp.Msg.GetId()
+		t.Cleanup(func() {
+			_, _ = pgxPool.Exec(context.Background(), `DELETE FROM program_quotas WHERE id = $1`, quotaID)
+		})
+
+		var createdAt time.Time
+		if err := pgxPool.QueryRow(ctx, `SELECT created_at FROM program_quotas WHERE id = $1`, quotaID).Scan(&createdAt); err != nil {
+			t.Fatalf("SELECT created_at: %v", err)
+		}
+
+		if _, err := client.DeleteProgramQuota(ctx, withSID(connect.NewRequest(&catalogv1.DeleteProgramQuotaRequest{Id: quotaID}), adminSID)); err != nil {
+			t.Fatalf("DeleteProgramQuota: %v", err)
+		}
+
+		var updatedAt time.Time
+		if err := pgxPool.QueryRow(ctx, `SELECT updated_at FROM program_quotas WHERE id = $1`, quotaID).Scan(&updatedAt); err != nil {
+			t.Fatalf("SELECT updated_at after soft-delete: %v", err)
+		}
+		if !updatedAt.After(createdAt) {
+			t.Errorf("program_quotas.updated_at not bumped on soft-delete: created_at=%v updated_at=%v", createdAt, updatedAt)
+		}
+	})
+
+	t.Run("section", func(t *testing.T) {
+		pResp, err := client.CreateProgram(ctx, withSID(connect.NewRequest(&catalogv1.CreateProgramRequest{
+			Code: "UDAT-SEC-P-" + uuid.New().String()[:8], Name: "P",
+		}), adminSID))
+		if err != nil {
+			t.Fatalf("CreateProgram: %v", err)
+		}
+		progID := pResp.Msg.GetId()
+		t.Cleanup(func() { cleanupProgram(t, progID) })
+
+		cResp, err := client.CreateCourse(ctx, withSID(connect.NewRequest(&catalogv1.CreateCourseRequest{
+			Code: "UDAT-SEC-C-" + uuid.New().String()[:8], Name: "C", Credits: 2,
+		}), adminSID))
+		if err != nil {
+			t.Fatalf("CreateCourse: %v", err)
+		}
+		courseID := cResp.Msg.GetId()
+		t.Cleanup(func() { cleanupCourse(t, courseID) })
+
+		apResp, err := client.CreateAcademicPeriod(ctx, withSID(connect.NewRequest(&catalogv1.CreateAcademicPeriodRequest{
+			Year: 7002, Term: 1, StartDate: "7002-03-01", EndDate: "7002-07-31",
+		}), adminSID))
+		if err != nil {
+			t.Fatalf("CreateAcademicPeriod: %v", err)
+		}
+		apID := apResp.Msg.GetId()
+		t.Cleanup(func() { cleanupAcademicPeriod(t, apID) })
+
+		secResp, err := client.CreateSection(ctx, withSID(connect.NewRequest(&catalogv1.CreateSectionRequest{
+			CourseId: courseID, AcademicPeriodId: apID, SeatCapacity: 30,
+		}), adminSID))
+		if err != nil {
+			t.Fatalf("CreateSection: %v", err)
+		}
+		secID := secResp.Msg.GetId()
+		t.Cleanup(func() {
+			_, _ = pgxPool.Exec(context.Background(), `DELETE FROM sections WHERE id = $1`, secID)
+		})
+
+		var createdAt time.Time
+		if err := pgxPool.QueryRow(ctx, `SELECT created_at FROM sections WHERE id = $1`, secID).Scan(&createdAt); err != nil {
+			t.Fatalf("SELECT created_at: %v", err)
+		}
+
+		if _, err := client.DeleteSection(ctx, withSID(connect.NewRequest(&catalogv1.DeleteSectionRequest{Id: secID}), adminSID)); err != nil {
+			t.Fatalf("DeleteSection: %v", err)
+		}
+
+		var updatedAt time.Time
+		if err := pgxPool.QueryRow(ctx, `SELECT updated_at FROM sections WHERE id = $1`, secID).Scan(&updatedAt); err != nil {
+			t.Fatalf("SELECT updated_at after soft-delete: %v", err)
+		}
+		if !updatedAt.After(createdAt) {
+			t.Errorf("sections.updated_at not bumped on soft-delete: created_at=%v updated_at=%v", createdAt, updatedAt)
+		}
+	})
+}
+
 // TestCatalog_Audit_ProgramQuotaCreatedBySet verifies created_by for program_quotas.
 func TestCatalog_Audit_ProgramQuotaCreatedBySet(t *testing.T) {
 	ctx := context.Background()

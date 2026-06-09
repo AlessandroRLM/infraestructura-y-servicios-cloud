@@ -656,7 +656,7 @@ func (q *Queries) ListSections(ctx context.Context, arg ListSectionsParams) ([]S
 
 const softDeleteAcademicPeriod = `-- name: SoftDeleteAcademicPeriod :execrows
 UPDATE academic_periods
-SET deleted_at = now()
+SET deleted_at = now(), updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -670,7 +670,7 @@ func (q *Queries) SoftDeleteAcademicPeriod(ctx context.Context, id pgtype.UUID) 
 
 const softDeleteCourse = `-- name: SoftDeleteCourse :execrows
 UPDATE courses
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -689,7 +689,7 @@ func (q *Queries) SoftDeleteCourse(ctx context.Context, arg SoftDeleteCoursePara
 
 const softDeleteProgram = `-- name: SoftDeleteProgram :execrows
 UPDATE programs
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -708,7 +708,7 @@ func (q *Queries) SoftDeleteProgram(ctx context.Context, arg SoftDeleteProgramPa
 
 const softDeleteProgramQuota = `-- name: SoftDeleteProgramQuota :execrows
 UPDATE program_quotas
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -727,7 +727,7 @@ func (q *Queries) SoftDeleteProgramQuota(ctx context.Context, arg SoftDeleteProg
 
 const softDeleteSection = `-- name: SoftDeleteSection :execrows
 UPDATE sections
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL
 `
 

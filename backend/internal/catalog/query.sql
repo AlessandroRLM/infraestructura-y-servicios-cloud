@@ -22,7 +22,7 @@ ORDER BY created_at;
 
 -- name: SoftDeleteProgram :execrows
 UPDATE programs
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: CountProgramCourses :one
@@ -61,7 +61,7 @@ WHERE course_id = $1;
 
 -- name: SoftDeleteCourse :execrows
 UPDATE courses
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- Program courses (M:N append-only)
@@ -104,7 +104,7 @@ ORDER BY year, term;
 
 -- name: SoftDeleteAcademicPeriod :execrows
 UPDATE academic_periods
-SET deleted_at = now()
+SET deleted_at = now(), updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- Program quotas
@@ -136,7 +136,7 @@ ORDER BY year;
 
 -- name: SoftDeleteProgramQuota :execrows
 UPDATE program_quotas
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- Sections
@@ -165,7 +165,7 @@ ORDER BY created_at;
 
 -- name: SoftDeleteSection :execrows
 UPDATE sections
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: CountLiveSectionsByCourse :one
