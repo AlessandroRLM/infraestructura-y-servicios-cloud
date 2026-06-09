@@ -225,7 +225,7 @@ func TestMain(m *testing.M) {
 
 	// Catalog handler wiring.
 	catalogQueries := catalogdb.New(pool)
-	catalogRepo := catalog.NewPostgresRepository(catalogQueries)
+	catalogRepo := catalog.NewPostgresRepository(catalogQueries, pool)
 	catalogSvc := catalog.NewService(catalogRepo)
 	catalogHandler := catalog.NewHandler(catalogSvc)
 	catalogReg := func(mux *http.ServeMux) {

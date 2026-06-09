@@ -90,26 +90,11 @@ func (s *Service) ListPrograms(ctx context.Context) ([]catalogdb.Program, error)
 	return s.repo.ListPrograms(ctx)
 }
 
-// DeleteProgram soft-deletes a program after verifying no live dependents exist.
-// Blocked by: live program_courses rows OR live program_quotas rows.
+// DeleteProgram soft-deletes a program in a single transaction that holds a row lock
+// for the duration of the dependent check. Blocked by live program_courses or live
+// program_quotas rows. Returns ErrHasDependents when blocked, ErrNotFound when absent.
 func (s *Service) DeleteProgram(ctx context.Context, id uuid.UUID) error {
-	n, err := s.repo.CountProgramCourses(ctx, id)
-	if err != nil {
-		return err
-	}
-	if n > 0 {
-		return fmt.Errorf("%w: program has %d course association(s)", ErrHasDependents, n)
-	}
-
-	q, err := s.repo.CountLiveProgramQuotas(ctx, id)
-	if err != nil {
-		return err
-	}
-	if q > 0 {
-		return fmt.Errorf("%w: program has %d live quota(s)", ErrHasDependents, q)
-	}
-
-	return s.repo.SoftDeleteProgram(ctx, id, actorFromContext(ctx))
+	return s.repo.DeleteProgramTx(ctx, id, actorFromContext(ctx))
 }
 
 // --- Courses ---
@@ -152,25 +137,11 @@ func (s *Service) ListCourses(ctx context.Context) ([]catalogdb.Course, error) {
 	return s.repo.ListCourses(ctx)
 }
 
-// DeleteCourse soft-deletes a course after verifying no live program associations or live sections exist.
+// DeleteCourse soft-deletes a course in a single transaction that holds a row lock
+// for the duration of the dependent check. Blocked by live program associations or
+// live sections. Returns ErrHasDependents when blocked, ErrNotFound when absent.
 func (s *Service) DeleteCourse(ctx context.Context, id uuid.UUID) error {
-	n, err := s.repo.CountCourseProgramAssociations(ctx, id)
-	if err != nil {
-		return err
-	}
-	if n > 0 {
-		return fmt.Errorf("%w: course has %d program association(s)", ErrHasDependents, n)
-	}
-
-	sec, err := s.repo.CountLiveSectionsByCourse(ctx, id)
-	if err != nil {
-		return err
-	}
-	if sec > 0 {
-		return fmt.Errorf("%w: course has %d live section(s)", ErrHasDependents, sec)
-	}
-
-	return s.repo.SoftDeleteCourse(ctx, id, actorFromContext(ctx))
+	return s.repo.DeleteCourseTx(ctx, id, actorFromContext(ctx))
 }
 
 // --- Program-course M:N ---
@@ -237,17 +208,11 @@ func (s *Service) ListAcademicPeriods(ctx context.Context) ([]catalogdb.Academic
 	return s.repo.ListAcademicPeriods(ctx)
 }
 
-// DeleteAcademicPeriod soft-deletes an academic period after verifying no live sections reference it.
+// DeleteAcademicPeriod soft-deletes an academic period in a single transaction that holds
+// a row lock for the duration of the dependent check. Blocked by live sections.
+// Returns ErrHasDependents when blocked, ErrNotFound when absent.
 func (s *Service) DeleteAcademicPeriod(ctx context.Context, id uuid.UUID) error {
-	sec, err := s.repo.CountLiveSectionsByAcademicPeriod(ctx, id)
-	if err != nil {
-		return err
-	}
-	if sec > 0 {
-		return fmt.Errorf("%w: academic period has %d live section(s)", ErrHasDependents, sec)
-	}
-
-	return s.repo.SoftDeleteAcademicPeriod(ctx, id)
+	return s.repo.DeleteAcademicPeriodTx(ctx, id)
 }
 
 // --- Program quotas ---
@@ -357,18 +322,11 @@ func (s *Service) ListSections(ctx context.Context, courseID *uuid.UUID, academi
 	return s.repo.ListSections(ctx, courseID, academicPeriodID)
 }
 
-// DeleteSection soft-deletes a section after verifying no section_teachers rows exist.
-// section_teachers is append-only; any existing row blocks deletion.
+// DeleteSection soft-deletes a section in a single transaction that holds a row lock
+// for the duration of the dependent check. section_teachers is append-only; any existing
+// row blocks deletion. Returns ErrHasDependents when blocked, ErrNotFound when absent.
 func (s *Service) DeleteSection(ctx context.Context, id uuid.UUID) error {
-	n, err := s.repo.CountSectionTeachers(ctx, id)
-	if err != nil {
-		return err
-	}
-	if n > 0 {
-		return fmt.Errorf("%w: section has %d teacher assignment(s)", ErrHasDependents, n)
-	}
-
-	return s.repo.SoftDeleteSection(ctx, id, actorFromContext(ctx))
+	return s.repo.DeleteSectionTx(ctx, id, actorFromContext(ctx))
 }
 
 // --- Section-teacher M:N ---

@@ -140,6 +140,28 @@ func (q *Queries) GetAcademicPeriod(ctx context.Context, id pgtype.UUID) (Academ
 	return i, err
 }
 
+const getAcademicPeriodForUpdate = `-- name: GetAcademicPeriodForUpdate :one
+SELECT id, year, term, start_date, end_date, created_at, updated_at, deleted_at FROM academic_periods
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE
+`
+
+func (q *Queries) GetAcademicPeriodForUpdate(ctx context.Context, id pgtype.UUID) (AcademicPeriod, error) {
+	row := q.db.QueryRow(ctx, getAcademicPeriodForUpdate, id)
+	var i AcademicPeriod
+	err := row.Scan(
+		&i.ID,
+		&i.Year,
+		&i.Term,
+		&i.StartDate,
+		&i.EndDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const getCourse = `-- name: GetCourse :one
 SELECT id, code, name, credits, created_at, updated_at, deleted_at, created_by, updated_by FROM courses
 WHERE id = $1 AND deleted_at IS NULL
@@ -162,6 +184,29 @@ func (q *Queries) GetCourse(ctx context.Context, id pgtype.UUID) (Course, error)
 	return i, err
 }
 
+const getCourseForUpdate = `-- name: GetCourseForUpdate :one
+SELECT id, code, name, credits, created_at, updated_at, deleted_at, created_by, updated_by FROM courses
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE
+`
+
+func (q *Queries) GetCourseForUpdate(ctx context.Context, id pgtype.UUID) (Course, error) {
+	row := q.db.QueryRow(ctx, getCourseForUpdate, id)
+	var i Course
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Name,
+		&i.Credits,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
 const getProgram = `-- name: GetProgram :one
 SELECT id, code, name, created_at, updated_at, deleted_at, created_by, updated_by FROM programs
 WHERE id = $1 AND deleted_at IS NULL
@@ -169,6 +214,28 @@ WHERE id = $1 AND deleted_at IS NULL
 
 func (q *Queries) GetProgram(ctx context.Context, id pgtype.UUID) (Program, error) {
 	row := q.db.QueryRow(ctx, getProgram, id)
+	var i Program
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const getProgramForUpdate = `-- name: GetProgramForUpdate :one
+SELECT id, code, name, created_at, updated_at, deleted_at, created_by, updated_by FROM programs
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE
+`
+
+func (q *Queries) GetProgramForUpdate(ctx context.Context, id pgtype.UUID) (Program, error) {
+	row := q.db.QueryRow(ctx, getProgramForUpdate, id)
 	var i Program
 	err := row.Scan(
 		&i.ID,
@@ -212,6 +279,29 @@ WHERE id = $1 AND deleted_at IS NULL
 
 func (q *Queries) GetSection(ctx context.Context, id pgtype.UUID) (Section, error) {
 	row := q.db.QueryRow(ctx, getSection, id)
+	var i Section
+	err := row.Scan(
+		&i.ID,
+		&i.CourseID,
+		&i.AcademicPeriodID,
+		&i.Capacity,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const getSectionForUpdate = `-- name: GetSectionForUpdate :one
+SELECT id, course_id, academic_period_id, capacity, created_at, updated_at, deleted_at, created_by, updated_by FROM sections
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE
+`
+
+func (q *Queries) GetSectionForUpdate(ctx context.Context, id pgtype.UUID) (Section, error) {
+	row := q.db.QueryRow(ctx, getSectionForUpdate, id)
 	var i Section
 	err := row.Scan(
 		&i.ID,

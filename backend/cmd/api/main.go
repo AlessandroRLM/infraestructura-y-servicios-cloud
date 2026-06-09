@@ -164,7 +164,7 @@ func main() {
 
 	// Catalog handler (catalogdb.Querier → repository → service → Connect handler).
 	catalogQueries := catalogdb.New(pool)
-	catalogRepo := catalog.NewPostgresRepository(catalogQueries)
+	catalogRepo := catalog.NewPostgresRepository(catalogQueries, pool)
 	catalogSvc := catalog.NewService(catalogRepo)
 	catalogHandler := catalog.NewHandler(catalogSvc)
 

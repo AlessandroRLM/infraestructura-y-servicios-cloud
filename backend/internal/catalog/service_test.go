@@ -108,6 +108,15 @@ func (f *fakeRepository) ListPrograms(_ context.Context) ([]catalogdb.Program, e
 func (f *fakeRepository) SoftDeleteProgram(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
 	return f.softDeleteProgramE
 }
+func (f *fakeRepository) DeleteProgramTx(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
+	if f.countProgramCourses > 0 {
+		return catalog.ErrHasDependents
+	}
+	if f.countLiveQuotas > 0 {
+		return catalog.ErrHasDependents
+	}
+	return f.softDeleteProgramE
+}
 func (f *fakeRepository) CountProgramCourses(_ context.Context, _ uuid.UUID) (int64, error) {
 	return f.countProgramCourses, nil
 }
@@ -128,6 +137,15 @@ func (f *fakeRepository) ListCourses(_ context.Context) ([]catalogdb.Course, err
 	return f.listCoursesRows, nil
 }
 func (f *fakeRepository) SoftDeleteCourse(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
+	return f.softDeleteCourseE
+}
+func (f *fakeRepository) DeleteCourseTx(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
+	if f.countCourseAssociationsErr != nil {
+		return f.countCourseAssociationsErr
+	}
+	if f.countCourseAssociations > 0 || f.countLiveSectionsByCourse > 0 {
+		return catalog.ErrHasDependents
+	}
 	return f.softDeleteCourseE
 }
 func (f *fakeRepository) CountCourseProgramAssociations(_ context.Context, _ uuid.UUID) (int64, error) {
@@ -155,6 +173,12 @@ func (f *fakeRepository) ListAcademicPeriods(_ context.Context) ([]catalogdb.Aca
 	return f.listAcademicPeriodsRows, nil
 }
 func (f *fakeRepository) SoftDeleteAcademicPeriod(_ context.Context, _ uuid.UUID) error {
+	return f.softDeleteAcademicPeriodE
+}
+func (f *fakeRepository) DeleteAcademicPeriodTx(_ context.Context, _ uuid.UUID) error {
+	if f.countLiveSectionsByPeriod > 0 {
+		return catalog.ErrHasDependents
+	}
 	return f.softDeleteAcademicPeriodE
 }
 func (f *fakeRepository) CreateProgramQuota(_ context.Context, _ catalog.CreateProgramQuotaParams, actor *uuid.UUID) (catalogdb.ProgramQuota, error) {
@@ -187,6 +211,12 @@ func (f *fakeRepository) ListSections(_ context.Context, _ *uuid.UUID, _ *uuid.U
 	return f.listSectionsRows, nil
 }
 func (f *fakeRepository) SoftDeleteSection(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
+	return f.softDeleteSectionE
+}
+func (f *fakeRepository) DeleteSectionTx(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
+	if f.countSectionTeachersN > 0 {
+		return catalog.ErrHasDependents
+	}
 	return f.softDeleteSectionE
 }
 func (f *fakeRepository) CountLiveSectionsByCourse(_ context.Context, _ uuid.UUID) (int64, error) {
@@ -543,7 +573,21 @@ func (f *fakeRepositoryWithDeleteActor) SoftDeleteProgram(_ context.Context, _ u
 	return f.softDeleteProgramE
 }
 
+func (f *fakeRepositoryWithDeleteActor) DeleteProgramTx(_ context.Context, _ uuid.UUID, actor *uuid.UUID) error {
+	if !f.captureIsCourse {
+		*f.captureActor = actor
+	}
+	return f.softDeleteProgramE
+}
+
 func (f *fakeRepositoryWithDeleteActor) SoftDeleteCourse(_ context.Context, _ uuid.UUID, actor *uuid.UUID) error {
+	if f.captureIsCourse {
+		*f.captureActor = actor
+	}
+	return f.softDeleteCourseE
+}
+
+func (f *fakeRepositoryWithDeleteActor) DeleteCourseTx(_ context.Context, _ uuid.UUID, actor *uuid.UUID) error {
 	if f.captureIsCourse {
 		*f.captureActor = actor
 	}

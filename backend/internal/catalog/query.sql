@@ -25,6 +25,11 @@ UPDATE programs
 SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
+-- name: GetProgramForUpdate :one
+SELECT * FROM programs
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE;
+
 -- name: CountProgramCourses :one
 SELECT count(*) FROM program_courses
 WHERE program_id = $1;
@@ -54,6 +59,11 @@ WHERE id = $1 AND deleted_at IS NULL;
 SELECT * FROM courses
 WHERE deleted_at IS NULL
 ORDER BY created_at;
+
+-- name: GetCourseForUpdate :one
+SELECT * FROM courses
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE;
 
 -- name: CountCourseProgramAssociations :one
 SELECT count(*) FROM program_courses
@@ -101,6 +111,11 @@ WHERE id = $1 AND deleted_at IS NULL;
 SELECT * FROM academic_periods
 WHERE deleted_at IS NULL
 ORDER BY year, term;
+
+-- name: GetAcademicPeriodForUpdate :one
+SELECT * FROM academic_periods
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE;
 
 -- name: SoftDeleteAcademicPeriod :execrows
 UPDATE academic_periods
@@ -162,6 +177,11 @@ WHERE deleted_at IS NULL
   AND (sqlc.narg('course_id')::uuid IS NULL OR course_id = sqlc.narg('course_id')::uuid)
   AND (sqlc.narg('academic_period_id')::uuid IS NULL OR academic_period_id = sqlc.narg('academic_period_id')::uuid)
 ORDER BY created_at;
+
+-- name: GetSectionForUpdate :one
+SELECT * FROM sections
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE;
 
 -- name: SoftDeleteSection :execrows
 UPDATE sections

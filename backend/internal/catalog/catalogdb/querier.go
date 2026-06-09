@@ -20,10 +20,14 @@ type Querier interface {
 	DeleteProgramCourse(ctx context.Context, arg DeleteProgramCourseParams) (int64, error)
 	DeleteSectionTeacher(ctx context.Context, arg DeleteSectionTeacherParams) (int64, error)
 	GetAcademicPeriod(ctx context.Context, id pgtype.UUID) (AcademicPeriod, error)
+	GetAcademicPeriodForUpdate(ctx context.Context, id pgtype.UUID) (AcademicPeriod, error)
 	GetCourse(ctx context.Context, id pgtype.UUID) (Course, error)
+	GetCourseForUpdate(ctx context.Context, id pgtype.UUID) (Course, error)
 	GetProgram(ctx context.Context, id pgtype.UUID) (Program, error)
+	GetProgramForUpdate(ctx context.Context, id pgtype.UUID) (Program, error)
 	GetProgramQuota(ctx context.Context, id pgtype.UUID) (ProgramQuota, error)
 	GetSection(ctx context.Context, id pgtype.UUID) (Section, error)
+	GetSectionForUpdate(ctx context.Context, id pgtype.UUID) (Section, error)
 	// Academic periods
 	InsertAcademicPeriod(ctx context.Context, arg InsertAcademicPeriodParams) (AcademicPeriod, error)
 	// Courses

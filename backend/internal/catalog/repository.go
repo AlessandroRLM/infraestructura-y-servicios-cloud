@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog/catalogdb"
 )
@@ -18,6 +20,10 @@ type Repository interface {
 	GetProgram(ctx context.Context, id uuid.UUID) (catalogdb.Program, error)
 	ListPrograms(ctx context.Context) ([]catalogdb.Program, error)
 	SoftDeleteProgram(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
+	// DeleteProgramTx locks the program row, counts dependents, and soft-deletes atomically
+	// in a single transaction. Returns ErrNotFound when absent and ErrHasDependents when
+	// live program_courses or live program_quotas rows exist.
+	DeleteProgramTx(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
 	CountProgramCourses(ctx context.Context, programID uuid.UUID) (int64, error)
 	CountLiveProgramQuotas(ctx context.Context, programID uuid.UUID) (int64, error)
 
@@ -27,6 +33,10 @@ type Repository interface {
 	GetCourse(ctx context.Context, id uuid.UUID) (catalogdb.Course, error)
 	ListCourses(ctx context.Context) ([]catalogdb.Course, error)
 	SoftDeleteCourse(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
+	// DeleteCourseTx locks the course row, counts dependents, and soft-deletes atomically.
+	// Returns ErrNotFound when absent and ErrHasDependents when live program associations
+	// or live sections exist.
+	DeleteCourseTx(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
 	CountCourseProgramAssociations(ctx context.Context, courseID uuid.UUID) (int64, error)
 
 	// Program-course M:N
@@ -40,6 +50,9 @@ type Repository interface {
 	GetAcademicPeriod(ctx context.Context, id uuid.UUID) (catalogdb.AcademicPeriod, error)
 	ListAcademicPeriods(ctx context.Context) ([]catalogdb.AcademicPeriod, error)
 	SoftDeleteAcademicPeriod(ctx context.Context, id uuid.UUID) error
+	// DeleteAcademicPeriodTx locks the period row, counts live sections, and soft-deletes
+	// atomically. Returns ErrNotFound when absent and ErrHasDependents when live sections exist.
+	DeleteAcademicPeriodTx(ctx context.Context, id uuid.UUID) error
 
 	// Program quotas
 	CreateProgramQuota(ctx context.Context, p CreateProgramQuotaParams, actor *uuid.UUID) (catalogdb.ProgramQuota, error)
@@ -54,6 +67,10 @@ type Repository interface {
 	GetSection(ctx context.Context, id uuid.UUID) (catalogdb.Section, error)
 	ListSections(ctx context.Context, courseID *uuid.UUID, academicPeriodID *uuid.UUID) ([]catalogdb.Section, error)
 	SoftDeleteSection(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
+	// DeleteSectionTx locks the section row, counts section_teachers, and soft-deletes
+	// atomically. Returns ErrNotFound when absent and ErrHasDependents when teacher
+	// assignments exist.
+	DeleteSectionTx(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
 	CountLiveSectionsByCourse(ctx context.Context, courseID uuid.UUID) (int64, error)
 	CountLiveSectionsByAcademicPeriod(ctx context.Context, academicPeriodID uuid.UUID) (int64, error)
 	CountSectionTeachers(ctx context.Context, sectionID uuid.UUID) (int64, error)
@@ -133,17 +150,21 @@ type UpdateSectionParams struct {
 	SeatCapacity int32
 }
 
-// postgresRepository is the production implementation backed by a sqlc Querier.
+// postgresRepository is the production implementation backed by a sqlc Querier and a
+// connection pool used exclusively for starting transactions in the Tx-suffixed methods.
 type postgresRepository struct {
-	q catalogdb.Querier
+	q    catalogdb.Querier
+	pool *pgxpool.Pool
 }
 
 // Compile-time proof that *postgresRepository satisfies the Repository interface.
 var _ Repository = (*postgresRepository)(nil)
 
 // NewPostgresRepository constructs a Repository backed by the given sqlc Querier.
-func NewPostgresRepository(q catalogdb.Querier) Repository {
-	return &postgresRepository{q: q}
+// pool is required by the DeleteXxxTx methods that open a transaction; pass the same
+// pool that was used to create the Querier.
+func NewPostgresRepository(q catalogdb.Querier, pool *pgxpool.Pool) Repository {
+	return &postgresRepository{q: q, pool: pool}
 }
 
 // --- Programs ---
@@ -202,6 +223,53 @@ func (r *postgresRepository) SoftDeleteProgram(ctx context.Context, id uuid.UUID
 		return fmt.Errorf("%w", ErrNotFound)
 	}
 	return nil
+}
+
+// DeleteProgramTx runs the dependent-check and soft-delete in a single transaction with
+// a FOR UPDATE lock on the program row to prevent TOCTOU races. Returns ErrNotFound when
+// the program does not exist and ErrHasDependents when live dependents block deletion.
+func (r *postgresRepository) DeleteProgramTx(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	q := catalogdb.New(tx)
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+
+	if _, err := q.GetProgramForUpdate(ctx, pgID); err != nil {
+		return TranslatePgError(err)
+	}
+
+	n, err := q.CountProgramCourses(ctx, pgID)
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	if n > 0 {
+		return fmt.Errorf("%w: program has %d course association(s)", ErrHasDependents, n)
+	}
+
+	q2, err := q.CountLiveProgramQuotas(ctx, pgID)
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	if q2 > 0 {
+		return fmt.Errorf("%w: program has %d live quota(s)", ErrHasDependents, q2)
+	}
+
+	rows, err := q.SoftDeleteProgram(ctx, catalogdb.SoftDeleteProgramParams{
+		ID:        pgID,
+		UpdatedBy: optionalUUID(actor),
+	})
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *postgresRepository) CountProgramCourses(ctx context.Context, programID uuid.UUID) (int64, error) {
@@ -278,6 +346,52 @@ func (r *postgresRepository) SoftDeleteCourse(ctx context.Context, id uuid.UUID,
 		return fmt.Errorf("%w", ErrNotFound)
 	}
 	return nil
+}
+
+// DeleteCourseTx runs the dependent-check and soft-delete in a single transaction with
+// a FOR UPDATE lock on the course row to prevent TOCTOU races.
+func (r *postgresRepository) DeleteCourseTx(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	q := catalogdb.New(tx)
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+
+	if _, err := q.GetCourseForUpdate(ctx, pgID); err != nil {
+		return TranslatePgError(err)
+	}
+
+	n, err := q.CountCourseProgramAssociations(ctx, pgID)
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	if n > 0 {
+		return fmt.Errorf("%w: course has %d program association(s)", ErrHasDependents, n)
+	}
+
+	sec, err := q.CountLiveSectionsByCourse(ctx, pgID)
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	if sec > 0 {
+		return fmt.Errorf("%w: course has %d live section(s)", ErrHasDependents, sec)
+	}
+
+	rows, err := q.SoftDeleteCourse(ctx, catalogdb.SoftDeleteCourseParams{
+		ID:        pgID,
+		UpdatedBy: optionalUUID(actor),
+	})
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *postgresRepository) CountCourseProgramAssociations(ctx context.Context, courseID uuid.UUID) (int64, error) {
@@ -377,6 +491,41 @@ func (r *postgresRepository) SoftDeleteAcademicPeriod(ctx context.Context, id uu
 		return fmt.Errorf("%w", ErrNotFound)
 	}
 	return nil
+}
+
+// DeleteAcademicPeriodTx runs the dependent-check and soft-delete in a single transaction
+// with a FOR UPDATE lock on the academic_period row to prevent TOCTOU races.
+func (r *postgresRepository) DeleteAcademicPeriodTx(ctx context.Context, id uuid.UUID) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	q := catalogdb.New(tx)
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+
+	if _, err := q.GetAcademicPeriodForUpdate(ctx, pgID); err != nil {
+		return TranslatePgError(err)
+	}
+
+	sec, err := q.CountLiveSectionsByAcademicPeriod(ctx, pgID)
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	if sec > 0 {
+		return fmt.Errorf("%w: academic period has %d live section(s)", ErrHasDependents, sec)
+	}
+
+	rows, err := q.SoftDeleteAcademicPeriod(ctx, pgID)
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
+	}
+
+	return tx.Commit(ctx)
 }
 
 // --- Program quotas ---
@@ -497,6 +646,44 @@ func (r *postgresRepository) SoftDeleteSection(ctx context.Context, id uuid.UUID
 		return fmt.Errorf("%w", ErrNotFound)
 	}
 	return nil
+}
+
+// DeleteSectionTx runs the dependent-check and soft-delete in a single transaction
+// with a FOR UPDATE lock on the section row to prevent TOCTOU races.
+func (r *postgresRepository) DeleteSectionTx(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	q := catalogdb.New(tx)
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+
+	if _, err := q.GetSectionForUpdate(ctx, pgID); err != nil {
+		return TranslatePgError(err)
+	}
+
+	n, err := q.CountSectionTeachers(ctx, pgID)
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	if n > 0 {
+		return fmt.Errorf("%w: section has %d teacher assignment(s)", ErrHasDependents, n)
+	}
+
+	rows, err := q.SoftDeleteSection(ctx, catalogdb.SoftDeleteSectionParams{
+		ID:        pgID,
+		UpdatedBy: optionalUUID(actor),
+	})
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("%w", ErrNotFound)
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *postgresRepository) CountLiveSectionsByCourse(ctx context.Context, courseID uuid.UUID) (int64, error) {
