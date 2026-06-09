@@ -138,6 +138,9 @@ type postgresRepository struct {
 	q catalogdb.Querier
 }
 
+// Compile-time proof that *postgresRepository satisfies the Repository interface.
+var _ Repository = (*postgresRepository)(nil)
+
 // NewPostgresRepository constructs a Repository backed by the given sqlc Querier.
 func NewPostgresRepository(q catalogdb.Querier) Repository {
 	return &postgresRepository{q: q}
@@ -182,7 +185,7 @@ func (r *postgresRepository) GetProgram(ctx context.Context, id uuid.UUID) (cata
 func (r *postgresRepository) ListPrograms(ctx context.Context) ([]catalogdb.Program, error) {
 	rows, err := r.q.ListPrograms(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("catalog: ListPrograms: %w", err)
+		return nil, TranslatePgError(err)
 	}
 	return rows, nil
 }
@@ -193,7 +196,7 @@ func (r *postgresRepository) SoftDeleteProgram(ctx context.Context, id uuid.UUID
 		UpdatedBy: optionalUUID(actor),
 	})
 	if err != nil {
-		return fmt.Errorf("catalog: SoftDeleteProgram: %w", err)
+		return TranslatePgError(err)
 	}
 	if n == 0 {
 		return fmt.Errorf("%w", ErrNotFound)
@@ -204,7 +207,7 @@ func (r *postgresRepository) SoftDeleteProgram(ctx context.Context, id uuid.UUID
 func (r *postgresRepository) CountProgramCourses(ctx context.Context, programID uuid.UUID) (int64, error) {
 	n, err := r.q.CountProgramCourses(ctx, pgtype.UUID{Bytes: programID, Valid: true})
 	if err != nil {
-		return 0, fmt.Errorf("catalog: CountProgramCourses: %w", err)
+		return 0, TranslatePgError(err)
 	}
 	return n, nil
 }
@@ -212,7 +215,7 @@ func (r *postgresRepository) CountProgramCourses(ctx context.Context, programID 
 func (r *postgresRepository) CountLiveProgramQuotas(ctx context.Context, programID uuid.UUID) (int64, error) {
 	n, err := r.q.CountLiveProgramQuotas(ctx, pgtype.UUID{Bytes: programID, Valid: true})
 	if err != nil {
-		return 0, fmt.Errorf("catalog: CountLiveProgramQuotas: %w", err)
+		return 0, TranslatePgError(err)
 	}
 	return n, nil
 }
@@ -258,7 +261,7 @@ func (r *postgresRepository) GetCourse(ctx context.Context, id uuid.UUID) (catal
 func (r *postgresRepository) ListCourses(ctx context.Context) ([]catalogdb.Course, error) {
 	rows, err := r.q.ListCourses(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("catalog: ListCourses: %w", err)
+		return nil, TranslatePgError(err)
 	}
 	return rows, nil
 }
@@ -269,7 +272,7 @@ func (r *postgresRepository) SoftDeleteCourse(ctx context.Context, id uuid.UUID,
 		UpdatedBy: optionalUUID(actor),
 	})
 	if err != nil {
-		return fmt.Errorf("catalog: SoftDeleteCourse: %w", err)
+		return TranslatePgError(err)
 	}
 	if n == 0 {
 		return fmt.Errorf("%w", ErrNotFound)
@@ -280,7 +283,7 @@ func (r *postgresRepository) SoftDeleteCourse(ctx context.Context, id uuid.UUID,
 func (r *postgresRepository) CountCourseProgramAssociations(ctx context.Context, courseID uuid.UUID) (int64, error) {
 	n, err := r.q.CountCourseProgramAssociations(ctx, pgtype.UUID{Bytes: courseID, Valid: true})
 	if err != nil {
-		return 0, fmt.Errorf("catalog: CountCourseProgramAssociations: %w", err)
+		return 0, TranslatePgError(err)
 	}
 	return n, nil
 }
@@ -304,7 +307,7 @@ func (r *postgresRepository) RemoveCourseFromProgram(ctx context.Context, progra
 		CourseID:  pgtype.UUID{Bytes: courseID, Valid: true},
 	})
 	if err != nil {
-		return fmt.Errorf("catalog: RemoveCourseFromProgram: %w", err)
+		return TranslatePgError(err)
 	}
 	if n == 0 {
 		return fmt.Errorf("%w", ErrNotFound)
@@ -315,7 +318,7 @@ func (r *postgresRepository) RemoveCourseFromProgram(ctx context.Context, progra
 func (r *postgresRepository) ListProgramCourses(ctx context.Context, programID uuid.UUID) ([]catalogdb.ProgramCourse, error) {
 	rows, err := r.q.ListProgramCourses(ctx, pgtype.UUID{Bytes: programID, Valid: true})
 	if err != nil {
-		return nil, fmt.Errorf("catalog: ListProgramCourses: %w", err)
+		return nil, TranslatePgError(err)
 	}
 	return rows, nil
 }
@@ -360,7 +363,7 @@ func (r *postgresRepository) GetAcademicPeriod(ctx context.Context, id uuid.UUID
 func (r *postgresRepository) ListAcademicPeriods(ctx context.Context) ([]catalogdb.AcademicPeriod, error) {
 	rows, err := r.q.ListAcademicPeriods(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("catalog: ListAcademicPeriods: %w", err)
+		return nil, TranslatePgError(err)
 	}
 	return rows, nil
 }
@@ -368,7 +371,7 @@ func (r *postgresRepository) ListAcademicPeriods(ctx context.Context) ([]catalog
 func (r *postgresRepository) SoftDeleteAcademicPeriod(ctx context.Context, id uuid.UUID) error {
 	n, err := r.q.SoftDeleteAcademicPeriod(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
-		return fmt.Errorf("catalog: SoftDeleteAcademicPeriod: %w", err)
+		return TranslatePgError(err)
 	}
 	if n == 0 {
 		return fmt.Errorf("%w", ErrNotFound)
@@ -416,7 +419,7 @@ func (r *postgresRepository) GetProgramQuota(ctx context.Context, id uuid.UUID) 
 func (r *postgresRepository) ListProgramQuotas(ctx context.Context, programID uuid.UUID) ([]catalogdb.ProgramQuota, error) {
 	rows, err := r.q.ListProgramQuotas(ctx, pgtype.UUID{Bytes: programID, Valid: true})
 	if err != nil {
-		return nil, fmt.Errorf("catalog: ListProgramQuotas: %w", err)
+		return nil, TranslatePgError(err)
 	}
 	return rows, nil
 }
@@ -427,7 +430,7 @@ func (r *postgresRepository) SoftDeleteProgramQuota(ctx context.Context, id uuid
 		UpdatedBy: optionalUUID(actor),
 	})
 	if err != nil {
-		return fmt.Errorf("catalog: SoftDeleteProgramQuota: %w", err)
+		return TranslatePgError(err)
 	}
 	if n == 0 {
 		return fmt.Errorf("%w", ErrNotFound)
@@ -477,7 +480,7 @@ func (r *postgresRepository) ListSections(ctx context.Context, courseID *uuid.UU
 		AcademicPeriodID: optionalUUID(academicPeriodID),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("catalog: ListSections: %w", err)
+		return nil, TranslatePgError(err)
 	}
 	return rows, nil
 }
@@ -488,7 +491,7 @@ func (r *postgresRepository) SoftDeleteSection(ctx context.Context, id uuid.UUID
 		UpdatedBy: optionalUUID(actor),
 	})
 	if err != nil {
-		return fmt.Errorf("catalog: SoftDeleteSection: %w", err)
+		return TranslatePgError(err)
 	}
 	if n == 0 {
 		return fmt.Errorf("%w", ErrNotFound)
@@ -499,7 +502,7 @@ func (r *postgresRepository) SoftDeleteSection(ctx context.Context, id uuid.UUID
 func (r *postgresRepository) CountLiveSectionsByCourse(ctx context.Context, courseID uuid.UUID) (int64, error) {
 	n, err := r.q.CountLiveSectionsByCourse(ctx, pgtype.UUID{Bytes: courseID, Valid: true})
 	if err != nil {
-		return 0, fmt.Errorf("catalog: CountLiveSectionsByCourse: %w", err)
+		return 0, TranslatePgError(err)
 	}
 	return n, nil
 }
@@ -507,7 +510,7 @@ func (r *postgresRepository) CountLiveSectionsByCourse(ctx context.Context, cour
 func (r *postgresRepository) CountLiveSectionsByAcademicPeriod(ctx context.Context, academicPeriodID uuid.UUID) (int64, error) {
 	n, err := r.q.CountLiveSectionsByAcademicPeriod(ctx, pgtype.UUID{Bytes: academicPeriodID, Valid: true})
 	if err != nil {
-		return 0, fmt.Errorf("catalog: CountLiveSectionsByAcademicPeriod: %w", err)
+		return 0, TranslatePgError(err)
 	}
 	return n, nil
 }
@@ -515,7 +518,7 @@ func (r *postgresRepository) CountLiveSectionsByAcademicPeriod(ctx context.Conte
 func (r *postgresRepository) CountSectionTeachers(ctx context.Context, sectionID uuid.UUID) (int64, error) {
 	n, err := r.q.CountSectionTeachers(ctx, pgtype.UUID{Bytes: sectionID, Valid: true})
 	if err != nil {
-		return 0, fmt.Errorf("catalog: CountSectionTeachers: %w", err)
+		return 0, TranslatePgError(err)
 	}
 	return n, nil
 }
@@ -539,7 +542,7 @@ func (r *postgresRepository) RemoveTeacherFromSection(ctx context.Context, secti
 		TeacherID: pgtype.UUID{Bytes: teacherID, Valid: true},
 	})
 	if err != nil {
-		return fmt.Errorf("catalog: RemoveTeacherFromSection: %w", err)
+		return TranslatePgError(err)
 	}
 	if n == 0 {
 		return fmt.Errorf("%w", ErrNotFound)
@@ -550,7 +553,7 @@ func (r *postgresRepository) RemoveTeacherFromSection(ctx context.Context, secti
 func (r *postgresRepository) ListSectionTeachers(ctx context.Context, sectionID uuid.UUID) ([]catalogdb.SectionTeacher, error) {
 	rows, err := r.q.ListSectionTeachers(ctx, pgtype.UUID{Bytes: sectionID, Valid: true})
 	if err != nil {
-		return nil, fmt.Errorf("catalog: ListSectionTeachers: %w", err)
+		return nil, TranslatePgError(err)
 	}
 	return rows, nil
 }
