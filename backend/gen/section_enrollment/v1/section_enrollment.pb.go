@@ -125,10 +125,13 @@ func (x *SectionEnrollment) GetDeletedAt() string {
 	return ""
 }
 
-// EnrollOwnSectionRequest carries only the section_id; enrollment is resolved from context.
+// EnrollOwnSectionRequest carries section_id and program_id.
+// The program_id disambiguates which paid enrollment to link when a student is enrolled
+// in more than one program. The student_id is derived exclusively from the session context.
 type EnrollOwnSectionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SectionId     string                 `protobuf:"bytes,1,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
+	ProgramId     string                 `protobuf:"bytes,2,opt,name=program_id,json=programId,proto3" json:"program_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -166,6 +169,13 @@ func (*EnrollOwnSectionRequest) Descriptor() ([]byte, []int) {
 func (x *EnrollOwnSectionRequest) GetSectionId() string {
 	if x != nil {
 		return x.SectionId
+	}
+	return ""
+}
+
+func (x *EnrollOwnSectionRequest) GetProgramId() string {
+	if x != nil {
+		return x.ProgramId
 	}
 	return ""
 }
@@ -552,10 +562,12 @@ const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\"\n" +
 	"\n" +
 	"deleted_at\x18\b \x01(\tH\x00R\tdeletedAt\x88\x01\x01B\r\n" +
-	"\v_deleted_at\"8\n" +
+	"\v_deleted_at\"W\n" +
 	"\x17EnrollOwnSectionRequest\x12\x1d\n" +
 	"\n" +
-	"section_id\x18\x01 \x01(\tR\tsectionId\"\"\n" +
+	"section_id\x18\x01 \x01(\tR\tsectionId\x12\x1d\n" +
+	"\n" +
+	"program_id\x18\x02 \x01(\tR\tprogramId\"\"\n" +
 	" ListOwnSectionEnrollmentsRequest\"0\n" +
 	"\x1eGetOwnSectionEnrollmentRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"Z\n" +

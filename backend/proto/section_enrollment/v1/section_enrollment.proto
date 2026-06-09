@@ -52,9 +52,12 @@ message SectionEnrollment {
   optional string deleted_at = 8;
 }
 
-// EnrollOwnSectionRequest carries only the section_id; enrollment is resolved from context.
+// EnrollOwnSectionRequest carries section_id and program_id.
+// The program_id disambiguates which paid enrollment to link when a student is enrolled
+// in more than one program. The student_id is derived exclusively from the session context.
 message EnrollOwnSectionRequest {
   string section_id = 1;
+  string program_id = 2;
 }
 
 message ListOwnSectionEnrollmentsRequest {}

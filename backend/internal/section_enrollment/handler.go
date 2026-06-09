@@ -85,11 +85,19 @@ func parseUUID(s string) (uuid.UUID, error) {
 // --- Student self-service RPCs ---
 
 // EnrollOwnSection creates a section inscription for the authenticated student.
+// The request must carry both section_id and program_id; program_id identifies which
+// paid enrollment to link, removing ambiguity for students in multiple programs.
 func (h *Handler) EnrollOwnSection(
 	ctx context.Context,
 	req *connect.Request[section_enrollmentv1.EnrollOwnSectionRequest],
 ) (*connect.Response[section_enrollmentv1.SectionEnrollment], error) {
-	row, err := h.svc.EnrollOwnSection(ctx, req.Msg.GetSectionId())
+	if req.Msg.GetProgramId() == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("program_id is required"))
+	}
+	if _, err := parseUUID(req.Msg.GetProgramId()); err != nil {
+		return nil, err
+	}
+	row, err := h.svc.EnrollOwnSection(ctx, req.Msg.GetSectionId(), req.Msg.GetProgramId())
 	if err != nil {
 		return nil, MapError(err)
 	}

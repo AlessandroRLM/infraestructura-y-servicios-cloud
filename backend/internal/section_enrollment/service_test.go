@@ -83,7 +83,7 @@ func TestService_EnrollOwnSection_NoContext(t *testing.T) {
 	repo := &fakeRepository{}
 	svc := NewService(repo)
 
-	_, err := svc.EnrollOwnSection(context.Background(), uuid.New().String())
+	_, err := svc.EnrollOwnSection(context.Background(), uuid.New().String(), uuid.New().String())
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("EnrollOwnSection(no ctx user) = %v; want ErrNotFound", err)
 	}
@@ -100,9 +100,23 @@ func TestService_EnrollOwnSection_BadSectionID(t *testing.T) {
 	svc := NewService(repo)
 
 	ctx := contextWithUser(uuid.New())
-	_, err := svc.EnrollOwnSection(ctx, "not-a-uuid")
+	_, err := svc.EnrollOwnSection(ctx, "not-a-uuid", uuid.New().String())
 	if !errors.Is(err, ErrInvalidInput) {
-		t.Errorf("EnrollOwnSection(bad UUID) = %v; want ErrInvalidInput", err)
+		t.Errorf("EnrollOwnSection(bad section UUID) = %v; want ErrInvalidInput", err)
+	}
+}
+
+// TestService_EnrollOwnSection_BadProgramID verifies that an invalid program_id UUID returns ErrInvalidInput.
+func TestService_EnrollOwnSection_BadProgramID(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.EnrollOwnSection(ctx, uuid.New().String(), "not-a-uuid")
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("EnrollOwnSection(bad program UUID) = %v; want ErrInvalidInput", err)
 	}
 }
 
@@ -114,11 +128,8 @@ func TestService_EnrollOwnSection_UsesIsAdminFalse(t *testing.T) {
 	repo := &fakeRepository{enrollTxRow: newInsertedRow(uuid.New(), uuid.New(), uuid.New())}
 	svc := NewService(repo)
 
-	// To resolve the paid enrollment on the own path, the service needs an enrollment_id.
-	// In the simplified service design, EnrollOwnSection resolves the paid enrollment
-	// via the repository (EnrollSectionTx handles it internally with the student's info).
 	ctx := contextWithUser(uuid.New())
-	_, _ = svc.EnrollOwnSection(ctx, uuid.New().String())
+	_, _ = svc.EnrollOwnSection(ctx, uuid.New().String(), uuid.New().String())
 
 	if !repo.enrollTxCalled {
 		t.Fatal("EnrollSectionTx was not called")
@@ -272,10 +283,3 @@ func TestService_EnrollSection_PaidGateChecked(t *testing.T) {
 	}
 }
 
-// --- helper also used by repository_test.go in the same package ---
-
-// newInsertedRow creates a fake SectionEnrollment for test assertions.
-// Duplicated here because tests in the same package share the unexported scope,
-// but this helper is declared only once in repository_test.go; we do NOT redeclare it.
-// This comment is intentional: the function is defined in repository_test.go and
-// shared across all _test.go files in the same package.

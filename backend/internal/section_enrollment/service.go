@@ -27,7 +27,9 @@ func NewService(repo Repository) *Service {
 // EnrollOwnSection creates a section inscription for the authenticated student.
 // Student identity is derived exclusively from the context; no student_id in the request.
 // Window-gated (isAdmin=false). Returns ErrNotFound when no user is in context.
-func (s *Service) EnrollOwnSection(ctx context.Context, sectionIDStr string) (section_enrollmentdb.SectionEnrollment, error) {
+// programIDStr must be a valid UUID identifying which paid enrollment to link —
+// this disambiguates students enrolled in multiple programs sharing the same course.
+func (s *Service) EnrollOwnSection(ctx context.Context, sectionIDStr, programIDStr string) (section_enrollmentdb.SectionEnrollment, error) {
 	callerID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
@@ -38,17 +40,15 @@ func (s *Service) EnrollOwnSection(ctx context.Context, sectionIDStr string) (se
 		return section_enrollmentdb.SectionEnrollment{}, err
 	}
 
-	// The repository resolves the paid enrollment for the student internally via
-	// ResolvePaidEnrollmentByID. For the self-service path we pass the student_id
-	// and a zero enrollment_id; the repository uses student_id to resolve the enrollment.
-	// Note: the design has the service pass EnrollmentID from context resolution.
-	// Since the student has exactly one paid enrollment per program at a time,
-	// the repository resolves it by (student_id, section.program_id) inside the tx.
-	// We pass student_id as both StudentID and EnrollmentID=zero to signal self-service.
+	programID, err := parseServiceUUID(programIDStr)
+	if err != nil {
+		return section_enrollmentdb.SectionEnrollment{}, err
+	}
+
 	return s.repo.EnrollSectionTx(ctx, EnrollSectionParams{
 		SectionID: sectionID,
 		StudentID: callerID,
-		// EnrollmentID is zero — the repository resolves it for the self-service path.
+		ProgramID: programID,
 	}, false)
 }
 
