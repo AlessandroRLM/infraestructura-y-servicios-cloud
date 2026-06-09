@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment/section_enrollmentdb"
@@ -280,8 +279,3 @@ func TestService_EnrollSection_PaidGateChecked(t *testing.T) {
 // but this helper is declared only once in repository_test.go; we do NOT redeclare it.
 // This comment is intentional: the function is defined in repository_test.go and
 // shared across all _test.go files in the same package.
-
-// pgTypeTimestamptz helper for comparing pgtype.UUID values.
-func pgUUIDEqual(a, b pgtype.UUID) bool {
-	return a.Valid == b.Valid && a.Bytes == b.Bytes
-}

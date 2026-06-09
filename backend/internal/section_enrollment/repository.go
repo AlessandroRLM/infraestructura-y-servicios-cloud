@@ -152,24 +152,19 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 		enrollmentID = eRow.ID
 		programID = eRow.ProgramID
 	} else {
-		// Self-service: student_id + program must be resolved. The section's program is
-		// determined by joining through program_courses; we need the section's course_id
-		// to find the right program. However, we resolve by student_id+program_id below,
-		// but first we need the program_id. We infer it by finding the enrollment for
-		// this student whose program contains the section's course.
-		// Simpler approach matching the design: caller provides the enrollment_id
-		// in EnrollSectionParams.EnrollmentID; we look it up and verify paid+student match.
-		// For the own-enroll path, the service resolves enrollment from context and passes it in.
-		eRow, err := q.ResolvePaidEnrollmentByID(ctx, pgtype.UUID{Bytes: p.EnrollmentID, Valid: true})
+		// Self-service path: the request carries no enrollment_id.
+		// Resolve the paid enrollment for this student by joining through program_courses
+		// using the section's course_id. A student has at most one paid enrollment per program,
+		// and the section's course appears in exactly the programs they are enrolled in.
+		eRow, err := q.ResolvePaidEnrollmentForStudentAndCourse(ctx, section_enrollmentdb.ResolvePaidEnrollmentForStudentAndCourseParams{
+			StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
+			CourseID:  sectionRow.CourseID,
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return section_enrollmentdb.SectionEnrollment{}, ErrNotPaid
 			}
 			return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
-		}
-		// Verify the enrollment belongs to the calling student.
-		if eRow.StudentID.Bytes != p.StudentID {
-			return section_enrollmentdb.SectionEnrollment{}, ErrNotFound
 		}
 		enrollmentID = eRow.ID
 		programID = eRow.ProgramID

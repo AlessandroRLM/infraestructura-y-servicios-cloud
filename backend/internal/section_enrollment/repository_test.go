@@ -37,6 +37,11 @@ type fakeQuerier struct {
 	resolvePaidRow    section_enrollmentdb.ResolvePaidEnrollmentForProgramRow
 	resolvePaidErr    error
 
+	// ResolvePaidEnrollmentForStudentAndCourse
+	resolvePaidForCourseCalled bool
+	resolvePaidForCourseRow    section_enrollmentdb.ResolvePaidEnrollmentForStudentAndCourseRow
+	resolvePaidForCourseErr    error
+
 	// CourseInProgram
 	courseInProgramCalled bool
 	courseInProgramResult bool
@@ -93,6 +98,11 @@ func (f *fakeQuerier) ResolvePaidEnrollmentForProgram(_ context.Context, _ secti
 	return f.resolvePaidRow, f.resolvePaidErr
 }
 
+func (f *fakeQuerier) ResolvePaidEnrollmentForStudentAndCourse(_ context.Context, _ section_enrollmentdb.ResolvePaidEnrollmentForStudentAndCourseParams) (section_enrollmentdb.ResolvePaidEnrollmentForStudentAndCourseRow, error) {
+	f.resolvePaidForCourseCalled = true
+	return f.resolvePaidForCourseRow, f.resolvePaidForCourseErr
+}
+
 func (f *fakeQuerier) ResolvePaidEnrollmentByID(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.ResolvePaidEnrollmentByIDRow, error) {
 	f.resolvePaidByIDCalled = true
 	return f.resolvePaidByIDRow, f.resolvePaidByIDErr
@@ -146,41 +156,6 @@ func makePgUUID(id uuid.UUID) pgtype.UUID {
 // makeTimestamptz creates a valid pgtype.Timestamptz from a time.Time.
 func makeTimestamptz(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
-}
-
-// newSectionRow creates a fake GetSectionForUpdateWithWindowRow with a given capacity,
-// course, and open window (now ± 1 hour).
-func newSectionRow(capacity int32, courseID uuid.UUID, windowOpen bool) section_enrollmentdb.GetSectionForUpdateWithWindowRow {
-	now := time.Now()
-	row := section_enrollmentdb.GetSectionForUpdateWithWindowRow{
-		Capacity: capacity,
-		CourseID: makePgUUID(courseID),
-	}
-	if windowOpen {
-		row.EnrollmentStartsAt = makeTimestamptz(now.Add(-time.Hour))
-		row.EnrollmentEndsAt = makeTimestamptz(now.Add(time.Hour))
-	}
-	// windowOpen=false → both stay zero (null), which is fail-closed
-	return row
-}
-
-// newPaidEnrollmentRow creates a fake enrollment row with status=paid.
-func newPaidEnrollmentRow(enrollmentID, studentID, programID uuid.UUID) section_enrollmentdb.ResolvePaidEnrollmentForProgramRow {
-	return section_enrollmentdb.ResolvePaidEnrollmentForProgramRow{
-		ID:        makePgUUID(enrollmentID),
-		StudentID: makePgUUID(studentID),
-		ProgramID: makePgUUID(programID),
-		Status:    "paid",
-	}
-}
-
-func newPaidEnrollmentByIDRow(enrollmentID, studentID, programID uuid.UUID) section_enrollmentdb.ResolvePaidEnrollmentByIDRow {
-	return section_enrollmentdb.ResolvePaidEnrollmentByIDRow{
-		ID:        makePgUUID(enrollmentID),
-		StudentID: makePgUUID(studentID),
-		ProgramID: makePgUUID(programID),
-		Status:    "paid",
-	}
 }
 
 // newInsertedRow creates a fake SectionEnrollment as returned by InsertSectionEnrollment.
