@@ -29,7 +29,7 @@ func newSectionEnrollmentClient(jar http.CookieJar) section_enrollmentv1connect.
 
 // seedAcademicPeriodWithWindow inserts an academic_period with the given enrollment window.
 // Pass windowOpen=true and the helper sets starts=now-1h/ends=now+1h.
-// Pass windowOpen=false for starts=now+1h/ends=now+2h (future, closed).
+// Pass windowOpen=false for a window in the past (closed).
 // Pass nullWindow=true for NULL columns (fail-closed).
 // Returns the period id UUID and a cleanup func.
 func seedAcademicPeriodWithWindow(t *testing.T, windowOpen, nullWindow bool) (string, func()) {
@@ -81,6 +81,34 @@ func seedAcademicPeriodWithWindow(t *testing.T, windowOpen, nullWindow bool) (st
 		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM academic_periods WHERE id = $1`, periodID)
 	}
 	return periodID.String(), cleanup
+}
+
+// seedAcademicPeriodFutureWindow inserts an academic_period whose enrollment window starts
+// in the future (starts=now+1h, ends=now+2h). The window is not yet open.
+// Returns the period id string and a cleanup func.
+func seedAcademicPeriodFutureWindow(t *testing.T) (periodID string, cleanup func()) {
+	t.Helper()
+	ctx := context.Background()
+
+	yr := seAcademicPeriodYearCounter.Add(1)
+	now := time.Now().UTC()
+
+	var pid uuid.UUID
+	if err := pgxPool.QueryRow(ctx,
+		`INSERT INTO academic_periods (year, term, start_date, end_date, enrollment_starts_at, enrollment_ends_at)
+		 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		yr, 1,
+		now.Format("2006-01-02"),
+		now.AddDate(0, 6, 0).Format("2006-01-02"),
+		now.Add(time.Hour),
+		now.Add(2*time.Hour),
+	).Scan(&pid); err != nil {
+		t.Fatalf("seedAcademicPeriodFutureWindow: %v", err)
+	}
+
+	return pid.String(), func() {
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM academic_periods WHERE id = $1`, pid)
+	}
 }
 
 // seedProgramWithCourse creates a program, a course, links them via program_courses,
@@ -213,9 +241,11 @@ func seEnrollAdmin(ctx context.Context, client section_enrollmentv1connect.Secti
 }
 
 // seEnrollOwn calls student EnrollOwnSection and returns the proto.
-func seEnrollOwn(ctx context.Context, client section_enrollmentv1connect.SectionEnrollmentServiceClient, studentSID, sectionID string) (*section_enrollmentv1.SectionEnrollment, error) {
+// programID must be the UUID of the paid enrollment's program (required by the RPC).
+func seEnrollOwn(ctx context.Context, client section_enrollmentv1connect.SectionEnrollmentServiceClient, studentSID, sectionID, programID string) (*section_enrollmentv1.SectionEnrollment, error) {
 	req := connect.NewRequest(&section_enrollmentv1.EnrollOwnSectionRequest{
 		SectionId: sectionID,
+		ProgramId: programID,
 	})
 	req.Header().Set("Cookie", "sid="+studentSID)
 	resp, err := client.EnrollOwnSection(ctx, req)

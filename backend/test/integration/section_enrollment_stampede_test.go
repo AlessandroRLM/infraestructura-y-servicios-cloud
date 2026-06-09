@@ -89,7 +89,7 @@ func TestSectionEnrollment_Stampede_ExactlyKSucceed(t *testing.T) {
 
 			// Retry loop: back off only on ResourceExhausted (limiter busy).
 			for {
-				se, err := seEnrollOwn(ctx, client, rec.sessionID, sectionID)
+				se, err := seEnrollOwn(ctx, client, rec.sessionID, sectionID, programID)
 				if err == nil {
 					successCount.Add(1)
 					cleanupSectionEnrollment(t, se.GetId())

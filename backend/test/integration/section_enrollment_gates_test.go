@@ -34,11 +34,44 @@ func TestSectionEnrollment_WindowClosed_RejectsStudentSelfEnroll(t *testing.T) {
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
 
 	client := newSectionEnrollmentClient(nil)
-	_, err := seEnrollOwn(ctx, client, studentSID, sectionID)
+	_, err := seEnrollOwn(ctx, client, studentSID, sectionID, programID)
 	assertConnectCode(t, err, connect.CodeFailedPrecondition)
 
 	if activeSeatCount(t, sectionID) != 0 {
 		t.Error("no seat should be consumed when window is closed")
+	}
+}
+
+// TestSectionEnrollment_FutureWindow_RejectsStudentSelfEnroll verifies that a student
+// cannot self-enroll when the enrollment window starts in the future (not yet open).
+func TestSectionEnrollment_FutureWindow_RejectsStudentSelfEnroll(t *testing.T) {
+	ctx := context.Background()
+
+	studentUserID, studentSID := seedUserWithSession(t, "se-future-window-stu@se.test", "student")
+	seedStudentProfile(t, studentUserID, 2099)
+
+	programID, courseID, programCleanup := seedProgramWithCourse(t)
+	defer programCleanup()
+
+	// Future window: starts=now+1h / ends=now+2h.
+	futurePeriodID, futureCleanup := seedAcademicPeriodFutureWindow(t)
+	defer futureCleanup()
+
+	sectionID, sectionCleanup := seedSection(t, courseID, futurePeriodID, 10)
+	defer sectionCleanup()
+
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	defer cleanEnrollment()
+	_ = enrollmentID
+
+	cleanupAllSectionEnrollmentsForSection(t, sectionID)
+
+	client := newSectionEnrollmentClient(nil)
+	_, err := seEnrollOwn(ctx, client, studentSID, sectionID, programID)
+	assertConnectCode(t, err, connect.CodeFailedPrecondition)
+
+	if activeSeatCount(t, sectionID) != 0 {
+		t.Error("no seat should be consumed when window has not opened yet")
 	}
 }
 
@@ -67,7 +100,7 @@ func TestSectionEnrollment_NullWindow_FailClosed(t *testing.T) {
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
 
 	client := newSectionEnrollmentClient(nil)
-	_, err := seEnrollOwn(ctx, client, studentSID, sectionID)
+	_, err := seEnrollOwn(ctx, client, studentSID, sectionID, programID)
 	assertConnectCode(t, err, connect.CodeFailedPrecondition)
 }
 
@@ -96,12 +129,46 @@ func TestSectionEnrollment_UnpaidEnrollment_RejectsEnroll(t *testing.T) {
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
 
 	client := newSectionEnrollmentClient(nil)
-	_, err := seEnrollOwn(ctx, client, studentSID, sectionID)
+	_, err := seEnrollOwn(ctx, client, studentSID, sectionID, programID)
 	assertConnectCode(t, err, connect.CodeFailedPrecondition)
 
 	if activeSeatCount(t, sectionID) != 0 {
 		t.Error("no seat should be consumed when enrollment is not paid")
 	}
+}
+
+// TestSectionEnrollment_WrongProgramID_RejectsEnroll verifies that supplying a program_id
+// for which the student has no enrollment returns NotFound (not FailedPrecondition).
+func TestSectionEnrollment_WrongProgramID_RejectsEnroll(t *testing.T) {
+	ctx := context.Background()
+
+	studentUserID, studentSID := seedUserWithSession(t, "se-wrong-program-stu@se.test", "student")
+	seedStudentProfile(t, studentUserID, 2099)
+
+	programA, courseID, cleanupA := seedProgramWithCourse(t)
+	defer cleanupA()
+
+	// programB exists but the student has no enrollment in it.
+	programB, _, cleanupB := seedProgramWithCourse(t)
+	defer cleanupB()
+
+	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	defer periodCleanup()
+
+	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
+	defer sectionCleanup()
+
+	// Student has a paid enrollment in programA only.
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programA, 2099)
+	defer cleanEnrollment()
+	_ = enrollmentID
+
+	cleanupAllSectionEnrollmentsForSection(t, sectionID)
+
+	client := newSectionEnrollmentClient(nil)
+	// Pass programB — no enrollment exists there → NotFound.
+	_, err := seEnrollOwn(ctx, client, studentSID, sectionID, programB)
+	assertConnectCode(t, err, connect.CodeNotFound)
 }
 
 // TestSectionEnrollment_CourseNotInProgram_RejectsEnroll verifies that a section whose
@@ -135,11 +202,71 @@ func TestSectionEnrollment_CourseNotInProgram_RejectsEnroll(t *testing.T) {
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
 
 	client := newSectionEnrollmentClient(nil)
-	_, err := seEnrollOwn(ctx, client, studentSID, sectionID)
+	// Pass programA — student has a paid enrollment there, but courseB is not in programA.
+	_, err := seEnrollOwn(ctx, client, studentSID, sectionID, programA)
 	assertConnectCode(t, err, connect.CodeFailedPrecondition)
 
 	if activeSeatCount(t, sectionID) != 0 {
 		t.Error("no seat should be consumed when course is not in program")
+	}
+}
+
+// TestSectionEnrollment_TwoPrograms_Unambiguous verifies that a student enrolled in two
+// programs sharing a course can enroll in a section by specifying the program_id.
+func TestSectionEnrollment_TwoPrograms_Unambiguous(t *testing.T) {
+	ctx := context.Background()
+
+	studentUserID, studentSID := seedUserWithSession(t, "se-two-prog-stu@se.test", "student")
+	seedStudentProfile(t, studentUserID, 2099)
+
+	// Both programs contain the same course.
+	programA, courseID, cleanupA := seedProgramWithCourse(t)
+	defer cleanupA()
+
+	programB, _, cleanupB := seedProgramWithCourse(t)
+	defer cleanupB()
+
+	// Link the same course to programB as well.
+	if _, err := pgxPool.Exec(context.Background(),
+		`INSERT INTO program_courses (program_id, course_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+		programB, courseID,
+	); err != nil {
+		t.Fatalf("link course to programB: %v", err)
+	}
+	defer pgxPool.Exec(context.Background(), //nolint:errcheck
+		`DELETE FROM program_courses WHERE program_id = $1 AND course_id = $2`, programB, courseID)
+
+	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	defer periodCleanup()
+
+	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
+	defer sectionCleanup()
+
+	// Student has paid enrollments in BOTH programs.
+	enrollA, cleanA := seedPaidEnrollment(t, studentUserID.String(), programA, 2099)
+	defer cleanA()
+	_ = enrollA
+
+	enrollB, cleanB := seedPaidEnrollment(t, studentUserID.String(), programB, 2099)
+	defer cleanB()
+	_ = enrollB
+
+	cleanupAllSectionEnrollmentsForSection(t, sectionID)
+
+	client := newSectionEnrollmentClient(nil)
+
+	// Enroll via programA — must succeed unambiguously.
+	se, err := seEnrollOwn(ctx, client, studentSID, sectionID, programA)
+	if err != nil {
+		t.Fatalf("EnrollOwnSection via programA: %v", err)
+	}
+	cleanupSectionEnrollment(t, se.GetId())
+
+	if se.GetStatus() != "in_progress" {
+		t.Errorf("status = %q, want in_progress", se.GetStatus())
+	}
+	if activeSeatCount(t, sectionID) != 1 {
+		t.Error("expected 1 active seat after enrollment via programA")
 	}
 }
 
@@ -238,7 +365,7 @@ func TestSectionEnrollment_StudentCannotSelfRevive(t *testing.T) {
 	}
 
 	// Student tries to re-enroll — must fail.
-	_, err = seEnrollOwn(ctx, client, studentSID, sectionID)
+	_, err = seEnrollOwn(ctx, client, studentSID, sectionID, programID)
 	assertConnectCode(t, err, connect.CodeFailedPrecondition)
 }
 
@@ -267,13 +394,13 @@ func TestSectionEnrollment_IdempotentRetry_AlreadyExists(t *testing.T) {
 
 	client := newSectionEnrollmentClient(nil)
 
-	se, err := seEnrollOwn(ctx, client, studentSID, sectionID)
+	se, err := seEnrollOwn(ctx, client, studentSID, sectionID, programID)
 	if err != nil {
 		t.Fatalf("first enroll: %v", err)
 	}
 	cleanupSectionEnrollment(t, se.GetId())
 
-	_, err = seEnrollOwn(ctx, client, studentSID, sectionID)
+	_, err = seEnrollOwn(ctx, client, studentSID, sectionID, programID)
 	assertConnectCode(t, err, connect.CodeAlreadyExists)
 
 	if activeSeatCount(t, sectionID) != 1 {

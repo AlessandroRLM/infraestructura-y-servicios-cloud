@@ -33,7 +33,7 @@ func TestSectionEnrollment_StudentSelfEnroll_OpenWindow(t *testing.T) {
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
 
 	client := newSectionEnrollmentClient(nil)
-	se, err := seEnrollOwn(ctx, client, studentSID, sectionID)
+	se, err := seEnrollOwn(ctx, client, studentSID, sectionID, programID)
 	if err != nil {
 		t.Fatalf("EnrollOwnSection: %v", err)
 	}
