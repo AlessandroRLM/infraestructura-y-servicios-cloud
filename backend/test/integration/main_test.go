@@ -19,6 +19,7 @@ import (
 	catalogv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
 	enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1/enrollmentv1connect"
 	profilesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1/profilesv1connect"
+	section_enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
@@ -37,6 +38,8 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/profiles/profilesdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac/rbacdb"
+	section_enrollment "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment"
+	section_enrollmentdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment/section_enrollmentdb"
 	migrations "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/migrations"
 )
 
@@ -214,15 +217,31 @@ func TestMain(m *testing.M) {
 		// Enrollment self-view procedures — require enrollment.view_own.
 		enrollmentv1connect.EnrollmentServiceListOwnEnrollmentsProcedure: authz.RequirePermission(authz.PermEnrollmentViewOwn),
 		enrollmentv1connect.EnrollmentServiceGetOwnEnrollmentProcedure:   authz.RequirePermission(authz.PermEnrollmentViewOwn),
+
+		// Section enrollment self-service procedures.
+		section_enrollmentv1connect.SectionEnrollmentServiceEnrollOwnSectionProcedure:          authz.RequirePermission(authz.PermSectionsEnroll),
+		section_enrollmentv1connect.SectionEnrollmentServiceListOwnSectionEnrollmentsProcedure: authz.RequirePermission(authz.PermSectionEnrollmentViewOwn),
+		section_enrollmentv1connect.SectionEnrollmentServiceGetOwnSectionEnrollmentProcedure:   authz.RequirePermission(authz.PermSectionEnrollmentViewOwn),
+		// Section enrollment admin procedures — require enrollment.manage.
+		section_enrollmentv1connect.SectionEnrollmentServiceEnrollSectionProcedure:         authz.RequirePermission(authz.PermEnrollmentManage),
+		section_enrollmentv1connect.SectionEnrollmentServiceWithdrawSectionProcedure:       authz.RequirePermission(authz.PermEnrollmentManage),
+		section_enrollmentv1connect.SectionEnrollmentServiceGetSectionEnrollmentProcedure:  authz.RequirePermission(authz.PermEnrollmentManage),
+		section_enrollmentv1connect.SectionEnrollmentServiceListSectionEnrollmentsProcedure: authz.RequirePermission(authz.PermEnrollmentManage),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
+
+	// Admission limiter for the section_enrollment enroll procedures.
+	// DB_MAX_CONNS is set to "5" in the test environment → cap = floor(5*0.6) = 3.
+	seLimiter := section_enrollment.NewConcurrencyLimiter(5)
+	seLimiterInterceptor := section_enrollment.NewConcurrencyLimitInterceptor(seLimiter)
 
 	queries := authdb.New(pool)
 	repo := auth.NewPostgresRepository(queries)
 	svc := auth.NewService(repo, sessionStore, roleLoader, testCfg)
 	authHandler := auth.NewHandler(svc, testCfg)
 	authOpts := server.Chain(authInterceptor, authzInterceptor)
+	seOpts := server.Chain(seLimiterInterceptor, authInterceptor, authzInterceptor)
 	authReg := func(mux *http.ServeMux) {
 		auth.Register(mux, authHandler, authOpts...)
 	}
@@ -254,8 +273,17 @@ func TestMain(m *testing.M) {
 		enrollment.Register(mux, enrollmentHandler, authOpts...)
 	}
 
+	// Section enrollment handler wiring — mirrors cmd/api/main.go exactly.
+	seQueries := section_enrollmentdb.New(pool)
+	seRepo := section_enrollment.NewPostgresRepository(seQueries, pool)
+	seSvc := section_enrollment.NewService(seRepo)
+	seHandler := section_enrollment.NewHandler(seSvc)
+	sectionEnrollmentReg := func(mux *http.ServeMux) {
+		section_enrollment.Register(mux, seHandler, seOpts...)
+	}
+
 	log := logging.New(slog.LevelError) // suppress output in tests
-	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg, enrollmentReg)
+	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg, enrollmentReg, sectionEnrollmentReg)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

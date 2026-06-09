@@ -120,7 +120,7 @@ func (q *Queries) DeleteSectionTeacher(ctx context.Context, arg DeleteSectionTea
 }
 
 const getAcademicPeriod = `-- name: GetAcademicPeriod :one
-SELECT id, year, term, start_date, end_date, created_at, updated_at, deleted_at FROM academic_periods
+SELECT id, year, term, start_date, end_date, created_at, updated_at, deleted_at, enrollment_starts_at, enrollment_ends_at FROM academic_periods
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -136,12 +136,14 @@ func (q *Queries) GetAcademicPeriod(ctx context.Context, id pgtype.UUID) (Academ
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.EnrollmentStartsAt,
+		&i.EnrollmentEndsAt,
 	)
 	return i, err
 }
 
 const getAcademicPeriodForUpdate = `-- name: GetAcademicPeriodForUpdate :one
-SELECT id, year, term, start_date, end_date, created_at, updated_at, deleted_at FROM academic_periods
+SELECT id, year, term, start_date, end_date, created_at, updated_at, deleted_at, enrollment_starts_at, enrollment_ends_at FROM academic_periods
 WHERE id = $1 AND deleted_at IS NULL
 FOR UPDATE
 `
@@ -158,6 +160,8 @@ func (q *Queries) GetAcademicPeriodForUpdate(ctx context.Context, id pgtype.UUID
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.EnrollmentStartsAt,
+		&i.EnrollmentEndsAt,
 	)
 	return i, err
 }
@@ -321,7 +325,7 @@ const insertAcademicPeriod = `-- name: InsertAcademicPeriod :one
 
 INSERT INTO academic_periods (year, term, start_date, end_date)
 VALUES ($1, $2, $3, $4)
-RETURNING id, year, term, start_date, end_date, created_at, updated_at, deleted_at
+RETURNING id, year, term, start_date, end_date, created_at, updated_at, deleted_at, enrollment_starts_at, enrollment_ends_at
 `
 
 type InsertAcademicPeriodParams struct {
@@ -349,6 +353,8 @@ func (q *Queries) InsertAcademicPeriod(ctx context.Context, arg InsertAcademicPe
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.EnrollmentStartsAt,
+		&i.EnrollmentEndsAt,
 	)
 	return i, err
 }
@@ -508,7 +514,7 @@ func (q *Queries) InsertSectionTeacher(ctx context.Context, arg InsertSectionTea
 }
 
 const listAcademicPeriods = `-- name: ListAcademicPeriods :many
-SELECT id, year, term, start_date, end_date, created_at, updated_at, deleted_at FROM academic_periods
+SELECT id, year, term, start_date, end_date, created_at, updated_at, deleted_at, enrollment_starts_at, enrollment_ends_at FROM academic_periods
 WHERE deleted_at IS NULL
 ORDER BY year, term
 `
@@ -531,6 +537,8 @@ func (q *Queries) ListAcademicPeriods(ctx context.Context) ([]AcademicPeriod, er
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.EnrollmentStartsAt,
+			&i.EnrollmentEndsAt,
 		); err != nil {
 			return nil, err
 		}
@@ -838,7 +846,7 @@ const updateAcademicPeriod = `-- name: UpdateAcademicPeriod :one
 UPDATE academic_periods
 SET year = $2, term = $3, start_date = $4, end_date = $5, updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, year, term, start_date, end_date, created_at, updated_at, deleted_at
+RETURNING id, year, term, start_date, end_date, created_at, updated_at, deleted_at, enrollment_starts_at, enrollment_ends_at
 `
 
 type UpdateAcademicPeriodParams struct {
@@ -867,6 +875,8 @@ func (q *Queries) UpdateAcademicPeriod(ctx context.Context, arg UpdateAcademicPe
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.EnrollmentStartsAt,
+		&i.EnrollmentEndsAt,
 	)
 	return i, err
 }

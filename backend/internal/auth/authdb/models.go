@@ -9,14 +9,16 @@ import (
 )
 
 type AcademicPeriod struct {
-	ID        pgtype.UUID
-	Year      int32
-	Term      int32
-	StartDate pgtype.Date
-	EndDate   pgtype.Date
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
-	DeletedAt pgtype.Timestamptz
+	ID                 pgtype.UUID
+	Year               int32
+	Term               int32
+	StartDate          pgtype.Date
+	EndDate            pgtype.Date
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+	DeletedAt          pgtype.Timestamptz
+	EnrollmentStartsAt pgtype.Timestamptz
+	EnrollmentEndsAt   pgtype.Timestamptz
 }
 
 type Course struct {
@@ -105,6 +107,17 @@ type Section struct {
 	DeletedAt        pgtype.Timestamptz
 	CreatedBy        pgtype.UUID
 	UpdatedBy        pgtype.UUID
+}
+
+type SectionEnrollment struct {
+	ID           pgtype.UUID
+	EnrollmentID pgtype.UUID
+	SectionID    pgtype.UUID
+	Status       string
+	RegisteredAt pgtype.Timestamptz
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+	DeletedAt    pgtype.Timestamptz
 }
 
 type SectionTeacher struct {
