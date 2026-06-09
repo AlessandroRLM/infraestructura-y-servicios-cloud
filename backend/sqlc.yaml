@@ -45,3 +45,12 @@ sql:
         out: "internal/catalog/catalogdb"
         sql_package: "pgx/v5"
         emit_interface: true
+  - engine: "postgresql"
+    queries: "internal/enrollment/query.sql"
+    schema: "migrations/"
+    gen:
+      go:
+        package: "enrollmentdb"
+        out: "internal/enrollment/enrollmentdb"
+        sql_package: "pgx/v5"
+        emit_interface: true

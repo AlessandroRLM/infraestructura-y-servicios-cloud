@@ -88,6 +88,9 @@ type postgresRepository struct {
 	q profilesdb.Querier
 }
 
+// Compile-time proof that *postgresRepository satisfies the Repository interface.
+var _ Repository = (*postgresRepository)(nil)
+
 // NewPostgresRepository constructs a Repository backed by the given sqlc Querier.
 func NewPostgresRepository(q profilesdb.Querier) Repository {
 	return &postgresRepository{q: q}

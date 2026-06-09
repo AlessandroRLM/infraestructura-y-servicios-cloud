@@ -22,8 +22,13 @@ ORDER BY created_at;
 
 -- name: SoftDeleteProgram :execrows
 UPDATE programs
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: GetProgramForUpdate :one
+SELECT * FROM programs
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE;
 
 -- name: CountProgramCourses :one
 SELECT count(*) FROM program_courses
@@ -55,13 +60,18 @@ SELECT * FROM courses
 WHERE deleted_at IS NULL
 ORDER BY created_at;
 
+-- name: GetCourseForUpdate :one
+SELECT * FROM courses
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE;
+
 -- name: CountCourseProgramAssociations :one
 SELECT count(*) FROM program_courses
 WHERE course_id = $1;
 
 -- name: SoftDeleteCourse :execrows
 UPDATE courses
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- Program courses (M:N append-only)
@@ -102,9 +112,14 @@ SELECT * FROM academic_periods
 WHERE deleted_at IS NULL
 ORDER BY year, term;
 
+-- name: GetAcademicPeriodForUpdate :one
+SELECT * FROM academic_periods
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE;
+
 -- name: SoftDeleteAcademicPeriod :execrows
 UPDATE academic_periods
-SET deleted_at = now()
+SET deleted_at = now(), updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- Program quotas
@@ -136,7 +151,7 @@ ORDER BY year;
 
 -- name: SoftDeleteProgramQuota :execrows
 UPDATE program_quotas
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- Sections
@@ -163,9 +178,14 @@ WHERE deleted_at IS NULL
   AND (sqlc.narg('academic_period_id')::uuid IS NULL OR academic_period_id = sqlc.narg('academic_period_id')::uuid)
 ORDER BY created_at;
 
+-- name: GetSectionForUpdate :one
+SELECT * FROM sections
+WHERE id = $1 AND deleted_at IS NULL
+FOR UPDATE;
+
 -- name: SoftDeleteSection :execrows
 UPDATE sections
-SET deleted_at = now(), updated_by = $2
+SET deleted_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: CountLiveSectionsByCourse :one

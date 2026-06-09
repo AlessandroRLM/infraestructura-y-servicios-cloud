@@ -5,7 +5,7 @@ INSERT INTO roles (name) VALUES
     ('student')
 ON CONFLICT (name) DO NOTHING;
 
--- Permissions — 11 codes matching the operations matrix
+-- Permissions — 11 initial codes matching the operations matrix; later migrations add more
 INSERT INTO permissions (code, description) VALUES
     ('users.manage',        'Manage users, roles, and permissions'),
     ('catalog.manage',      'Manage catalog (programs, courses, sections)'),
@@ -21,7 +21,7 @@ INSERT INTO permissions (code, description) VALUES
 ON CONFLICT (code) DO NOTHING;
 
 -- Role → permission mappings
--- admin gets all 11 permissions
+-- admin gets all permissions via CROSS JOIN (count grows as migrations add more codes)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r

@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package enrollment.v1;
+
+option go_package = "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1;enrollmentv1";
+
+service EnrollmentService {
+  // Management procedures — require enrollment.manage permission.
+  rpc CreateEnrollment(CreateEnrollmentRequest) returns (Enrollment);
+  rpc MarkEnrollmentPaid(MarkEnrollmentPaidRequest) returns (Enrollment);
+  rpc CancelEnrollment(CancelEnrollmentRequest) returns (CancelEnrollmentResponse);
+  rpc GetEnrollment(GetEnrollmentRequest) returns (Enrollment);
+  rpc ListEnrollments(ListEnrollmentsRequest) returns (ListEnrollmentsResponse);
+
+  // View-own procedures — require enrollment.view_own permission.
+  // Student identity is derived from the authenticated session, never from request fields.
+  rpc ListOwnEnrollments(ListOwnEnrollmentsRequest) returns (ListEnrollmentsResponse);
+  rpc GetOwnEnrollment(GetOwnEnrollmentRequest) returns (Enrollment);
+}
+
+// Enrollment represents a single annual program enrollment record.
+message Enrollment {
+  string id = 1;
+  string student_id = 2;
+  string program_id = 3;
+  int32 year = 4;
+  // status is one of "pending", "paid", or "cancelled".
+  string status = 5;
+  // paid_at is set only when status transitions to "paid". Absent otherwise.
+  optional string paid_at = 6;
+  string created_at = 7;
+  string updated_at = 8;
+  optional string deleted_at = 9;
+  optional string created_by = 10;
+  optional string updated_by = 11;
+}
+
+message CreateEnrollmentRequest {
+  string student_id = 1;
+  string program_id = 2;
+  int32 year = 3;
+}
+
+message MarkEnrollmentPaidRequest {
+  string id = 1;
+}
+
+message CancelEnrollmentRequest {
+  string id = 1;
+}
+
+message CancelEnrollmentResponse {}
+
+message GetEnrollmentRequest {
+  string id = 1;
+}
+
+// ListEnrollmentsRequest supports optional filters; an empty request returns all live enrollments.
+message ListEnrollmentsRequest {
+  // Optional UUID filter. Empty string means unfiltered.
+  string student_id = 1;
+  // Optional UUID filter. Empty string means unfiltered.
+  string program_id = 2;
+  // Optional year filter. Zero means unfiltered.
+  int32 year = 3;
+  // Optional status filter ("pending", "paid", "cancelled"). Empty string means unfiltered.
+  string status = 4;
+}
+
+message ListEnrollmentsResponse {
+  repeated Enrollment enrollments = 1;
+}
+
+// ListOwnEnrollmentsRequest carries no student_id field.
+// The service injects the caller's identity from context.
+message ListOwnEnrollmentsRequest {}
+
+message GetOwnEnrollmentRequest {
+  string id = 1;
+}

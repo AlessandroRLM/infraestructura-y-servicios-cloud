@@ -110,6 +110,9 @@ func (f *fakeQuerier) UpdateProgram(_ context.Context, _ catalogdb.UpdateProgram
 func (f *fakeQuerier) GetProgram(_ context.Context, _ pgtype.UUID) (catalogdb.Program, error) {
 	return f.getProgramRow, f.getProgramErr
 }
+func (f *fakeQuerier) GetProgramForUpdate(_ context.Context, _ pgtype.UUID) (catalogdb.Program, error) {
+	return f.getProgramRow, f.getProgramErr
+}
 func (f *fakeQuerier) ListPrograms(_ context.Context) ([]catalogdb.Program, error) {
 	return f.listProgramsRows, f.listProgramsErr
 }
@@ -129,6 +132,9 @@ func (f *fakeQuerier) UpdateCourse(_ context.Context, _ catalogdb.UpdateCoursePa
 	return f.updateCourseRow, f.updateCourseErr
 }
 func (f *fakeQuerier) GetCourse(_ context.Context, _ pgtype.UUID) (catalogdb.Course, error) {
+	return f.getCourseRow, f.getCourseErr
+}
+func (f *fakeQuerier) GetCourseForUpdate(_ context.Context, _ pgtype.UUID) (catalogdb.Course, error) {
 	return f.getCourseRow, f.getCourseErr
 }
 func (f *fakeQuerier) ListCourses(_ context.Context) ([]catalogdb.Course, error) {
@@ -156,6 +162,9 @@ func (f *fakeQuerier) UpdateAcademicPeriod(_ context.Context, _ catalogdb.Update
 	return f.updateAcademicPeriodRow, f.updateAcademicPeriodErr
 }
 func (f *fakeQuerier) GetAcademicPeriod(_ context.Context, _ pgtype.UUID) (catalogdb.AcademicPeriod, error) {
+	return f.getAcademicPeriodRow, f.getAcademicPeriodErr
+}
+func (f *fakeQuerier) GetAcademicPeriodForUpdate(_ context.Context, _ pgtype.UUID) (catalogdb.AcademicPeriod, error) {
 	return f.getAcademicPeriodRow, f.getAcademicPeriodErr
 }
 func (f *fakeQuerier) ListAcademicPeriods(_ context.Context) ([]catalogdb.AcademicPeriod, error) {
@@ -186,6 +195,9 @@ func (f *fakeQuerier) UpdateSection(_ context.Context, _ catalogdb.UpdateSection
 	return f.updateSectionRow, f.updateSectionErr
 }
 func (f *fakeQuerier) GetSection(_ context.Context, _ pgtype.UUID) (catalogdb.Section, error) {
+	return f.getSectionRow, f.getSectionErr
+}
+func (f *fakeQuerier) GetSectionForUpdate(_ context.Context, _ pgtype.UUID) (catalogdb.Section, error) {
 	return f.getSectionRow, f.getSectionErr
 }
 func (f *fakeQuerier) ListSections(_ context.Context, _ catalogdb.ListSectionsParams) ([]catalogdb.Section, error) {
@@ -219,7 +231,7 @@ func TestRepository_GetProgram_NotFound(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{getProgramErr: pgx.ErrNoRows}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	_, err := repo.GetProgram(context.Background(), uuid.New())
 	if !errors.Is(err, catalog.ErrNotFound) {
@@ -231,7 +243,7 @@ func TestRepository_InsertProgramCourse_Duplicate(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{insertProgramCourseErr: &pgconn.PgError{Code: "23505"}}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	_, err := repo.AddCourseToProgram(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, catalog.ErrAlreadyExists) {
@@ -245,7 +257,7 @@ func TestRepository_InsertCourse_FKViolation(t *testing.T) {
 	// This scenario exercises the FK path via a fakeQuerier returning 23503.
 	// For courses, no FK violation is expected in practice, but the translation layer must work.
 	q := &fakeQuerier{insertCourseErr: &pgconn.PgError{Code: "23503"}}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	p := catalog.CreateCourseParams{Code: "C1", Name: "Course", Credits: 3}
 	_, err := repo.CreateCourse(context.Background(), p, nil)
@@ -258,7 +270,7 @@ func TestRepository_CountProgramCourses(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{countProgCoursesN: 2}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	n, err := repo.CountProgramCourses(context.Background(), uuid.New())
 	if err != nil {
@@ -273,7 +285,7 @@ func TestRepository_CountLiveProgramQuotas(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{countLiveQuotasN: 1}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	n, err := repo.CountLiveProgramQuotas(context.Background(), uuid.New())
 	if err != nil {
@@ -288,7 +300,7 @@ func TestRepository_CountCourseProgramAssociations(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{countCourseAssociationsN: 3}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	n, err := repo.CountCourseProgramAssociations(context.Background(), uuid.New())
 	if err != nil {
@@ -299,48 +311,11 @@ func TestRepository_CountCourseProgramAssociations(t *testing.T) {
 	}
 }
 
-func TestRepository_SoftDeleteProgram_NotFound(t *testing.T) {
-	t.Parallel()
-
-	// 0 rows affected means the row does not exist or is already deleted.
-	q := &fakeQuerier{softDeleteProgRows: 0}
-	repo := catalog.NewPostgresRepository(q)
-
-	err := repo.SoftDeleteProgram(context.Background(), uuid.New(), nil)
-	if !errors.Is(err, catalog.ErrNotFound) {
-		t.Errorf("SoftDeleteProgram (0 rows): got %v, want ErrNotFound", err)
-	}
-}
-
-func TestRepository_SoftDeleteCourse_NotFound(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{softDeleteCourseRows: 0}
-	repo := catalog.NewPostgresRepository(q)
-
-	err := repo.SoftDeleteCourse(context.Background(), uuid.New(), nil)
-	if !errors.Is(err, catalog.ErrNotFound) {
-		t.Errorf("SoftDeleteCourse (0 rows): got %v, want ErrNotFound", err)
-	}
-}
-
-func TestRepository_SoftDeleteAcademicPeriod_NotFound(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{softDeleteAcademicPeriodRows: 0}
-	repo := catalog.NewPostgresRepository(q)
-
-	err := repo.SoftDeleteAcademicPeriod(context.Background(), uuid.New())
-	if !errors.Is(err, catalog.ErrNotFound) {
-		t.Errorf("SoftDeleteAcademicPeriod (0 rows): got %v, want ErrNotFound", err)
-	}
-}
-
 func TestRepository_SoftDeleteProgramQuota_NotFound(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{softDeleteProgramQuotaRows: 0}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	err := repo.SoftDeleteProgramQuota(context.Background(), uuid.New(), nil)
 	if !errors.Is(err, catalog.ErrNotFound) {
@@ -352,7 +327,7 @@ func TestRepository_RemoveCourseFromProgram_NotFound(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{deleteProgramCourseRows: 0}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	err := repo.RemoveCourseFromProgram(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, catalog.ErrNotFound) {
@@ -364,7 +339,7 @@ func TestRepository_GetSection_NotFound(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{getSectionErr: pgx.ErrNoRows}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	_, err := repo.GetSection(context.Background(), uuid.New())
 	if !errors.Is(err, catalog.ErrNotFound) {
@@ -372,23 +347,11 @@ func TestRepository_GetSection_NotFound(t *testing.T) {
 	}
 }
 
-func TestRepository_SoftDeleteSection_NotFound(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{softDeleteSectionRows: 0}
-	repo := catalog.NewPostgresRepository(q)
-
-	err := repo.SoftDeleteSection(context.Background(), uuid.New(), nil)
-	if !errors.Is(err, catalog.ErrNotFound) {
-		t.Errorf("SoftDeleteSection (0 rows): got %v, want ErrNotFound", err)
-	}
-}
-
 func TestRepository_InsertSectionTeacher_Duplicate(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{insertSectionTeacherErr: &pgconn.PgError{Code: "23505"}}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	_, err := repo.AssignTeacherToSection(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, catalog.ErrAlreadyExists) {
@@ -400,7 +363,7 @@ func TestRepository_InsertSectionTeacher_BadFK(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{insertSectionTeacherErr: &pgconn.PgError{Code: "23503"}}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	_, err := repo.AssignTeacherToSection(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, catalog.ErrInvalidInput) {
@@ -412,7 +375,7 @@ func TestRepository_RemoveTeacherFromSection_NotFound(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{deleteSectionTeacherRows: 0}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	err := repo.RemoveTeacherFromSection(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, catalog.ErrNotFound) {
@@ -424,7 +387,7 @@ func TestRepository_CountLiveSectionsByCourse(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{countLiveSectionsByCourseN: 2}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	n, err := repo.CountLiveSectionsByCourse(context.Background(), uuid.New())
 	if err != nil {
@@ -439,7 +402,7 @@ func TestRepository_CountLiveSectionsByAcademicPeriod(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{countLiveSectionsByAcademicPeriodN: 1}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	n, err := repo.CountLiveSectionsByAcademicPeriod(context.Background(), uuid.New())
 	if err != nil {
@@ -454,7 +417,7 @@ func TestRepository_InsertSection_FKViolation(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{insertSectionErr: &pgconn.PgError{Code: "23503"}}
-	repo := catalog.NewPostgresRepository(q)
+	repo := catalog.NewPostgresRepository(q, nil)
 
 	_, err := repo.CreateSection(context.Background(), catalog.CreateSectionParams{
 		CourseID:         uuid.New(),

@@ -105,5 +105,6 @@ func mapError(err error) error {
 	if errors.Is(err, ErrInvalidToken) {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	return connect.NewError(connect.CodeInternal, err)
+	// Do not forward the raw error chain to the client; internal details must not leak.
+	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 }
