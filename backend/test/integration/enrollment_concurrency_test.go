@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -63,13 +64,17 @@ func TestEnrollment_OversellRace(t *testing.T) {
 		ready.Done()
 		<-barrier // block until barrier is closed
 
+		// Use a bounded context so a deadlock in CI does not hang indefinitely.
+		raceCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
 		req := connect.NewRequest(&enrollmentv1.CreateEnrollmentRequest{
 			StudentId: studentID,
 			ProgramId: programID,
 			Year:      2120,
 		})
 		req.Header().Set("Cookie", "sid="+adminSID)
-		resp, err := client.CreateEnrollment(ctx, req)
+		resp, err := client.CreateEnrollment(raceCtx, req)
 		if err == nil {
 			results <- result{id: resp.Msg.GetId(), err: nil}
 		} else {

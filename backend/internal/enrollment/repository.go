@@ -177,7 +177,6 @@ func (r *postgresRepository) MarkEnrollmentPaid(ctx context.Context, id uuid.UUI
 			return enrollmentdb.Enrollment{}, TranslatePgError(fetchErr)
 		}
 		// Row exists but status is not pending → wrong-state rejection.
-		_ = existing
 		return enrollmentdb.Enrollment{}, fmt.Errorf("%w: current status is %q", ErrInvalidTransition, existing.Status)
 	}
 	return enrollmentdb.Enrollment{}, TranslatePgError(err)
@@ -205,7 +204,6 @@ func (r *postgresRepository) CancelEnrollment(ctx context.Context, id uuid.UUID,
 		return TranslatePgError(fetchErr)
 	}
 	// Row exists with status 'cancelled' → invalid transition.
-	_ = existing
 	return fmt.Errorf("%w: current status is %q", ErrInvalidTransition, existing.Status)
 }
 

@@ -117,6 +117,10 @@ func TestEnrollment_ListOwn_Isolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListOwnEnrollments s1: %v", err)
 	}
+	// A non-empty result is required; an empty list would pass the per-row check vacuously.
+	if len(resp.Msg.GetEnrollments()) < 1 {
+		t.Error("s1 list: expected at least one enrollment, got empty list")
+	}
 	for _, row := range resp.Msg.GetEnrollments() {
 		if row.GetStudentId() != s1ID.String() {
 			t.Errorf("s1 list: got student_id %q, want %q", row.GetStudentId(), s1ID.String())

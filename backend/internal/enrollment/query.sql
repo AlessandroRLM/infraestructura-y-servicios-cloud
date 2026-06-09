@@ -39,9 +39,6 @@ WHERE id = $1 AND status IN ('pending', 'paid') AND deleted_at IS NULL;
 -- name: GetEnrollment :one
 SELECT * FROM enrollments WHERE id = $1 AND deleted_at IS NULL;
 
--- name: GetEnrollmentAny :one
-SELECT * FROM enrollments WHERE id = $1;
-
 -- name: ListEnrollments :many
 SELECT * FROM enrollments
 WHERE deleted_at IS NULL

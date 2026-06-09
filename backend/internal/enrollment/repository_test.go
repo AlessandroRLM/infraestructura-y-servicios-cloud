@@ -47,9 +47,6 @@ type fakeQuerier struct {
 	getEnrollmentErr    error
 	getEnrollmentResult enrollmentdb.Enrollment
 
-	getAnyErr    error
-	getAnyResult enrollmentdb.Enrollment
-
 	listCalled bool
 	listResult []enrollmentdb.Enrollment
 	listErr    error
@@ -96,10 +93,6 @@ func (f *fakeQuerier) CancelEnrollment(_ context.Context, _ enrollmentdb.CancelE
 func (f *fakeQuerier) GetEnrollment(_ context.Context, _ pgtype.UUID) (enrollmentdb.Enrollment, error) {
 	f.getEnrollmentCalled = true
 	return f.getEnrollmentResult, f.getEnrollmentErr
-}
-
-func (f *fakeQuerier) GetEnrollmentAny(_ context.Context, _ pgtype.UUID) (enrollmentdb.Enrollment, error) {
-	return f.getAnyResult, f.getAnyErr
 }
 
 func (f *fakeQuerier) ListEnrollments(_ context.Context, _ enrollmentdb.ListEnrollmentsParams) ([]enrollmentdb.Enrollment, error) {

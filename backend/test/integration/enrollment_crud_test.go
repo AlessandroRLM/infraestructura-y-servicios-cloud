@@ -12,10 +12,11 @@ import (
 )
 
 // TestEnrollment_Create_Pending verifies that CreateEnrollment returns status=pending
-// with the correct student, program, and year. (S-01)
+// with the correct student, program, and year, and that audit columns are set to the
+// acting admin's user id on insert.
 func TestEnrollment_Create_Pending(t *testing.T) {
 	ctx := context.Background()
-	_, adminSID := seedUserWithSession(t, "enroll-crud-admin-create@enroll.test", "admin")
+	adminID, adminSID := seedUserWithSession(t, "enroll-crud-admin-create@enroll.test", "admin")
 
 	programID, cleanup := seedProgramWithQuota(t, 30, 2091)
 	defer cleanup()
@@ -44,6 +45,21 @@ func TestEnrollment_Create_Pending(t *testing.T) {
 	}
 	if resp.Msg.PaidAt != nil {
 		t.Error("paid_at should be nil on create")
+	}
+
+	// Assert audit columns: both created_by and updated_by must be the acting admin.
+	var createdBy, updatedBy uuid.UUID
+	if err := pgxPool.QueryRow(ctx,
+		`SELECT created_by, updated_by FROM enrollments WHERE id = $1`,
+		resp.Msg.GetId(),
+	).Scan(&createdBy, &updatedBy); err != nil {
+		t.Fatalf("SELECT audit columns: %v", err)
+	}
+	if createdBy != adminID {
+		t.Errorf("created_by = %v, want admin user_id %v", createdBy, adminID)
+	}
+	if updatedBy != adminID {
+		t.Errorf("updated_by = %v, want admin user_id %v", updatedBy, adminID)
 	}
 }
 

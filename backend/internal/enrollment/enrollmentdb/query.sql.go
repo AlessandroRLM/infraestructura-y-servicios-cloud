@@ -71,29 +71,6 @@ func (q *Queries) GetEnrollment(ctx context.Context, id pgtype.UUID) (Enrollment
 	return i, err
 }
 
-const getEnrollmentAny = `-- name: GetEnrollmentAny :one
-SELECT id, student_id, program_id, year, status, paid_at, created_at, updated_at, deleted_at, created_by, updated_by FROM enrollments WHERE id = $1
-`
-
-func (q *Queries) GetEnrollmentAny(ctx context.Context, id pgtype.UUID) (Enrollment, error) {
-	row := q.db.QueryRow(ctx, getEnrollmentAny, id)
-	var i Enrollment
-	err := row.Scan(
-		&i.ID,
-		&i.StudentID,
-		&i.ProgramID,
-		&i.Year,
-		&i.Status,
-		&i.PaidAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-		&i.CreatedBy,
-		&i.UpdatedBy,
-	)
-	return i, err
-}
-
 const getEnrollmentByKeyForUpdate = `-- name: GetEnrollmentByKeyForUpdate :one
 SELECT id, student_id, program_id, year, status, paid_at, created_at, updated_at, deleted_at, created_by, updated_by FROM enrollments
 WHERE student_id = $1 AND program_id = $2 AND year = $3

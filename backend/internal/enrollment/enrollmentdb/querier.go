@@ -14,7 +14,6 @@ type Querier interface {
 	CancelEnrollment(ctx context.Context, arg CancelEnrollmentParams) (int64, error)
 	CountActiveEnrollments(ctx context.Context, arg CountActiveEnrollmentsParams) (int64, error)
 	GetEnrollment(ctx context.Context, id pgtype.UUID) (Enrollment, error)
-	GetEnrollmentAny(ctx context.Context, id pgtype.UUID) (Enrollment, error)
 	GetEnrollmentByKeyForUpdate(ctx context.Context, arg GetEnrollmentByKeyForUpdateParams) (Enrollment, error)
 	InsertEnrollment(ctx context.Context, arg InsertEnrollmentParams) (Enrollment, error)
 	ListEnrollments(ctx context.Context, arg ListEnrollmentsParams) ([]Enrollment, error)
