@@ -1,0 +1,31 @@
+# Keep the build context minimal: only Go sources + go.mod/go.sum are needed
+# to `go build ./cmd/api`. Everything below either bloats the context, busts
+# the COPY cache layer, or is irrelevant to the build.
+
+# Version control
+.git
+.gitignore
+
+# Local build artifacts (the binary is produced inside the builder stage)
+/api
+*.test
+*.out
+coverage.*
+*.coverprofile
+
+# Agent / tooling directories (local only, large)
+.agents/
+.atl/
+.claude/
+
+# Documentation and CI metadata
+*.md
+docs/
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+
+# Local environment
+.env
