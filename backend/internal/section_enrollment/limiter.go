@@ -2,6 +2,7 @@ package section_enrollment
 
 import (
 	"context"
+	"log/slog"
 	"math"
 
 	"connectrpc.com/connect"
@@ -82,6 +83,13 @@ func NewConcurrencyLimitInterceptor(lim *concurrencyLimiter) connect.UnaryInterc
 			}
 			release, ok := lim.tryAcquire()
 			if !ok {
+				slog.WarnContext(ctx, "section enrollment admission rejected: limiter saturated",
+					"in_flight", len(lim.tokens),
+					"cap", cap(lim.tokens),
+					"procedure", req.Spec().Procedure,
+				)
+				// TODO(metrics): increment admission_saturated_total counter when a Prometheus/OTel
+				// pipeline is wired into internal/platform.
 				return nil, connect.NewError(connect.CodeResourceExhausted, ErrAdmissionSaturated)
 			}
 			defer release()

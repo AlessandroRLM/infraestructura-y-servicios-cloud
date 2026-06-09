@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -113,6 +115,13 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 			return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 		}
 		if preCount >= int64(preCapRow.Capacity) {
+			slog.WarnContext(ctx, "section enrollment rejected: section full (pre-check)",
+				"section_id", p.SectionID,
+				"capacity", preCapRow.Capacity,
+				"active", preCount,
+			)
+			// TODO(metrics): increment section_full_total{path="pre_check"} when a
+			// Prometheus/OTel pipeline is wired into internal/platform.
 			return section_enrollmentdb.SectionEnrollment{}, ErrSectionFull
 		}
 	}
@@ -133,10 +142,22 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 
 	// 2. Lock section row FOR UPDATE. Fetches capacity, course_id, period_year, and
 	//    window_open (computed by the DB clock — avoids Go clock skew).
+	lockStart := time.Now()
 	sectionRow, err := q.GetSectionForUpdateWithWindow(ctx, pgtype.UUID{Bytes: p.SectionID, Valid: true})
 	if err != nil {
+		// 55P03: lock wait exceeded the SET LOCAL lock_timeout budget.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "55P03" {
+			slog.WarnContext(ctx, "section enrollment lock timeout",
+				"section_id", p.SectionID,
+			)
+		}
 		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
+	slog.DebugContext(ctx, "section lock acquired",
+		"section_id", p.SectionID,
+		"wait_ms", time.Since(lockStart).Milliseconds(),
+	)
 
 	// 3. Window gate (self-enrollment only). The window_open boolean is evaluated by the
 	//    database server clock, making this skew-free. NULL window columns → window_open=false
@@ -244,6 +265,13 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 	if activeCount >= int64(sectionRow.Capacity) {
+		slog.WarnContext(ctx, "section enrollment rejected: section full (under lock)",
+			"section_id", p.SectionID,
+			"capacity", sectionRow.Capacity,
+			"active", activeCount,
+		)
+		// TODO(metrics): increment section_full_total{path="under_lock"} when a
+		// Prometheus/OTel pipeline is wired into internal/platform.
 		return section_enrollmentdb.SectionEnrollment{}, ErrSectionFull
 	}
 
