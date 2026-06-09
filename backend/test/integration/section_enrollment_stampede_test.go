@@ -44,7 +44,7 @@ func TestSectionEnrollment_Stampede_ExactlyKSucceed(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, stampedeK)
@@ -52,7 +52,7 @@ func TestSectionEnrollment_Stampede_ExactlyKSucceed(t *testing.T) {
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
 
-	// Seed N distinct students, each with a paid enrollment in the program.
+	// Seed N distinct students, each with a paid enrollment in the program for the period's year.
 	type studentRecord struct {
 		sessionID    string
 		enrollmentID string
@@ -62,7 +62,7 @@ func TestSectionEnrollment_Stampede_ExactlyKSucceed(t *testing.T) {
 		email := "se-stampede-stu-" + uniqueSuffix(t) + "@se.test"
 		userID, sid := seedUserWithSession(t, email, "student")
 		seedStudentProfile(t, userID, 2099)
-		enrollmentID, cleanup := seedPaidEnrollment(t, userID.String(), programID, 2099)
+		enrollmentID, cleanup := seedPaidEnrollment(t, userID.String(), programID, periodYear)
 		defer cleanup()
 		students[i] = studentRecord{sessionID: sid, enrollmentID: enrollmentID}
 	}
@@ -182,7 +182,7 @@ func TestSectionEnrollment_Stampede_ExactlyKSucceed(t *testing.T) {
 	// Admin must not be able to enroll one more — section is full.
 	extraStudent := seedUserWithRole(t, "se-stampede-extra@se.test", "student")
 	seedStudentProfile(t, extraStudent, 2099)
-	extraEnrollmentID, cleanExtra := seedPaidEnrollment(t, extraStudent.String(), programID, 2099)
+	extraEnrollmentID, cleanExtra := seedPaidEnrollment(t, extraStudent.String(), programID, periodYear)
 	defer cleanExtra()
 	_, err := seEnrollAdmin(context.Background(), client, adminSID, extraEnrollmentID, sectionID)
 	if err == nil {

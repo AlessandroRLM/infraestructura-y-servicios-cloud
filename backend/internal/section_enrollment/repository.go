@@ -166,15 +166,22 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 		if eRow.Status != "paid" {
 			return section_enrollmentdb.SectionEnrollment{}, ErrNotPaid
 		}
+		// Enforce annual-matrícula semantics: the enrollment's year must match the
+		// section's academic period year. A matrícula is valid only within its own year.
+		if eRow.Year != sectionRow.PeriodYear {
+			return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: enrollment year %d, period year %d",
+				ErrEnrollmentYearMismatch, eRow.Year, sectionRow.PeriodYear)
+		}
 		enrollmentID = eRow.ID
 		programID = eRow.ProgramID
 	} else {
-		// Self-service path: resolve the enrollment by (student_id, program_id).
-		// The student passes program_id explicitly to disambiguate when they are enrolled
-		// in multiple programs. Within a program a student has at most one live paid enrollment.
+		// Self-service path: resolve the enrollment by (student_id, program_id, period_year).
+		// The year is taken from the locked section row so the student cannot use a
+		// matrícula from a different year to enroll in this section.
 		eRow, err := q.ResolveEnrollmentByStudentAndProgram(ctx, section_enrollmentdb.ResolveEnrollmentByStudentAndProgramParams{
 			StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
 			ProgramID: pgtype.UUID{Bytes: p.ProgramID, Valid: true},
+			Year:      sectionRow.PeriodYear,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

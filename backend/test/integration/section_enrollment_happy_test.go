@@ -20,13 +20,13 @@ func TestSectionEnrollment_StudentSelfEnroll_OpenWindow(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	enrollmentID, enrollmentCleanup := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, enrollmentCleanup := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer enrollmentCleanup()
 	_ = enrollmentID
 
@@ -64,13 +64,13 @@ func TestSectionEnrollment_AdminEnroll_NotWindowGated(t *testing.T) {
 	defer programCleanup()
 
 	// Closed window — self-enroll would fail, admin enroll must succeed.
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, false, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, false, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	enrollmentID, enrollmentCleanup := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, enrollmentCleanup := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer enrollmentCleanup()
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
@@ -106,15 +106,15 @@ func TestSectionEnrollment_AdminWithdraw_FreesASeat(t *testing.T) {
 	defer programCleanup()
 
 	// Capacity=1 so studentB cannot enroll while studentA is active.
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 1)
 	defer sectionCleanup()
 
-	enrollA, cleanA := seedPaidEnrollment(t, studentA.String(), programID, 2099)
+	enrollA, cleanA := seedPaidEnrollment(t, studentA.String(), programID, periodYear)
 	defer cleanA()
-	enrollB, cleanB := seedPaidEnrollment(t, studentB.String(), programID, 2099)
+	enrollB, cleanB := seedPaidEnrollment(t, studentB.String(), programID, periodYear)
 	defer cleanB()
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
@@ -171,13 +171,13 @@ func TestSectionEnrollment_AdminRevival(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer cleanEnrollment()
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
@@ -229,15 +229,15 @@ func TestSectionEnrollment_ListSectionEnrollments_Filter(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	enrollA, cleanA := seedPaidEnrollment(t, studentA.String(), programID, 2099)
+	enrollA, cleanA := seedPaidEnrollment(t, studentA.String(), programID, periodYear)
 	defer cleanA()
-	enrollB, cleanB := seedPaidEnrollment(t, studentB.String(), programID, 2099)
+	enrollB, cleanB := seedPaidEnrollment(t, studentB.String(), programID, periodYear)
 	defer cleanB()
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)

@@ -31,8 +31,9 @@ func newSectionEnrollmentClient(jar http.CookieJar) section_enrollmentv1connect.
 // Pass windowOpen=true and the helper sets starts=now-1h/ends=now+1h.
 // Pass windowOpen=false for a window in the past (closed).
 // Pass nullWindow=true for NULL columns (fail-closed).
-// Returns the period id UUID and a cleanup func.
-func seedAcademicPeriodWithWindow(t *testing.T, windowOpen, nullWindow bool) (string, func()) {
+// Returns the period id string, the period year (use this when seeding enrollments so
+// the enrollment year aligns with the section's academic period year), and a cleanup func.
+func seedAcademicPeriodWithWindow(t *testing.T, windowOpen, nullWindow bool) (string, int32, func()) {
 	t.Helper()
 	ctx := context.Background()
 
@@ -80,13 +81,13 @@ func seedAcademicPeriodWithWindow(t *testing.T, windowOpen, nullWindow bool) (st
 	cleanup := func() {
 		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM academic_periods WHERE id = $1`, periodID)
 	}
-	return periodID.String(), cleanup
+	return periodID.String(), year, cleanup
 }
 
 // seedAcademicPeriodFutureWindow inserts an academic_period whose enrollment window starts
 // in the future (starts=now+1h, ends=now+2h). The window is not yet open.
-// Returns the period id string and a cleanup func.
-func seedAcademicPeriodFutureWindow(t *testing.T) (periodID string, cleanup func()) {
+// Returns the period id string, the period year, and a cleanup func.
+func seedAcademicPeriodFutureWindow(t *testing.T) (periodID string, year int32, cleanup func()) {
 	t.Helper()
 	ctx := context.Background()
 
@@ -106,7 +107,7 @@ func seedAcademicPeriodFutureWindow(t *testing.T) (periodID string, cleanup func
 		t.Fatalf("seedAcademicPeriodFutureWindow: %v", err)
 	}
 
-	return pid.String(), func() {
+	return pid.String(), yr, func() {
 		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM academic_periods WHERE id = $1`, pid)
 	}
 }

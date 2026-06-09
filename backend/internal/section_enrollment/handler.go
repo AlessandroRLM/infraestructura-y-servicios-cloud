@@ -53,6 +53,8 @@ func MapError(err error) error {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, ErrCourseNotInProgram):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, ErrEnrollmentYearMismatch):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, ErrInvalidTransition):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, ErrWithdrawnNotRevivable):

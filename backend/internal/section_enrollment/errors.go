@@ -40,6 +40,12 @@ var ErrNotPaid = fmt.Errorf("section_enrollment: enrollment is not paid")
 // program_courses list for the enrollment's program.
 var ErrCourseNotInProgram = fmt.Errorf("section_enrollment: course not in program")
 
+// ErrEnrollmentYearMismatch is returned when the supplied enrollment's year does not
+// match the academic period year of the target section. A matrícula is annual — it
+// can only be used to enroll in sections belonging to the same academic year.
+// Maps to CodeFailedPrecondition.
+var ErrEnrollmentYearMismatch = fmt.Errorf("section_enrollment: enrollment year does not match the section's academic period year")
+
 // ErrInvalidTransition is returned for any state transition that is not permitted
 // by the state machine (e.g. withdrawing an already-withdrawn inscription).
 var ErrInvalidTransition = fmt.Errorf("section_enrollment: invalid state transition")

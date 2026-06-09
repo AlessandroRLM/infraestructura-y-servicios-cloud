@@ -22,13 +22,13 @@ func TestSectionEnrollment_SoftDelete_RowInvisibleAfterDelete(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer cleanEnrollment()
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
@@ -68,13 +68,13 @@ func TestSectionEnrollment_Withdraw_SetsUpdatedAt(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer cleanEnrollment()
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
@@ -141,13 +141,13 @@ func TestSectionEnrollment_Withdrawn_NotCountedAsActiveSeat(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 5)
 	defer sectionCleanup()
 
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer cleanEnrollment()
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)

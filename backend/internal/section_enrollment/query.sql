@@ -14,13 +14,16 @@ FROM sections s
 WHERE s.id = $1 AND s.deleted_at IS NULL;
 
 -- name: GetSectionForUpdateWithWindow :one
--- Locks the section row FOR UPDATE and fetches capacity, course_id, and whether
--- now() falls within the academic period's enrollment window (inclusive on both ends).
+-- Locks the section row FOR UPDATE and fetches capacity, course_id, period_year, and
+-- whether now() falls within the academic period's enrollment window (inclusive on both ends).
 -- window_open=false when the window is not configured (fail-closed).
+-- period_year is used by the caller to enforce that the linked enrollment matches
+-- the section's academic year before inserting.
 -- Used as lock step #1 in EnrollSectionTx; lock order is section → key row.
 SELECT
     s.capacity,
     s.course_id,
+    ap.year AS period_year,
     (
         ap.enrollment_starts_at IS NOT NULL
         AND ap.enrollment_ends_at IS NOT NULL
@@ -42,26 +45,26 @@ WHERE section_id = $1
   AND deleted_at IS NULL;
 
 -- name: ResolveEnrollmentByStudentAndProgram :one
--- Resolves an enrollment for a student in a specific program by (student_id, program_id).
+-- Resolves an enrollment for a student in a specific program and year.
 -- Returns the full status and deleted_at so the caller can distinguish:
 --   not found / soft-deleted → ErrNotFound
 --   found but status != 'paid' → ErrNotPaid
--- Ordered by year DESC so that if a student has multiple enrollments in the same program
--- at different years, the most recent one is returned.
+-- The year parameter must equal the section's academic period year so that a
+-- matrícula from a different year cannot satisfy a section in another year.
 SELECT e.id, e.student_id, e.program_id, e.status, e.deleted_at
 FROM enrollments e
 WHERE e.student_id = $1
   AND e.program_id = $2
-  AND e.deleted_at IS NULL
-ORDER BY e.year DESC
-LIMIT 1;
+  AND e.year = $3
+  AND e.deleted_at IS NULL;
 
 -- name: ResolveEnrollmentByID :one
 -- Resolves an enrollment by id without filtering on status.
--- Returns the full status and deleted_at so the caller can distinguish:
+-- Returns year, status, and deleted_at so the caller can distinguish:
 --   not found / soft-deleted → ErrNotFound
 --   found but status != 'paid' → ErrNotPaid
-SELECT e.id, e.student_id, e.program_id, e.status, e.deleted_at
+--   found but year ≠ section period year → ErrEnrollmentYearMismatch
+SELECT e.id, e.student_id, e.program_id, e.year, e.status, e.deleted_at
 FROM enrollments e
 WHERE e.id = $1
   AND e.deleted_at IS NULL;

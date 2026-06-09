@@ -21,13 +21,13 @@ func TestSectionEnrollment_WindowClosed_RejectsStudentSelfEnroll(t *testing.T) {
 	defer programCleanup()
 
 	// Closed window (ends in the past).
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, false, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, false, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer cleanEnrollment()
 	_ = enrollmentID
 
@@ -54,13 +54,13 @@ func TestSectionEnrollment_FutureWindow_RejectsStudentSelfEnroll(t *testing.T) {
 	defer programCleanup()
 
 	// Future window: starts=now+1h / ends=now+2h.
-	futurePeriodID, futureCleanup := seedAcademicPeriodFutureWindow(t)
+	futurePeriodID, futurePeriodYear, futureCleanup := seedAcademicPeriodFutureWindow(t)
 	defer futureCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, futurePeriodID, 10)
 	defer sectionCleanup()
 
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, futurePeriodYear)
 	defer cleanEnrollment()
 	_ = enrollmentID
 
@@ -87,13 +87,13 @@ func TestSectionEnrollment_NullWindow_FailClosed(t *testing.T) {
 	defer programCleanup()
 
 	// NULL window columns.
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, false, true)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, false, true)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer cleanEnrollment()
 	_ = enrollmentID
 
@@ -115,14 +115,14 @@ func TestSectionEnrollment_UnpaidEnrollment_RejectsEnroll(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	// Pending enrollment (not paid).
-	enrollmentID, cleanEnrollment := seedPendingEnrollment(t, studentUserID.String(), programID, 2099)
+	// Pending enrollment (not paid) — year still aligns with the period.
+	enrollmentID, cleanEnrollment := seedPendingEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer cleanEnrollment()
 	_ = enrollmentID
 
@@ -152,14 +152,14 @@ func TestSectionEnrollment_WrongProgramID_RejectsEnroll(t *testing.T) {
 	programB, _, cleanupB := seedProgramWithCourse(t)
 	defer cleanupB()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	// Student has a paid enrollment in programA only.
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programA, 2099)
+	// Student has a paid enrollment in programA only, for the period's year.
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programA, periodYear)
 	defer cleanEnrollment()
 	_ = enrollmentID
 
@@ -187,15 +187,15 @@ func TestSectionEnrollment_CourseNotInProgram_RejectsEnroll(t *testing.T) {
 	_, courseB, cleanupB := seedProgramWithCourse(t)
 	defer cleanupB()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	// Section uses courseB (not in programA).
 	sectionID, sectionCleanup := seedSection(t, courseB, periodID, 10)
 	defer sectionCleanup()
 
-	// Enrollment in programA (paid).
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programA, 2099)
+	// Enrollment in programA (paid), year aligned with period.
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programA, periodYear)
 	defer cleanEnrollment()
 	_ = enrollmentID
 
@@ -236,18 +236,18 @@ func TestSectionEnrollment_TwoPrograms_Unambiguous(t *testing.T) {
 	defer pgxPool.Exec(context.Background(), //nolint:errcheck
 		`DELETE FROM program_courses WHERE program_id = $1 AND course_id = $2`, programB, courseID)
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	// Student has paid enrollments in BOTH programs.
-	enrollA, cleanA := seedPaidEnrollment(t, studentUserID.String(), programA, 2099)
+	// Student has paid enrollments in BOTH programs for the period's year.
+	enrollA, cleanA := seedPaidEnrollment(t, studentUserID.String(), programA, periodYear)
 	defer cleanA()
 	_ = enrollA
 
-	enrollB, cleanB := seedPaidEnrollment(t, studentUserID.String(), programB, 2099)
+	enrollB, cleanB := seedPaidEnrollment(t, studentUserID.String(), programB, periodYear)
 	defer cleanB()
 	_ = enrollB
 
@@ -285,16 +285,16 @@ func TestSectionEnrollment_AdminRevival_RejectsWhenFull(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	// Capacity=1 so that when A is withdrawn and B occupies the seat, revival fails.
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 1)
 	defer sectionCleanup()
 
-	enrollA, cleanA := seedPaidEnrollment(t, studentA.String(), programID, 2099)
+	enrollA, cleanA := seedPaidEnrollment(t, studentA.String(), programID, periodYear)
 	defer cleanA()
-	enrollB, cleanB := seedPaidEnrollment(t, studentB.String(), programID, 2099)
+	enrollB, cleanB := seedPaidEnrollment(t, studentB.String(), programID, periodYear)
 	defer cleanB()
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
@@ -338,13 +338,13 @@ func TestSectionEnrollment_StudentCannotSelfRevive(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer cleanEnrollment()
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
@@ -380,13 +380,13 @@ func TestSectionEnrollment_IdempotentRetry_AlreadyExists(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, 2099)
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer cleanEnrollment()
 	_ = enrollmentID
 
@@ -421,14 +421,14 @@ func TestSectionEnrollment_PaidGate_AdminPath(t *testing.T) {
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
 	defer programCleanup()
 
-	periodID, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
 	defer periodCleanup()
 
 	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
 	defer sectionCleanup()
 
-	// Pending enrollment — not paid.
-	pendingEnrollmentID, cleanEnrollment := seedPendingEnrollment(t, studentUserID.String(), programID, 2099)
+	// Pending enrollment — not paid, but year aligned with period so only the paid check triggers.
+	pendingEnrollmentID, cleanEnrollment := seedPendingEnrollment(t, studentUserID.String(), programID, periodYear)
 	defer cleanEnrollment()
 
 	cleanupAllSectionEnrollmentsForSection(t, sectionID)
@@ -436,4 +436,79 @@ func TestSectionEnrollment_PaidGate_AdminPath(t *testing.T) {
 	client := newSectionEnrollmentClient(nil)
 	_, err := seEnrollAdmin(ctx, client, adminSID, pendingEnrollmentID, sectionID)
 	assertConnectCode(t, err, connect.CodeFailedPrecondition)
+}
+
+// TestSectionEnrollment_StudentYearMismatch_NotFound verifies that a student whose only
+// paid matrícula for the program is from a DIFFERENT year than the section's academic
+// period gets NotFound (no matrícula for that program+year).
+func TestSectionEnrollment_StudentYearMismatch_NotFound(t *testing.T) {
+	ctx := context.Background()
+
+	studentUserID, studentSID := seedUserWithSession(t, "se-year-mismatch-stu@se.test", "student")
+	seedStudentProfile(t, studentUserID, 2099)
+
+	programID, courseID, programCleanup := seedProgramWithCourse(t)
+	defer programCleanup()
+
+	// Period uses its own unique year (e.g. 3050).
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	defer periodCleanup()
+
+	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
+	defer sectionCleanup()
+
+	// Enrollment seeded for a DIFFERENT year than the period — mismatch is intentional.
+	wrongYear := periodYear + 1
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, wrongYear)
+	defer cleanEnrollment()
+	_ = enrollmentID
+
+	cleanupAllSectionEnrollmentsForSection(t, sectionID)
+
+	client := newSectionEnrollmentClient(nil)
+	// No matrícula exists for (student, program, periodYear) → NotFound.
+	_, err := seEnrollOwn(ctx, client, studentSID, sectionID, programID)
+	assertConnectCode(t, err, connect.CodeNotFound)
+
+	if activeSeatCount(t, sectionID) != 0 {
+		t.Error("no seat should be consumed when year does not match")
+	}
+}
+
+// TestSectionEnrollment_AdminYearMismatch_FailedPrecondition verifies that admin enrolling
+// an enrollment whose year differs from the section's academic period year returns
+// FailedPrecondition (year mismatch, not NotFound or NotPaid).
+func TestSectionEnrollment_AdminYearMismatch_FailedPrecondition(t *testing.T) {
+	ctx := context.Background()
+
+	_, adminSID := seedUserWithSession(t, "se-admin-year-mismatch-admin@se.test", "admin")
+
+	studentUserID := seedUserWithRole(t, "se-admin-year-mismatch-stu@se.test", "student")
+	seedStudentProfile(t, studentUserID, 2099)
+
+	programID, courseID, programCleanup := seedProgramWithCourse(t)
+	defer programCleanup()
+
+	// Period uses its own unique year.
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	defer periodCleanup()
+
+	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
+	defer sectionCleanup()
+
+	// Paid enrollment for a DIFFERENT year — mismatch is intentional.
+	wrongYear := periodYear + 1
+	enrollmentID, cleanEnrollment := seedPaidEnrollment(t, studentUserID.String(), programID, wrongYear)
+	defer cleanEnrollment()
+
+	cleanupAllSectionEnrollmentsForSection(t, sectionID)
+
+	client := newSectionEnrollmentClient(nil)
+	// enrollment.year ≠ period.year → ErrEnrollmentYearMismatch → FailedPrecondition.
+	_, err := seEnrollAdmin(ctx, client, adminSID, enrollmentID, sectionID)
+	assertConnectCode(t, err, connect.CodeFailedPrecondition)
+
+	if activeSeatCount(t, sectionID) != 0 {
+		t.Error("no seat should be consumed when enrollment year does not match the period year")
+	}
 }

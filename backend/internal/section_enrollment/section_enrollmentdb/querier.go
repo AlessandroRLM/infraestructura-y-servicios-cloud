@@ -31,9 +31,11 @@ type Querier interface {
 	// for revival detection. Filters deleted_at IS NULL so that a soft-deleted row never
 	// triggers AlreadyExists or revival logic. Lock order: acquired after section lock.
 	GetSectionEnrollmentByKeyForUpdate(ctx context.Context, arg GetSectionEnrollmentByKeyForUpdateParams) (SectionEnrollment, error)
-	// Locks the section row FOR UPDATE and fetches capacity, course_id, and whether
-	// now() falls within the academic period's enrollment window (inclusive on both ends).
+	// Locks the section row FOR UPDATE and fetches capacity, course_id, period_year, and
+	// whether now() falls within the academic period's enrollment window (inclusive on both ends).
 	// window_open=false when the window is not configured (fail-closed).
+	// period_year is used by the caller to enforce that the linked enrollment matches
+	// the section's academic year before inserting.
 	// Used as lock step #1 in EnrollSectionTx; lock order is section → key row.
 	GetSectionForUpdateWithWindow(ctx context.Context, id pgtype.UUID) (GetSectionForUpdateWithWindowRow, error)
 	InsertSectionEnrollment(ctx context.Context, arg InsertSectionEnrollmentParams) (SectionEnrollment, error)
@@ -41,16 +43,17 @@ type Querier interface {
 	ListOwnSectionEnrollments(ctx context.Context, studentID pgtype.UUID) ([]SectionEnrollment, error)
 	ListSectionEnrollments(ctx context.Context, arg ListSectionEnrollmentsParams) ([]SectionEnrollment, error)
 	// Resolves an enrollment by id without filtering on status.
-	// Returns the full status and deleted_at so the caller can distinguish:
+	// Returns year, status, and deleted_at so the caller can distinguish:
 	//   not found / soft-deleted → ErrNotFound
 	//   found but status != 'paid' → ErrNotPaid
+	//   found but year ≠ section period year → ErrEnrollmentYearMismatch
 	ResolveEnrollmentByID(ctx context.Context, id pgtype.UUID) (ResolveEnrollmentByIDRow, error)
-	// Resolves an enrollment for a student in a specific program by (student_id, program_id).
+	// Resolves an enrollment for a student in a specific program and year.
 	// Returns the full status and deleted_at so the caller can distinguish:
 	//   not found / soft-deleted → ErrNotFound
 	//   found but status != 'paid' → ErrNotPaid
-	// Ordered by year DESC so that if a student has multiple enrollments in the same program
-	// at different years, the most recent one is returned.
+	// The year parameter must equal the section's academic period year so that a
+	// matrícula from a different year cannot satisfy a section in another year.
 	ResolveEnrollmentByStudentAndProgram(ctx context.Context, arg ResolveEnrollmentByStudentAndProgramParams) (ResolveEnrollmentByStudentAndProgramRow, error)
 	// Revives a withdrawn inscription: sets status back to in_progress and clears deleted_at.
 	ReviveSectionEnrollment(ctx context.Context, id pgtype.UUID) (SectionEnrollment, error)

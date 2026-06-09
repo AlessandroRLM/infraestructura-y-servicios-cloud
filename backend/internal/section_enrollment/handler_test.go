@@ -21,6 +21,7 @@ func TestMapError_AllMappings(t *testing.T) {
 		{"WindowClosed → FailedPrecondition", ErrWindowClosed, connect.CodeFailedPrecondition},
 		{"NotPaid → FailedPrecondition", ErrNotPaid, connect.CodeFailedPrecondition},
 		{"CourseNotInProgram → FailedPrecondition", ErrCourseNotInProgram, connect.CodeFailedPrecondition},
+		{"EnrollmentYearMismatch → FailedPrecondition", ErrEnrollmentYearMismatch, connect.CodeFailedPrecondition},
 		{"InvalidTransition → FailedPrecondition", ErrInvalidTransition, connect.CodeFailedPrecondition},
 		{"WithdrawnNotRevivable → FailedPrecondition", ErrWithdrawnNotRevivable, connect.CodeFailedPrecondition},
 		{"AdmissionSaturated → ResourceExhausted", ErrAdmissionSaturated, connect.CodeResourceExhausted},

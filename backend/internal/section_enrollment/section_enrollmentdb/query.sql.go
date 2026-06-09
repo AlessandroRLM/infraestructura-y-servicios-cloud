@@ -133,6 +133,7 @@ const getSectionForUpdateWithWindow = `-- name: GetSectionForUpdateWithWindow :o
 SELECT
     s.capacity,
     s.course_id,
+    ap.year AS period_year,
     (
         ap.enrollment_starts_at IS NOT NULL
         AND ap.enrollment_ends_at IS NOT NULL
@@ -147,17 +148,25 @@ FOR UPDATE OF s
 type GetSectionForUpdateWithWindowRow struct {
 	Capacity   int32
 	CourseID   pgtype.UUID
+	PeriodYear int32
 	WindowOpen pgtype.Bool
 }
 
-// Locks the section row FOR UPDATE and fetches capacity, course_id, and whether
-// now() falls within the academic period's enrollment window (inclusive on both ends).
+// Locks the section row FOR UPDATE and fetches capacity, course_id, period_year, and
+// whether now() falls within the academic period's enrollment window (inclusive on both ends).
 // window_open=false when the window is not configured (fail-closed).
+// period_year is used by the caller to enforce that the linked enrollment matches
+// the section's academic year before inserting.
 // Used as lock step #1 in EnrollSectionTx; lock order is section → key row.
 func (q *Queries) GetSectionForUpdateWithWindow(ctx context.Context, id pgtype.UUID) (GetSectionForUpdateWithWindowRow, error) {
 	row := q.db.QueryRow(ctx, getSectionForUpdateWithWindow, id)
 	var i GetSectionForUpdateWithWindowRow
-	err := row.Scan(&i.Capacity, &i.CourseID, &i.WindowOpen)
+	err := row.Scan(
+		&i.Capacity,
+		&i.CourseID,
+		&i.PeriodYear,
+		&i.WindowOpen,
+	)
 	return i, err
 }
 
@@ -272,7 +281,7 @@ func (q *Queries) ListSectionEnrollments(ctx context.Context, arg ListSectionEnr
 }
 
 const resolveEnrollmentByID = `-- name: ResolveEnrollmentByID :one
-SELECT e.id, e.student_id, e.program_id, e.status, e.deleted_at
+SELECT e.id, e.student_id, e.program_id, e.year, e.status, e.deleted_at
 FROM enrollments e
 WHERE e.id = $1
   AND e.deleted_at IS NULL
@@ -282,15 +291,17 @@ type ResolveEnrollmentByIDRow struct {
 	ID        pgtype.UUID
 	StudentID pgtype.UUID
 	ProgramID pgtype.UUID
+	Year      int32
 	Status    string
 	DeletedAt pgtype.Timestamptz
 }
 
 // Resolves an enrollment by id without filtering on status.
-// Returns the full status and deleted_at so the caller can distinguish:
+// Returns year, status, and deleted_at so the caller can distinguish:
 //
 //	not found / soft-deleted → ErrNotFound
 //	found but status != 'paid' → ErrNotPaid
+//	found but year ≠ section period year → ErrEnrollmentYearMismatch
 func (q *Queries) ResolveEnrollmentByID(ctx context.Context, id pgtype.UUID) (ResolveEnrollmentByIDRow, error) {
 	row := q.db.QueryRow(ctx, resolveEnrollmentByID, id)
 	var i ResolveEnrollmentByIDRow
@@ -298,6 +309,7 @@ func (q *Queries) ResolveEnrollmentByID(ctx context.Context, id pgtype.UUID) (Re
 		&i.ID,
 		&i.StudentID,
 		&i.ProgramID,
+		&i.Year,
 		&i.Status,
 		&i.DeletedAt,
 	)
@@ -309,14 +321,14 @@ SELECT e.id, e.student_id, e.program_id, e.status, e.deleted_at
 FROM enrollments e
 WHERE e.student_id = $1
   AND e.program_id = $2
+  AND e.year = $3
   AND e.deleted_at IS NULL
-ORDER BY e.year DESC
-LIMIT 1
 `
 
 type ResolveEnrollmentByStudentAndProgramParams struct {
 	StudentID pgtype.UUID
 	ProgramID pgtype.UUID
+	Year      int32
 }
 
 type ResolveEnrollmentByStudentAndProgramRow struct {
@@ -327,16 +339,16 @@ type ResolveEnrollmentByStudentAndProgramRow struct {
 	DeletedAt pgtype.Timestamptz
 }
 
-// Resolves an enrollment for a student in a specific program by (student_id, program_id).
+// Resolves an enrollment for a student in a specific program and year.
 // Returns the full status and deleted_at so the caller can distinguish:
 //
 //	not found / soft-deleted → ErrNotFound
 //	found but status != 'paid' → ErrNotPaid
 //
-// Ordered by year DESC so that if a student has multiple enrollments in the same program
-// at different years, the most recent one is returned.
+// The year parameter must equal the section's academic period year so that a
+// matrícula from a different year cannot satisfy a section in another year.
 func (q *Queries) ResolveEnrollmentByStudentAndProgram(ctx context.Context, arg ResolveEnrollmentByStudentAndProgramParams) (ResolveEnrollmentByStudentAndProgramRow, error) {
-	row := q.db.QueryRow(ctx, resolveEnrollmentByStudentAndProgram, arg.StudentID, arg.ProgramID)
+	row := q.db.QueryRow(ctx, resolveEnrollmentByStudentAndProgram, arg.StudentID, arg.ProgramID, arg.Year)
 	var i ResolveEnrollmentByStudentAndProgramRow
 	err := row.Scan(
 		&i.ID,
