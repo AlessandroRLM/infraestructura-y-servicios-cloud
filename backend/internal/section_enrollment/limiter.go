@@ -5,6 +5,8 @@ import (
 	"math"
 
 	"connectrpc.com/connect"
+
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
 )
 
 // concurrencyLimiter is a bounded in-flight admission control mechanism for the
@@ -57,15 +59,27 @@ func NewConcurrencyLimiter(poolSize int) *concurrencyLimiter {
 	return newConcurrencyLimiter(cap)
 }
 
+// enrollProcedures is the set of inscription procedures subject to admission control.
+// Only these two procedures are hot-path; list/get/withdraw are excluded.
+var enrollProcedures = map[string]struct{}{
+	section_enrollmentv1connect.SectionEnrollmentServiceEnrollOwnSectionProcedure: {},
+	section_enrollmentv1connect.SectionEnrollmentServiceEnrollSectionProcedure:    {},
+}
+
 // NewConcurrencyLimitInterceptor returns a Connect unary interceptor that enforces
-// the admission control cap for inscription procedures. It must be chained BEFORE
-// the auth interceptor so that saturated requests are rejected before any DB call.
+// the admission control cap for the two inscription procedures. Non-enroll procedures
+// are passed through without acquiring a slot, so a single handler registration covers
+// the whole service with selective admission control.
 //
-// Only the two enroll procedures should use this interceptor; list/get procedures
-// are read-only and must not be admission-controlled.
+// The interceptor must be chained BEFORE the auth interceptor so that saturated
+// enroll requests are rejected before any session/DB work occurs.
 func NewConcurrencyLimitInterceptor(lim *concurrencyLimiter) connect.UnaryInterceptorFunc {
 	return connect.UnaryInterceptorFunc(func(next connect.UnaryFunc) connect.UnaryFunc {
 		return connect.UnaryFunc(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			if _, controlled := enrollProcedures[req.Spec().Procedure]; !controlled {
+				// Not an enroll procedure — bypass admission control.
+				return next(ctx, req)
+			}
 			release, ok := lim.tryAcquire()
 			if !ok {
 				return nil, connect.NewError(connect.CodeResourceExhausted, ErrAdmissionSaturated)
