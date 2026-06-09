@@ -12,6 +12,7 @@ import (
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
 	catalogv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
+	enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1/enrollmentv1connect"
 	profilesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1/profilesv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
@@ -19,6 +20,8 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog/catalogdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/enrollment"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/enrollment/enrollmentdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/health"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
@@ -134,6 +137,16 @@ func main() {
 		catalogv1connect.CatalogServiceAssignTeacherToSectionProcedure:    authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceRemoveTeacherFromSectionProcedure:  authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceListSectionTeachersProcedure:       authz.RequirePermission(authz.PermCatalogManage),
+
+		// Enrollment management procedures — require enrollment.manage.
+		enrollmentv1connect.EnrollmentServiceCreateEnrollmentProcedure:   authz.RequirePermission(authz.PermEnrollmentManage),
+		enrollmentv1connect.EnrollmentServiceMarkEnrollmentPaidProcedure: authz.RequirePermission(authz.PermEnrollmentManage),
+		enrollmentv1connect.EnrollmentServiceCancelEnrollmentProcedure:   authz.RequirePermission(authz.PermEnrollmentManage),
+		enrollmentv1connect.EnrollmentServiceGetEnrollmentProcedure:      authz.RequirePermission(authz.PermEnrollmentManage),
+		enrollmentv1connect.EnrollmentServiceListEnrollmentsProcedure:    authz.RequirePermission(authz.PermEnrollmentManage),
+		// Enrollment self-view procedures — require enrollment.view_own.
+		enrollmentv1connect.EnrollmentServiceListOwnEnrollmentsProcedure: authz.RequirePermission(authz.PermEnrollmentViewOwn),
+		enrollmentv1connect.EnrollmentServiceGetOwnEnrollmentProcedure:   authz.RequirePermission(authz.PermEnrollmentViewOwn),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
@@ -172,6 +185,16 @@ func main() {
 		catalog.Register(mux, catalogHandler, authOpts...)
 	}
 
+	// Enrollment handler (enrollmentdb.Querier → repository → service → Connect handler).
+	enrollmentQueries := enrollmentdb.New(pool)
+	enrollmentRepo := enrollment.NewPostgresRepository(enrollmentQueries, pool)
+	enrollmentSvc := enrollment.NewService(enrollmentRepo)
+	enrollmentHandler := enrollment.NewHandler(enrollmentSvc)
+
+	enrollmentReg := func(mux *http.ServeMux) {
+		enrollment.Register(mux, enrollmentHandler, authOpts...)
+	}
+
 	// Redis pinger for the readyz handler.
 	redisPinger, err := platformredis.NewPinger(cfg.RedisURL)
 	if err != nil {
@@ -184,6 +207,7 @@ func main() {
 		authReg,
 		profilesReg,
 		catalogReg,
+		enrollmentReg,
 	)
 	srv.Addr = cfg.HTTPAddr
 

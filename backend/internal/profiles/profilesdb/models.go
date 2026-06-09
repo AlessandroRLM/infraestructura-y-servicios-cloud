@@ -31,6 +31,20 @@ type Course struct {
 	UpdatedBy pgtype.UUID
 }
 
+type Enrollment struct {
+	ID        pgtype.UUID
+	StudentID pgtype.UUID
+	ProgramID pgtype.UUID
+	Year      int32
+	Status    string
+	PaidAt    pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+	CreatedBy pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
 type Permission struct {
 	ID          pgtype.UUID
 	Code        string
