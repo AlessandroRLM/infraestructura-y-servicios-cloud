@@ -19,7 +19,6 @@ type Repository interface {
 	UpdateProgram(ctx context.Context, id uuid.UUID, p UpdateProgramParams, actor *uuid.UUID) (catalogdb.Program, error)
 	GetProgram(ctx context.Context, id uuid.UUID) (catalogdb.Program, error)
 	ListPrograms(ctx context.Context) ([]catalogdb.Program, error)
-	SoftDeleteProgram(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
 	// DeleteProgramTx locks the program row, counts dependents, and soft-deletes atomically
 	// in a single transaction. Returns ErrNotFound when absent and ErrHasDependents when
 	// live program_courses or live program_quotas rows exist.
@@ -32,7 +31,6 @@ type Repository interface {
 	UpdateCourse(ctx context.Context, id uuid.UUID, p UpdateCourseParams, actor *uuid.UUID) (catalogdb.Course, error)
 	GetCourse(ctx context.Context, id uuid.UUID) (catalogdb.Course, error)
 	ListCourses(ctx context.Context) ([]catalogdb.Course, error)
-	SoftDeleteCourse(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
 	// DeleteCourseTx locks the course row, counts dependents, and soft-deletes atomically.
 	// Returns ErrNotFound when absent and ErrHasDependents when live program associations
 	// or live sections exist.
@@ -49,7 +47,6 @@ type Repository interface {
 	UpdateAcademicPeriod(ctx context.Context, id uuid.UUID, p UpdateAcademicPeriodParams) (catalogdb.AcademicPeriod, error)
 	GetAcademicPeriod(ctx context.Context, id uuid.UUID) (catalogdb.AcademicPeriod, error)
 	ListAcademicPeriods(ctx context.Context) ([]catalogdb.AcademicPeriod, error)
-	SoftDeleteAcademicPeriod(ctx context.Context, id uuid.UUID) error
 	// DeleteAcademicPeriodTx locks the period row, counts live sections, and soft-deletes
 	// atomically. Returns ErrNotFound when absent and ErrHasDependents when live sections exist.
 	DeleteAcademicPeriodTx(ctx context.Context, id uuid.UUID) error
@@ -66,7 +63,6 @@ type Repository interface {
 	UpdateSection(ctx context.Context, id uuid.UUID, p UpdateSectionParams, actor *uuid.UUID) (catalogdb.Section, error)
 	GetSection(ctx context.Context, id uuid.UUID) (catalogdb.Section, error)
 	ListSections(ctx context.Context, courseID *uuid.UUID, academicPeriodID *uuid.UUID) ([]catalogdb.Section, error)
-	SoftDeleteSection(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error
 	// DeleteSectionTx locks the section row, counts section_teachers, and soft-deletes
 	// atomically. Returns ErrNotFound when absent and ErrHasDependents when teacher
 	// assignments exist.
@@ -211,20 +207,6 @@ func (r *postgresRepository) ListPrograms(ctx context.Context) ([]catalogdb.Prog
 	return rows, nil
 }
 
-func (r *postgresRepository) SoftDeleteProgram(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error {
-	n, err := r.q.SoftDeleteProgram(ctx, catalogdb.SoftDeleteProgramParams{
-		ID:        pgtype.UUID{Bytes: id, Valid: true},
-		UpdatedBy: optionalUUID(actor),
-	})
-	if err != nil {
-		return TranslatePgError(err)
-	}
-	if n == 0 {
-		return fmt.Errorf("%w", ErrNotFound)
-	}
-	return nil
-}
-
 // DeleteProgramTx runs the dependent-check and soft-delete in a single transaction with
 // a FOR UPDATE lock on the program row to prevent TOCTOU races. Returns ErrNotFound when
 // the program does not exist and ErrHasDependents when live dependents block deletion.
@@ -250,12 +232,12 @@ func (r *postgresRepository) DeleteProgramTx(ctx context.Context, id uuid.UUID, 
 		return fmt.Errorf("%w: program has %d course association(s)", ErrHasDependents, n)
 	}
 
-	q2, err := q.CountLiveProgramQuotas(ctx, pgID)
+	nQuotas, err := q.CountLiveProgramQuotas(ctx, pgID)
 	if err != nil {
 		return TranslatePgError(err)
 	}
-	if q2 > 0 {
-		return fmt.Errorf("%w: program has %d live quota(s)", ErrHasDependents, q2)
+	if nQuotas > 0 {
+		return fmt.Errorf("%w: program has %d live quota(s)", ErrHasDependents, nQuotas)
 	}
 
 	rows, err := q.SoftDeleteProgram(ctx, catalogdb.SoftDeleteProgramParams{
@@ -332,20 +314,6 @@ func (r *postgresRepository) ListCourses(ctx context.Context) ([]catalogdb.Cours
 		return nil, TranslatePgError(err)
 	}
 	return rows, nil
-}
-
-func (r *postgresRepository) SoftDeleteCourse(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error {
-	n, err := r.q.SoftDeleteCourse(ctx, catalogdb.SoftDeleteCourseParams{
-		ID:        pgtype.UUID{Bytes: id, Valid: true},
-		UpdatedBy: optionalUUID(actor),
-	})
-	if err != nil {
-		return TranslatePgError(err)
-	}
-	if n == 0 {
-		return fmt.Errorf("%w", ErrNotFound)
-	}
-	return nil
 }
 
 // DeleteCourseTx runs the dependent-check and soft-delete in a single transaction with
@@ -480,17 +448,6 @@ func (r *postgresRepository) ListAcademicPeriods(ctx context.Context) ([]catalog
 		return nil, TranslatePgError(err)
 	}
 	return rows, nil
-}
-
-func (r *postgresRepository) SoftDeleteAcademicPeriod(ctx context.Context, id uuid.UUID) error {
-	n, err := r.q.SoftDeleteAcademicPeriod(ctx, pgtype.UUID{Bytes: id, Valid: true})
-	if err != nil {
-		return TranslatePgError(err)
-	}
-	if n == 0 {
-		return fmt.Errorf("%w", ErrNotFound)
-	}
-	return nil
 }
 
 // DeleteAcademicPeriodTx runs the dependent-check and soft-delete in a single transaction
@@ -632,20 +589,6 @@ func (r *postgresRepository) ListSections(ctx context.Context, courseID *uuid.UU
 		return nil, TranslatePgError(err)
 	}
 	return rows, nil
-}
-
-func (r *postgresRepository) SoftDeleteSection(ctx context.Context, id uuid.UUID, actor *uuid.UUID) error {
-	n, err := r.q.SoftDeleteSection(ctx, catalogdb.SoftDeleteSectionParams{
-		ID:        pgtype.UUID{Bytes: id, Valid: true},
-		UpdatedBy: optionalUUID(actor),
-	})
-	if err != nil {
-		return TranslatePgError(err)
-	}
-	if n == 0 {
-		return fmt.Errorf("%w", ErrNotFound)
-	}
-	return nil
 }
 
 // DeleteSectionTx runs the dependent-check and soft-delete in a single transaction

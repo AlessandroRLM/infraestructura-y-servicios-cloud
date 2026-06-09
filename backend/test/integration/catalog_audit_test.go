@@ -176,6 +176,9 @@ func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
 			t.Fatalf("SELECT created_at: %v", err)
 		}
 
+		// Sleep ensures the delete transaction's now() is strictly later than the insert's now().
+		time.Sleep(2 * time.Millisecond)
+
 		if _, err := client.DeleteProgram(ctx, withSID(connect.NewRequest(&catalogv1.DeleteProgramRequest{Id: id}), adminSID)); err != nil {
 			t.Fatalf("DeleteProgram: %v", err)
 		}
@@ -183,6 +186,9 @@ func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
 		var updatedAt time.Time
 		if err := pgxPool.QueryRow(ctx, `SELECT updated_at FROM programs WHERE id = $1`, id).Scan(&updatedAt); err != nil {
 			t.Fatalf("SELECT updated_at after soft-delete: %v", err)
+		}
+		if updatedAt.IsZero() {
+			t.Fatal("programs.updated_at is zero after soft-delete")
 		}
 		if !updatedAt.After(createdAt) {
 			t.Errorf("programs.updated_at not bumped on soft-delete: created_at=%v updated_at=%v", createdAt, updatedAt)
@@ -206,6 +212,9 @@ func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
 			t.Fatalf("SELECT created_at: %v", err)
 		}
 
+		// Sleep ensures the delete transaction's now() is strictly later than the insert's now().
+		time.Sleep(2 * time.Millisecond)
+
 		if _, err := client.DeleteCourse(ctx, withSID(connect.NewRequest(&catalogv1.DeleteCourseRequest{Id: id}), adminSID)); err != nil {
 			t.Fatalf("DeleteCourse: %v", err)
 		}
@@ -213,6 +222,9 @@ func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
 		var updatedAt time.Time
 		if err := pgxPool.QueryRow(ctx, `SELECT updated_at FROM courses WHERE id = $1`, id).Scan(&updatedAt); err != nil {
 			t.Fatalf("SELECT updated_at after soft-delete: %v", err)
+		}
+		if updatedAt.IsZero() {
+			t.Fatal("courses.updated_at is zero after soft-delete")
 		}
 		if !updatedAt.After(createdAt) {
 			t.Errorf("courses.updated_at not bumped on soft-delete: created_at=%v updated_at=%v", createdAt, updatedAt)
@@ -234,6 +246,9 @@ func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
 			t.Fatalf("SELECT created_at: %v", err)
 		}
 
+		// Sleep ensures the delete transaction's now() is strictly later than the insert's now().
+		time.Sleep(2 * time.Millisecond)
+
 		if _, err := client.DeleteAcademicPeriod(ctx, withSID(connect.NewRequest(&catalogv1.DeleteAcademicPeriodRequest{Id: id}), adminSID)); err != nil {
 			t.Fatalf("DeleteAcademicPeriod: %v", err)
 		}
@@ -241,6 +256,9 @@ func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
 		var updatedAt time.Time
 		if err := pgxPool.QueryRow(ctx, `SELECT updated_at FROM academic_periods WHERE id = $1`, id).Scan(&updatedAt); err != nil {
 			t.Fatalf("SELECT updated_at after soft-delete: %v", err)
+		}
+		if updatedAt.IsZero() {
+			t.Fatal("academic_periods.updated_at is zero after soft-delete")
 		}
 		if !updatedAt.After(createdAt) {
 			t.Errorf("academic_periods.updated_at not bumped on soft-delete: created_at=%v updated_at=%v", createdAt, updatedAt)
@@ -273,6 +291,9 @@ func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
 			t.Fatalf("SELECT created_at: %v", err)
 		}
 
+		// Sleep ensures the delete transaction's now() is strictly later than the insert's now().
+		time.Sleep(2 * time.Millisecond)
+
 		if _, err := client.DeleteProgramQuota(ctx, withSID(connect.NewRequest(&catalogv1.DeleteProgramQuotaRequest{Id: quotaID}), adminSID)); err != nil {
 			t.Fatalf("DeleteProgramQuota: %v", err)
 		}
@@ -280,6 +301,9 @@ func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
 		var updatedAt time.Time
 		if err := pgxPool.QueryRow(ctx, `SELECT updated_at FROM program_quotas WHERE id = $1`, quotaID).Scan(&updatedAt); err != nil {
 			t.Fatalf("SELECT updated_at after soft-delete: %v", err)
+		}
+		if updatedAt.IsZero() {
+			t.Fatal("program_quotas.updated_at is zero after soft-delete")
 		}
 		if !updatedAt.After(createdAt) {
 			t.Errorf("program_quotas.updated_at not bumped on soft-delete: created_at=%v updated_at=%v", createdAt, updatedAt)
@@ -330,6 +354,9 @@ func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
 			t.Fatalf("SELECT created_at: %v", err)
 		}
 
+		// Sleep ensures the delete transaction's now() is strictly later than the insert's now().
+		time.Sleep(2 * time.Millisecond)
+
 		if _, err := client.DeleteSection(ctx, withSID(connect.NewRequest(&catalogv1.DeleteSectionRequest{Id: secID}), adminSID)); err != nil {
 			t.Fatalf("DeleteSection: %v", err)
 		}
@@ -337,6 +364,9 @@ func TestCatalog_Audit_SoftDelete_UpdatedAtBumped(t *testing.T) {
 		var updatedAt time.Time
 		if err := pgxPool.QueryRow(ctx, `SELECT updated_at FROM sections WHERE id = $1`, secID).Scan(&updatedAt); err != nil {
 			t.Fatalf("SELECT updated_at after soft-delete: %v", err)
+		}
+		if updatedAt.IsZero() {
+			t.Fatal("sections.updated_at is zero after soft-delete")
 		}
 		if !updatedAt.After(createdAt) {
 			t.Errorf("sections.updated_at not bumped on soft-delete: created_at=%v updated_at=%v", createdAt, updatedAt)

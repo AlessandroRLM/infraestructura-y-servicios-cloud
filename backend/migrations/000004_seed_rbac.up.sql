@@ -5,7 +5,7 @@ INSERT INTO roles (name) VALUES
     ('student')
 ON CONFLICT (name) DO NOTHING;
 
--- Permissions — initial codes matching the operations matrix (additional codes added in later migrations)
+-- Permissions — 11 initial codes matching the operations matrix; later migrations add more
 INSERT INTO permissions (code, description) VALUES
     ('users.manage',        'Manage users, roles, and permissions'),
     ('catalog.manage',      'Manage catalog (programs, courses, sections)'),

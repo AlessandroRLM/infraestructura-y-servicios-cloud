@@ -311,43 +311,6 @@ func TestRepository_CountCourseProgramAssociations(t *testing.T) {
 	}
 }
 
-func TestRepository_SoftDeleteProgram_NotFound(t *testing.T) {
-	t.Parallel()
-
-	// 0 rows affected means the row does not exist or is already deleted.
-	q := &fakeQuerier{softDeleteProgRows: 0}
-	repo := catalog.NewPostgresRepository(q, nil)
-
-	err := repo.SoftDeleteProgram(context.Background(), uuid.New(), nil)
-	if !errors.Is(err, catalog.ErrNotFound) {
-		t.Errorf("SoftDeleteProgram (0 rows): got %v, want ErrNotFound", err)
-	}
-}
-
-func TestRepository_SoftDeleteCourse_NotFound(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{softDeleteCourseRows: 0}
-	repo := catalog.NewPostgresRepository(q, nil)
-
-	err := repo.SoftDeleteCourse(context.Background(), uuid.New(), nil)
-	if !errors.Is(err, catalog.ErrNotFound) {
-		t.Errorf("SoftDeleteCourse (0 rows): got %v, want ErrNotFound", err)
-	}
-}
-
-func TestRepository_SoftDeleteAcademicPeriod_NotFound(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{softDeleteAcademicPeriodRows: 0}
-	repo := catalog.NewPostgresRepository(q, nil)
-
-	err := repo.SoftDeleteAcademicPeriod(context.Background(), uuid.New())
-	if !errors.Is(err, catalog.ErrNotFound) {
-		t.Errorf("SoftDeleteAcademicPeriod (0 rows): got %v, want ErrNotFound", err)
-	}
-}
-
 func TestRepository_SoftDeleteProgramQuota_NotFound(t *testing.T) {
 	t.Parallel()
 
@@ -381,18 +344,6 @@ func TestRepository_GetSection_NotFound(t *testing.T) {
 	_, err := repo.GetSection(context.Background(), uuid.New())
 	if !errors.Is(err, catalog.ErrNotFound) {
 		t.Errorf("GetSection (no rows): got %v, want ErrNotFound", err)
-	}
-}
-
-func TestRepository_SoftDeleteSection_NotFound(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{softDeleteSectionRows: 0}
-	repo := catalog.NewPostgresRepository(q, nil)
-
-	err := repo.SoftDeleteSection(context.Background(), uuid.New(), nil)
-	if !errors.Is(err, catalog.ErrNotFound) {
-		t.Errorf("SoftDeleteSection (0 rows): got %v, want ErrNotFound", err)
 	}
 }
 
