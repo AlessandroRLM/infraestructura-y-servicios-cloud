@@ -38,6 +38,10 @@ type Querier interface {
 	// Resolves the paid enrollment for a student in a given program.
 	// Returns ErrNoRows when no paid enrollment exists (pending/cancelled/missing).
 	ResolvePaidEnrollmentForProgram(ctx context.Context, arg ResolvePaidEnrollmentForProgramParams) (ResolvePaidEnrollmentForProgramRow, error)
+	// Resolves the paid enrollment for a student whose enrolled program contains the given
+	// course. Used by the student self-service path when no enrollment_id is provided in
+	// the request: the program is inferred from the section's course_id.
+	ResolvePaidEnrollmentForStudentAndCourse(ctx context.Context, arg ResolvePaidEnrollmentForStudentAndCourseParams) (ResolvePaidEnrollmentForStudentAndCourseRow, error)
 	// Revives a withdrawn inscription: sets status back to in_progress and clears deleted_at.
 	ReviveSectionEnrollment(ctx context.Context, id pgtype.UUID) (SectionEnrollment, error)
 	// Transitions an in_progress inscription to withdrawn.

@@ -312,6 +312,44 @@ func (q *Queries) ResolvePaidEnrollmentForProgram(ctx context.Context, arg Resol
 	return i, err
 }
 
+const resolvePaidEnrollmentForStudentAndCourse = `-- name: ResolvePaidEnrollmentForStudentAndCourse :one
+SELECT e.id, e.student_id, e.program_id, e.status
+FROM enrollments e
+JOIN program_courses pc ON pc.program_id = e.program_id
+WHERE e.student_id = $1
+  AND pc.course_id = $2
+  AND e.status = 'paid'
+  AND e.deleted_at IS NULL
+LIMIT 1
+`
+
+type ResolvePaidEnrollmentForStudentAndCourseParams struct {
+	StudentID pgtype.UUID
+	CourseID  pgtype.UUID
+}
+
+type ResolvePaidEnrollmentForStudentAndCourseRow struct {
+	ID        pgtype.UUID
+	StudentID pgtype.UUID
+	ProgramID pgtype.UUID
+	Status    string
+}
+
+// Resolves the paid enrollment for a student whose enrolled program contains the given
+// course. Used by the student self-service path when no enrollment_id is provided in
+// the request: the program is inferred from the section's course_id.
+func (q *Queries) ResolvePaidEnrollmentForStudentAndCourse(ctx context.Context, arg ResolvePaidEnrollmentForStudentAndCourseParams) (ResolvePaidEnrollmentForStudentAndCourseRow, error) {
+	row := q.db.QueryRow(ctx, resolvePaidEnrollmentForStudentAndCourse, arg.StudentID, arg.CourseID)
+	var i ResolvePaidEnrollmentForStudentAndCourseRow
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.ProgramID,
+		&i.Status,
+	)
+	return i, err
+}
+
 const reviveSectionEnrollment = `-- name: ReviveSectionEnrollment :one
 UPDATE section_enrollments
 SET status     = 'in_progress',

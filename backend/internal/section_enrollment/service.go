@@ -1,0 +1,149 @@
+package section_enrollment
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/google/uuid"
+
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment/section_enrollmentdb"
+)
+
+// Service orchestrates section_enrollment business logic: UUID validation, self-scope
+// enforcement, and delegation to the Repository.
+//
+// passed/failed transitions are owned by the grades slice via SetSectionEnrollmentOutcome;
+// do not write status directly from this service.
+type Service struct {
+	repo Repository
+}
+
+// NewService constructs a Service with the given Repository.
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo}
+}
+
+// EnrollOwnSection creates a section inscription for the authenticated student.
+// Student identity is derived exclusively from the context; no student_id in the request.
+// Window-gated (isAdmin=false). Returns ErrNotFound when no user is in context.
+func (s *Service) EnrollOwnSection(ctx context.Context, sectionIDStr string) (section_enrollmentdb.SectionEnrollment, error) {
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+	}
+
+	sectionID, err := parseServiceUUID(sectionIDStr)
+	if err != nil {
+		return section_enrollmentdb.SectionEnrollment{}, err
+	}
+
+	// The repository resolves the paid enrollment for the student internally via
+	// ResolvePaidEnrollmentByID. For the self-service path we pass the student_id
+	// and a zero enrollment_id; the repository uses student_id to resolve the enrollment.
+	// Note: the design has the service pass EnrollmentID from context resolution.
+	// Since the student has exactly one paid enrollment per program at a time,
+	// the repository resolves it by (student_id, section.program_id) inside the tx.
+	// We pass student_id as both StudentID and EnrollmentID=zero to signal self-service.
+	return s.repo.EnrollSectionTx(ctx, EnrollSectionParams{
+		SectionID: sectionID,
+		StudentID: callerID,
+		// EnrollmentID is zero — the repository resolves it for the self-service path.
+	}, false)
+}
+
+// ListOwnSectionEnrollments returns all live inscriptions for the authenticated student.
+// Student identity is derived exclusively from the context.
+func (s *Service) ListOwnSectionEnrollments(ctx context.Context) ([]section_enrollmentdb.SectionEnrollment, error) {
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+	}
+	return s.repo.ListOwnSectionEnrollments(ctx, callerID)
+}
+
+// GetOwnSectionEnrollment fetches an inscription by id and verifies ownership.
+// Ownership is checked by confirming the caller's user_id appears in the inscription's
+// enrollment. A mismatch returns ErrNotFound — existence is never disclosed.
+func (s *Service) GetOwnSectionEnrollment(ctx context.Context, idStr string) (section_enrollmentdb.SectionEnrollment, error) {
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+	}
+
+	id, err := parseServiceUUID(idStr)
+	if err != nil {
+		return section_enrollmentdb.SectionEnrollment{}, err
+	}
+
+	row, err := s.repo.GetOwnSectionEnrollment(ctx, id)
+	if err != nil {
+		return section_enrollmentdb.SectionEnrollment{}, err
+	}
+
+	// Ownership check: verify the inscription is in the caller's own-scoped list.
+	// Using ListOwnSectionEnrollments to avoid exposing existence to non-owners.
+	ownRows, err := s.repo.ListOwnSectionEnrollments(ctx, callerID)
+	if err != nil {
+		return section_enrollmentdb.SectionEnrollment{}, err
+	}
+	for _, r := range ownRows {
+		if r.ID == row.ID {
+			return row, nil
+		}
+	}
+	// The inscription exists but does not belong to the caller.
+	return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: inscription does not belong to caller", ErrNotFound)
+}
+
+// EnrollSection creates or revives a section inscription for any student (admin path).
+// Not window-gated. Can revive a withdrawn inscription (isAdmin=true).
+func (s *Service) EnrollSection(ctx context.Context, enrollmentIDStr, sectionIDStr string) (section_enrollmentdb.SectionEnrollment, error) {
+	enrollmentID, err := parseServiceUUID(enrollmentIDStr)
+	if err != nil {
+		return section_enrollmentdb.SectionEnrollment{}, err
+	}
+	sectionID, err := parseServiceUUID(sectionIDStr)
+	if err != nil {
+		return section_enrollmentdb.SectionEnrollment{}, err
+	}
+
+	return s.repo.EnrollSectionTx(ctx, EnrollSectionParams{
+		SectionID:    sectionID,
+		EnrollmentID: enrollmentID,
+	}, true)
+}
+
+// WithdrawSection transitions an in_progress inscription to withdrawn (admin-only).
+func (s *Service) WithdrawSection(ctx context.Context, idStr string) (section_enrollmentdb.SectionEnrollment, error) {
+	id, err := parseServiceUUID(idStr)
+	if err != nil {
+		return section_enrollmentdb.SectionEnrollment{}, err
+	}
+	return s.repo.WithdrawSection(ctx, id)
+}
+
+// GetSectionEnrollment retrieves a live inscription by id (admin path).
+func (s *Service) GetSectionEnrollment(ctx context.Context, idStr string) (section_enrollmentdb.SectionEnrollment, error) {
+	id, err := parseServiceUUID(idStr)
+	if err != nil {
+		return section_enrollmentdb.SectionEnrollment{}, err
+	}
+	return s.repo.GetSectionEnrollment(ctx, id)
+}
+
+// ListSectionEnrollments returns live inscriptions with optional filters (admin path).
+func (s *Service) ListSectionEnrollments(ctx context.Context, f ListSectionEnrollmentsFilter) ([]section_enrollmentdb.SectionEnrollment, error) {
+	return s.repo.ListSectionEnrollments(ctx, f)
+}
+
+// --- Helpers ---
+
+// parseServiceUUID parses a string UUID and returns ErrInvalidInput on failure.
+func parseServiceUUID(s string) (uuid.UUID, error) {
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("%w: invalid id %q", ErrInvalidInput, s)
+	}
+	return id, nil
+}
