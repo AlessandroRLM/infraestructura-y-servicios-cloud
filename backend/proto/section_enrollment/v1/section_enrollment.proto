@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package section_enrollment.v1;
+
+option go_package = "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1;section_enrollmentv1";
+
+service SectionEnrollmentService {
+  // Student self-service procedures — student identity derived from session context.
+
+  // EnrollOwnSection creates a section inscription for the authenticated student.
+  // Requires sections.enroll permission. Window-gated: only allowed when now() falls
+  // within the academic period's enrollment window.
+  rpc EnrollOwnSection(EnrollOwnSectionRequest) returns (SectionEnrollment);
+
+  // ListOwnSectionEnrollments returns all live section inscriptions for the
+  // authenticated student. No student_id in request; identity comes from context.
+  rpc ListOwnSectionEnrollments(ListOwnSectionEnrollmentsRequest) returns (ListSectionEnrollmentsResponse);
+
+  // GetOwnSectionEnrollment returns a section inscription by id only if the caller
+  // owns it. Ownership mismatch returns CodeNotFound — existence is never disclosed.
+  rpc GetOwnSectionEnrollment(GetOwnSectionEnrollmentRequest) returns (SectionEnrollment);
+
+  // Admin-managed procedures — require enrollment.manage permission.
+
+  // EnrollSection creates or revives a section inscription for any student.
+  // Not window-gated. Can revive a withdrawn inscription (re-checks capacity).
+  rpc EnrollSection(EnrollSectionRequest) returns (SectionEnrollment);
+
+  // WithdrawSection transitions an in_progress inscription to withdrawn.
+  // Admin-only; withdrawal is not available to students.
+  rpc WithdrawSection(WithdrawSectionRequest) returns (WithdrawSectionResponse);
+
+  // GetSectionEnrollment returns any live section inscription by id.
+  rpc GetSectionEnrollment(GetSectionEnrollmentRequest) returns (SectionEnrollment);
+
+  // ListSectionEnrollments returns live section inscriptions with optional filters.
+  rpc ListSectionEnrollments(ListSectionEnrollmentsRequest) returns (ListSectionEnrollmentsResponse);
+}
+
+// SectionEnrollment represents a single section inscription record.
+// No created_by / updated_by fields: this entity is not in the sensitive-changes list.
+message SectionEnrollment {
+  string id = 1;
+  string enrollment_id = 2;
+  string section_id = 3;
+  // status is one of "in_progress", "passed", "failed", or "withdrawn".
+  // passed/failed are set only by the grades slice; this service only sets in_progress/withdrawn.
+  string status = 4;
+  string registered_at = 5;
+  string created_at = 6;
+  string updated_at = 7;
+  optional string deleted_at = 8;
+}
+
+// EnrollOwnSectionRequest carries only the section_id; enrollment is resolved from context.
+message EnrollOwnSectionRequest {
+  string section_id = 1;
+}
+
+message ListOwnSectionEnrollmentsRequest {}
+
+message GetOwnSectionEnrollmentRequest {
+  string id = 1;
+}
+
+message EnrollSectionRequest {
+  string enrollment_id = 1;
+  string section_id = 2;
+}
+
+message WithdrawSectionRequest {
+  string id = 1;
+}
+
+message WithdrawSectionResponse {}
+
+message GetSectionEnrollmentRequest {
+  string id = 1;
+}
+
+// ListSectionEnrollmentsRequest supports optional filters.
+message ListSectionEnrollmentsRequest {
+  // Optional UUID filter. Empty string means unfiltered.
+  string section_id = 1;
+  // Optional UUID filter. Empty string means unfiltered.
+  string enrollment_id = 2;
+  // Optional status filter ("in_progress", "withdrawn", etc.). Empty string means unfiltered.
+  string status = 3;
+}
+
+message ListSectionEnrollmentsResponse {
+  repeated SectionEnrollment section_enrollments = 1;
+}
