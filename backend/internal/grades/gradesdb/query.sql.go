@@ -85,6 +85,45 @@ func (q *Queries) GetGradeByID(ctx context.Context, id pgtype.UUID) (Grade, erro
 	return i, err
 }
 
+const getGradeByIDForTeacher = `-- name: GetGradeByIDForTeacher :one
+SELECT g.id, g.evaluation_id, g.section_enrollment_id, g.graded_by, g.value, g.evaluated_at, g.version, g.created_at, g.updated_at, g.created_by, g.updated_by, g.deleted_at
+FROM grades g
+JOIN section_enrollments se ON se.id = g.section_enrollment_id
+WHERE g.id = $1
+  AND g.deleted_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM section_teachers st
+    WHERE st.section_id = se.section_id AND st.teacher_id = $2
+  )
+`
+
+type GetGradeByIDForTeacherParams struct {
+	ID        pgtype.UUID
+	TeacherID pgtype.UUID
+}
+
+// Fetches a grade by primary key only if the caller is in section_teachers for the grade's section.
+// Returns no rows if the grade does not exist or the caller is not in that section.
+func (q *Queries) GetGradeByIDForTeacher(ctx context.Context, arg GetGradeByIDForTeacherParams) (Grade, error) {
+	row := q.db.QueryRow(ctx, getGradeByIDForTeacher, arg.ID, arg.TeacherID)
+	var i Grade
+	err := row.Scan(
+		&i.ID,
+		&i.EvaluationID,
+		&i.SectionEnrollmentID,
+		&i.GradedBy,
+		&i.Value,
+		&i.EvaluatedAt,
+		&i.Version,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const getGradeByKey = `-- name: GetGradeByKey :one
 SELECT id, evaluation_id, section_enrollment_id, graded_by, value, evaluated_at, version, created_at, updated_at, created_by, updated_by, deleted_at FROM grades
 WHERE evaluation_id = $1
@@ -371,6 +410,59 @@ WHERE se.section_id = $1
 // Caller must scope by their section_teachers membership in the service layer.
 func (q *Queries) ListGradesForSection(ctx context.Context, sectionID pgtype.UUID) ([]Grade, error) {
 	rows, err := q.db.Query(ctx, listGradesForSection, sectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Grade
+	for rows.Next() {
+		var i Grade
+		if err := rows.Scan(
+			&i.ID,
+			&i.EvaluationID,
+			&i.SectionEnrollmentID,
+			&i.GradedBy,
+			&i.Value,
+			&i.EvaluatedAt,
+			&i.Version,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CreatedBy,
+			&i.UpdatedBy,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGradesForSectionByTeacher = `-- name: ListGradesForSectionByTeacher :many
+SELECT g.id, g.evaluation_id, g.section_enrollment_id, g.graded_by, g.value, g.evaluated_at, g.version, g.created_at, g.updated_at, g.created_by, g.updated_by, g.deleted_at
+FROM grades g
+JOIN section_enrollments se ON se.id = g.section_enrollment_id
+WHERE se.section_id = $1
+  AND g.deleted_at IS NULL
+  AND se.deleted_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM section_teachers st
+    WHERE st.section_id = $1 AND st.teacher_id = $2
+  )
+`
+
+type ListGradesForSectionByTeacherParams struct {
+	SectionID pgtype.UUID
+	TeacherID pgtype.UUID
+}
+
+// Lists grades for all section_enrollments in a section, scoped to a teacher.
+// Returns empty if the teacher is not in section_teachers for the section.
+func (q *Queries) ListGradesForSectionByTeacher(ctx context.Context, arg ListGradesForSectionByTeacherParams) ([]Grade, error) {
+	rows, err := q.db.Query(ctx, listGradesForSectionByTeacher, arg.SectionID, arg.TeacherID)
 	if err != nil {
 		return nil, err
 	}

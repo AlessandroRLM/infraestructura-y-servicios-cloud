@@ -78,8 +78,18 @@ type Repository interface {
 	// ListGradesForSection returns grades for all section_enrollments in a section.
 	ListGradesForSection(ctx context.Context, sectionID uuid.UUID) ([]gradesdb.Grade, error)
 
+	// ListGradesForSectionByTeacher returns grades scoped to sections where callerID
+	// is a member of section_teachers. Returns an empty slice if the caller is not a
+	// teacher of the section.
+	ListGradesForSectionByTeacher(ctx context.Context, sectionID, callerID uuid.UUID) ([]gradesdb.Grade, error)
+
 	// GetGrade returns a single grade by id.
 	GetGrade(ctx context.Context, id uuid.UUID) (gradesdb.Grade, error)
+
+	// GetGradeByIDForTeacher returns a grade by id only if the callerID is in
+	// section_teachers for the grade's section. Returns ErrNotFound when the grade does
+	// not exist or the caller is not a member of the grade's section.
+	GetGradeByIDForTeacher(ctx context.Context, id, callerID uuid.UUID) (gradesdb.Grade, error)
 
 	// ListOwnGrades returns all grades for the given student.
 	ListOwnGrades(ctx context.Context, studentID uuid.UUID) ([]gradesdb.Grade, error)
@@ -411,9 +421,35 @@ func (r *postgresRepository) ListGradesForSection(ctx context.Context, sectionID
 	return rows, nil
 }
 
+// ListGradesForSectionByTeacher returns grades scoped to sections where callerID is in
+// section_teachers. Returns an empty slice (no error) if the caller is not a member.
+func (r *postgresRepository) ListGradesForSectionByTeacher(ctx context.Context, sectionID, callerID uuid.UUID) ([]gradesdb.Grade, error) {
+	rows, err := r.q.ListGradesForSectionByTeacher(ctx, gradesdb.ListGradesForSectionByTeacherParams{
+		SectionID: pgtype.UUID{Bytes: sectionID, Valid: true},
+		TeacherID: pgtype.UUID{Bytes: callerID, Valid: true},
+	})
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
+}
+
 // GetGrade returns a single grade by id.
 func (r *postgresRepository) GetGrade(ctx context.Context, id uuid.UUID) (gradesdb.Grade, error) {
 	row, err := r.q.GetGradeByID(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		return gradesdb.Grade{}, TranslatePgError(err)
+	}
+	return row, nil
+}
+
+// GetGradeByIDForTeacher returns a grade by id only when callerID is in section_teachers
+// for the grade's section. Returns ErrNotFound when absent or out of scope.
+func (r *postgresRepository) GetGradeByIDForTeacher(ctx context.Context, id, callerID uuid.UUID) (gradesdb.Grade, error) {
+	row, err := r.q.GetGradeByIDForTeacher(ctx, gradesdb.GetGradeByIDForTeacherParams{
+		ID:        pgtype.UUID{Bytes: id, Valid: true},
+		TeacherID: pgtype.UUID{Bytes: callerID, Valid: true},
+	})
 	if err != nil {
 		return gradesdb.Grade{}, TranslatePgError(err)
 	}

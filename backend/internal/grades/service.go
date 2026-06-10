@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
 )
 
@@ -159,22 +160,55 @@ func (s *Service) OverrideGrade(ctx context.Context, evalIDStr, seIDStr, valueSt
 }
 
 // ListGradesForSection returns grades scoped to a section.
-// Teacher callers have their results scoped by section_teachers in the query.
+// Admin callers (grades.override) receive all grades for the section.
+// Teacher callers (grades.read only) receive only grades from sections where they are
+// in section_teachers; out-of-scope sections return an empty list.
 func (s *Service) ListGradesForSection(ctx context.Context, sectionIDStr string) ([]gradesdb.Grade, error) {
 	sectionID, err := parseServiceUUID(sectionIDStr)
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.ListGradesForSection(ctx, sectionID)
+
+	if callerIsAdmin(ctx) {
+		return s.repo.ListGradesForSection(ctx, sectionID)
+	}
+
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("%w: no authenticated user", ErrNotFound)
+	}
+	return s.repo.ListGradesForSectionByTeacher(ctx, sectionID, callerID)
 }
 
-// GetGrade returns a grade by id. Out-of-scope requests return ErrNotFound.
+// GetGrade returns a grade by id. Admin callers (grades.override) can fetch any grade.
+// Teacher callers (grades.read only) are scoped to sections where they are in
+// section_teachers; out-of-scope grades return ErrNotFound (never PermissionDenied).
 func (s *Service) GetGrade(ctx context.Context, idStr string) (gradesdb.Grade, error) {
 	id, err := parseServiceUUID(idStr)
 	if err != nil {
 		return gradesdb.Grade{}, err
 	}
-	return s.repo.GetGrade(ctx, id)
+
+	if callerIsAdmin(ctx) {
+		return s.repo.GetGrade(ctx, id)
+	}
+
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return gradesdb.Grade{}, fmt.Errorf("%w: no authenticated user", ErrNotFound)
+	}
+	return s.repo.GetGradeByIDForTeacher(ctx, id, callerID)
+}
+
+// callerIsAdmin returns true when the authenticated caller holds the grades.override
+// permission, which identifies admin-level access. This determines whether read
+// operations are unscoped (admin) or restricted to the caller's sections (teacher).
+func callerIsAdmin(ctx context.Context) bool {
+	perms, ok := authz.PermissionsFromContext(ctx)
+	if !ok {
+		return false
+	}
+	return perms.Has(authz.PermGradesOverride)
 }
 
 // ListOwnGrades returns all grades for the authenticated student.

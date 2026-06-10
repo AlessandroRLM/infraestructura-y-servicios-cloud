@@ -98,6 +98,33 @@ WHERE se.section_id = $1
   AND g.deleted_at IS NULL
   AND se.deleted_at IS NULL;
 
+-- name: ListGradesForSectionByTeacher :many
+-- Lists grades for all section_enrollments in a section, scoped to a teacher.
+-- Returns empty if the teacher is not in section_teachers for the section.
+SELECT g.*
+FROM grades g
+JOIN section_enrollments se ON se.id = g.section_enrollment_id
+WHERE se.section_id = $1
+  AND g.deleted_at IS NULL
+  AND se.deleted_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM section_teachers st
+    WHERE st.section_id = $1 AND st.teacher_id = $2
+  );
+
+-- name: GetGradeByIDForTeacher :one
+-- Fetches a grade by primary key only if the caller is in section_teachers for the grade's section.
+-- Returns no rows if the grade does not exist or the caller is not in that section.
+SELECT g.*
+FROM grades g
+JOIN section_enrollments se ON se.id = g.section_enrollment_id
+WHERE g.id = $1
+  AND g.deleted_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM section_teachers st
+    WHERE st.section_id = se.section_id AND st.teacher_id = $2
+  );
+
 -- name: ListOwnGrades :many
 -- Lists all grades for a student by joining through enrollments.
 SELECT g.*

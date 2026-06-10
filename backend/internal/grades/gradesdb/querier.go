@@ -20,6 +20,9 @@ type Querier interface {
 	GetEvaluationByID(ctx context.Context, id pgtype.UUID) (Evaluation, error)
 	// Fetches a grade by primary key.
 	GetGradeByID(ctx context.Context, id pgtype.UUID) (Grade, error)
+	// Fetches a grade by primary key only if the caller is in section_teachers for the grade's section.
+	// Returns no rows if the grade does not exist or the caller is not in that section.
+	GetGradeByIDForTeacher(ctx context.Context, arg GetGradeByIDForTeacherParams) (Grade, error)
 	// Fetches a grade by its unique business key (used to read current version on conflict).
 	GetGradeByKey(ctx context.Context, arg GetGradeByKeyParams) (Grade, error)
 	// Locks the section_enrollment row FOR UPDATE and resolves section_id and course_id.
@@ -45,6 +48,9 @@ type Querier interface {
 	// Lists grades for all section_enrollments in a section.
 	// Caller must scope by their section_teachers membership in the service layer.
 	ListGradesForSection(ctx context.Context, sectionID pgtype.UUID) ([]Grade, error)
+	// Lists grades for all section_enrollments in a section, scoped to a teacher.
+	// Returns empty if the teacher is not in section_teachers for the section.
+	ListGradesForSectionByTeacher(ctx context.Context, arg ListGradesForSectionByTeacherParams) ([]Grade, error)
 	// Lists all grades for a student by joining through enrollments.
 	ListOwnGrades(ctx context.Context, studentID pgtype.UUID) ([]Grade, error)
 	// Soft-deletes all live evaluations for a course (RecreateEvaluationScheme path).
