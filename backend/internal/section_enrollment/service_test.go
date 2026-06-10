@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment/section_enrollmentdb"
@@ -68,6 +70,10 @@ func (f *fakeRepository) ListOwnSectionEnrollments(_ context.Context, _ uuid.UUI
 func (f *fakeRepository) GetOwnSectionEnrollment(_ context.Context, _ uuid.UUID) (section_enrollmentdb.SectionEnrollment, error) {
 	f.getOwnCalled = true
 	return f.getOwnRow, f.getOwnErr
+}
+
+func (f *fakeRepository) SetSectionEnrollmentOutcomeTx(_ context.Context, _ pgx.Tx, _ uuid.UUID, _ string, _ pgtype.Numeric) (section_enrollmentdb.SectionEnrollment, error) {
+	return section_enrollmentdb.SectionEnrollment{}, nil
 }
 
 // contextWithUser adds a user ID to the context (mirrors auth.WithUserID).

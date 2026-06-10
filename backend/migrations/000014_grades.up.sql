@@ -10,9 +10,13 @@ CREATE TABLE evaluations (
     position   INT          NOT NULL,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    deleted_at TIMESTAMPTZ,
-    UNIQUE (course_id, position)
+    deleted_at TIMESTAMPTZ
 );
+
+-- Partial unique index: enforces (course_id, position) uniqueness only among live
+-- evaluations (deleted_at IS NULL). This allows RecreateEvaluationScheme to soft-delete
+-- the old scheme and insert a new one at the same positions without a constraint violation.
+CREATE UNIQUE INDEX evaluations_course_position_active_idx ON evaluations (course_id, position) WHERE deleted_at IS NULL;
 
 CREATE INDEX evaluations_course_idx ON evaluations (course_id) WHERE deleted_at IS NULL;
 

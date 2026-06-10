@@ -21,6 +21,16 @@ type AcademicPeriod struct {
 	EnrollmentEndsAt   pgtype.Timestamptz
 }
 
+type AuditLog struct {
+	ID        pgtype.UUID
+	ActorID   pgtype.UUID
+	Action    string
+	Entity    string
+	EntityID  pgtype.UUID
+	Detail    []byte
+	CreatedAt pgtype.Timestamptz
+}
+
 type Course struct {
 	ID        pgtype.UUID
 	Code      string
@@ -45,6 +55,31 @@ type Enrollment struct {
 	DeletedAt pgtype.Timestamptz
 	CreatedBy pgtype.UUID
 	UpdatedBy pgtype.UUID
+}
+
+type Evaluation struct {
+	ID        pgtype.UUID
+	CourseID  pgtype.UUID
+	Weight    pgtype.Numeric
+	Position  int32
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
+}
+
+type Grade struct {
+	ID                  pgtype.UUID
+	EvaluationID        pgtype.UUID
+	SectionEnrollmentID pgtype.UUID
+	GradedBy            pgtype.UUID
+	Value               pgtype.Numeric
+	EvaluatedAt         pgtype.Timestamptz
+	Version             int32
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
+	CreatedBy           pgtype.UUID
+	UpdatedBy           pgtype.UUID
+	DeletedAt           pgtype.Timestamptz
 }
 
 type Permission struct {
@@ -118,6 +153,7 @@ type SectionEnrollment struct {
 	CreatedAt    pgtype.Timestamptz
 	UpdatedAt    pgtype.Timestamptz
 	DeletedAt    pgtype.Timestamptz
+	FinalGrade   pgtype.Numeric
 }
 
 type SectionTeacher struct {

@@ -299,15 +299,18 @@ func (r *postgresRepository) RecordGradeTx(ctx context.Context, p RecordGradePar
 		CreatedBy:           actorUUID,
 		UpdatedBy:           actorUUID,
 	})
-	if err != nil {
+	// ON CONFLICT DO NOTHING returns pgx.ErrNoRows (0 rows from RETURNING *).
+	// This is NOT a fatal error — it means the grade already exists (conflict path).
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return gradesdb.Grade{}, RecordOutcome{}, TranslatePgError(err)
 	}
 
-	if inserted.ID.Valid {
+	if err == nil && inserted.ID.Valid {
 		// Successful insert (first write).
 		resultGrade = inserted
 	} else {
-		// Conflict: grade already exists. Require expected_version.
+		// Conflict: grade already exists (ON CONFLICT DO NOTHING returned 0 rows).
+		// Require expected_version.
 		existing, err := q.GetGradeByKey(ctx, gradesdb.GetGradeByKeyParams{
 			EvaluationID:        pgtype.UUID{Bytes: p.EvaluationID, Valid: true},
 			SectionEnrollmentID: pgtype.UUID{Bytes: p.SectionEnrollmentID, Valid: true},

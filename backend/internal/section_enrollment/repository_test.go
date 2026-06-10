@@ -148,6 +148,10 @@ func (f *fakeQuerier) ListOwnSectionEnrollments(_ context.Context, _ pgtype.UUID
 	return f.listOwnRows, f.listOwnErr
 }
 
+func (f *fakeQuerier) SetSectionEnrollmentOutcome(_ context.Context, _ section_enrollmentdb.SetSectionEnrollmentOutcomeParams) (section_enrollmentdb.SectionEnrollment, error) {
+	return section_enrollmentdb.SectionEnrollment{}, nil
+}
+
 // makePgUUID creates a valid pgtype.UUID from a uuid.UUID.
 func makePgUUID(id uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: id, Valid: true}
