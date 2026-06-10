@@ -1,0 +1,36 @@
+info:
+  name: 18 Setup Mark Enrollment B Paid
+  type: http
+  seq: 18
+
+http:
+  method: POST
+  url: "{{host}}/enrollment.v1.EnrollmentService/MarkEnrollmentPaid"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{enroll_b_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Enrollment setup — marks student B's enrollment as paid.
+  Replaces: grpc enr MarkEnrollmentPaid student B in run_section_enrollment_flow.sh.
+  Bash check: "MarkEnrollmentPaid student B -> paid"

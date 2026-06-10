@@ -1,0 +1,41 @@
+info:
+  name: 52 Denial Setup Noadmin Login
+  type: http
+  seq: 52
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/Login"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{noadmin_email}}",
+        "password": "{{noadmin_password}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const sc = res.headers["set-cookie"];
+        const raw = Array.isArray(sc) ? sc.join(";") : String(sc || "");
+        const m = raw.match(/sid=([^;]+)/);
+        if (m) { bru.setVar("noadmin_sid", m[1]); }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Denial setup — step 3: role-less user login. Captures noadmin_sid.
+  Replaces: NOADMIN_SID capture in run_section_enrollment_flow.sh.

@@ -1,0 +1,37 @@
+info:
+  name: 09 Setup Add Course To Program
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/AddCourseToProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{prog_id}}",
+        "courseId": "{{course_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Catalog setup — associates course with program (M:N link).
+  Replaces: grpc cat AddCourseToProgram in run_section_enrollment_flow.sh.
+  Bash check: "AddCourseToProgram"

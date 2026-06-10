@@ -1,0 +1,34 @@
+info:
+  name: 07 Login Blank Email
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/Login"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "",
+        "password": "something"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "invalid_argument"
+
+docs: |
+  Login table case: blank email -> invalid_argument.
+  Replaces: login_cases.json row "blank email" in run_auth_flow.sh.

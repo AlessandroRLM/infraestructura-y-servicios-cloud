@@ -1,0 +1,49 @@
+info:
+  name: 13 Setup Create Section Closed Window
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "courseId": "{{course_id}}",
+        "academicPeriodId": "{{closed_period_id}}",
+        "seatCapacity": 10
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("closed_section_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+
+docs: |
+  Catalog setup — creates a section in the closed-window period (window starts +24h from now).
+  closed_period_id must be set by seed.sh.
+  Replaces: grpc cat CreateSection (closed window) in run_section_enrollment_flow.sh.
+  Bash check: "CreateSection (closed window)"

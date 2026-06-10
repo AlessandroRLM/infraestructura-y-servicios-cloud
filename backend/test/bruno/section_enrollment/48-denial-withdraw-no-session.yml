@@ -1,0 +1,34 @@
+info:
+  name: 48 Denial WithdrawSection No Session
+  type: http
+  seq: 48
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/WithdrawSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{se_b_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "unauthenticated"
+
+docs: |
+  Denial: WithdrawSection without a session cookie -> unauthenticated.
+  Replaces: grpc se WithdrawSection (no cookie) in run_section_enrollment_flow.sh.
+  Bash check: "WithdrawSection without session (-> Unauthenticated)"

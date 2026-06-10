@@ -1,0 +1,37 @@
+info:
+  name: 05 Setup Upsert Student Profile B
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{host}}/profiles.v1.ProfileService/UpsertStudentProfile"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "userId": "{{student_b_id}}",
+        "admissionYear": 2026
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Section enrollment setup — upsert student profile for student B.
+  Replaces: grpc prof UpsertStudentProfile B in run_section_enrollment_flow.sh.
+  Bash check: "UpsertStudentProfile B"

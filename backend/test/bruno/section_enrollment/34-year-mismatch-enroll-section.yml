@@ -1,0 +1,38 @@
+info:
+  name: 34 Year Mismatch EnrollSection
+  type: http
+  seq: 34
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "enrollmentId": "{{enroll_a_2025_id}}",
+        "sectionId": "{{section_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "failed_precondition"
+
+docs: |
+  Year mismatch: admin attempts to enroll student A's year=2025 enrollment into a section
+  belonging to a year=2026 academic period. Should return failed_precondition.
+  Replaces: grpc se EnrollSection year mismatch in run_section_enrollment_flow.sh.
+  Bash check: "EnrollSection year mismatch (-> FailedPrecondition)"

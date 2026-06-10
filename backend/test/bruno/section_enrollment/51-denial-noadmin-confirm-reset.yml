@@ -1,0 +1,33 @@
+info:
+  name: 51 Denial Setup Noadmin Confirm Reset
+  type: http
+  seq: 51
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/ConfirmPasswordReset"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "token": "{{noadmin_reset_token}}",
+        "newPassword": "{{noadmin_password}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Denial setup — step 2: confirm password reset for noadmin user.

@@ -1,0 +1,39 @@
+info:
+  name: 25 Setup Student C Request Reset
+  type: http
+  seq: 25
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/RequestPasswordReset"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{student_c_email}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.devToken) {
+          bru.setVar("student_c_reset_token", body.devToken);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Student C login_with_reset — step 1: request password reset.

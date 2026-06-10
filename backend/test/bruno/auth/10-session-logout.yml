@@ -1,0 +1,34 @@
+info:
+  name: 10 Session Logout
+  type: http
+  seq: 10
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/Logout"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Session lifecycle: logout with valid cookie -> OK.
+  Replaces: call_h Logout with valid sid in run_auth_flow.sh.
+  Bash check: "logout with valid cookie"

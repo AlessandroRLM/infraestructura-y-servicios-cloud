@@ -1,0 +1,41 @@
+info:
+  name: 33 Not Paid EnrollOwnSection
+  type: http
+  seq: 33
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollOwnSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{student_c_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{section_id}}",
+        "programId": "{{prog_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "failed_precondition"
+
+docs: |
+  Not paid: student C has a pending (unpaid) enrollment. Attempting to enroll in an open-window
+  section should return failed_precondition (ErrNotPaid).
+  NOTE: The bash script checks the open-window section here, not the closed one. At this point
+  the section has 2/2 seats filled; the server may return failed_precondition for "not paid"
+  before or after the capacity check — either way the expected code is the same.
+  Replaces: grpc se EnrollOwnSection not paid in run_section_enrollment_flow.sh.
+  Bash check: "EnrollOwnSection not paid (-> FailedPrecondition)"

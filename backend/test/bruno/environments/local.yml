@@ -1,0 +1,30 @@
+environment: local
+
+variables:
+  - name: host
+    value: http://localhost:8080
+    enabled: true
+  - name: admin_email
+    value: admin@dev.local
+    enabled: true
+  - name: admin_password
+    value: AdminSmoke123!
+    enabled: true
+  - name: noadmin_email
+    value: noadmin@se.smoke
+    enabled: true
+  - name: noadmin_password
+    value: NoAdminSESmoke123!
+    enabled: true
+  - name: admin_sid
+    value: ""
+    enabled: true
+  - name: noadmin_sid
+    value: ""
+    enabled: true
+  - name: student_a_sid
+    value: ""
+    enabled: true
+  - name: student_c_sid
+    value: ""
+    enabled: true

@@ -1,0 +1,40 @@
+info:
+  name: 04 Setup Upsert Student Profile A
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{host}}/profiles.v1.ProfileService/UpsertStudentProfile"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "userId": "{{student_a_id}}",
+        "admissionYear": 2026
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Section enrollment setup — upsert student profile for student A.
+  NOTE: student_a_id must be seeded by seed.sh before running this collection.
+  seed.sh inserts the user rows and exports the IDs; they are then stored in
+  collection variables by a manual step or a CI env-var injection.
+  Replaces: grpc prof UpsertStudentProfile A in run_section_enrollment_flow.sh.
+  Bash check: "UpsertStudentProfile A"

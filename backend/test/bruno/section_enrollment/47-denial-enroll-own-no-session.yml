@@ -1,0 +1,35 @@
+info:
+  name: 47 Denial EnrollOwnSection No Session
+  type: http
+  seq: 47
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollOwnSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{section_id}}",
+        "programId": "{{prog_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "unauthenticated"
+
+docs: |
+  Denial: EnrollOwnSection without a session cookie -> unauthenticated.
+  Replaces: grpc se EnrollOwnSection (no cookie) in run_section_enrollment_flow.sh.
+  Bash check: "EnrollOwnSection without session (-> Unauthenticated)"

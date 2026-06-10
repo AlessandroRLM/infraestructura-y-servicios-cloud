@@ -1,0 +1,45 @@
+info:
+  name: 17 Setup Create Enrollment Student B
+  type: http
+  seq: 17
+
+http:
+  method: POST
+  url: "{{host}}/enrollment.v1.EnrollmentService/CreateEnrollment"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "studentId": "{{student_b_id}}",
+        "programId": "{{prog_id}}",
+        "year": 2026
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("enroll_b_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Enrollment setup — creates a pending enrollment for student B (year=2026).
+  Replaces: grpc enr CreateEnrollment student B in run_section_enrollment_flow.sh.
+  Bash check: "CreateEnrollment student B -> pending"

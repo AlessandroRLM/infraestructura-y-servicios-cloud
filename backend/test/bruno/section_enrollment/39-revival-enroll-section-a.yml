@@ -1,0 +1,49 @@
+info:
+  name: 39 Revival EnrollSection Student A
+  type: http
+  seq: 39
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "enrollmentId": "{{enroll_a_id}}",
+        "sectionId": "{{section_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("se_a_revived_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.status
+      operator: eq
+      value: "in_progress"
+
+docs: |
+  Revival (admin-only): admin re-enrolls the withdrawn (enrollment_A, section) pair.
+  The seat freed by the withdraw is re-occupied. Inscription transitions to in_progress.
+  Captures se_a_revived_id for the self-revive test.
+  Replaces: grpc se EnrollSection revive student A in run_section_enrollment_flow.sh.
+  Bash checks: "EnrollSection revive student A -> in_progress", "EnrollSection revived status is in_progress"

@@ -1,0 +1,39 @@
+info:
+  name: 41 Self-Revive Rejected EnrollOwnSection
+  type: http
+  seq: 41
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollOwnSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{section_id}}",
+        "programId": "{{prog_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "failed_precondition"
+
+docs: |
+  Student cannot self-revive: student A tries to re-enroll in a section where their inscription
+  is in withdrawn state. Should return failed_precondition (ErrWithdrawnNotRevivable).
+  Only admins can revive via EnrollSection.
+  Replaces: grpc se EnrollOwnSection student self-revive withdrawn in run_section_enrollment_flow.sh.
+  Bash check: "EnrollOwnSection student self-revive withdrawn -> FailedPrecondition"

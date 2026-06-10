@@ -1,0 +1,37 @@
+info:
+  name: 53 Denial Role-less EnrollSection
+  type: http
+  seq: 53
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{noadmin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "enrollmentId": "{{enroll_a_id}}",
+        "sectionId": "{{section_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "permission_denied"
+
+docs: |
+  Denial: role-less user attempts EnrollSection (requires enrollment.manage) -> permission_denied.
+  Replaces: grpc se EnrollSection (noadmin) in run_section_enrollment_flow.sh.
+  Bash check: "role-less EnrollSection (-> PermissionDenied)"

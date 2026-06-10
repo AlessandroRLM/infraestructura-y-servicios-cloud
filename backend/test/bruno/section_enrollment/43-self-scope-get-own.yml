@@ -1,0 +1,36 @@
+info:
+  name: 43 Self-Scope GetOwnSectionEnrollment Own ID
+  type: http
+  seq: 43
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/GetOwnSectionEnrollment"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{se_a_final_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Self-scope: student A fetches their own section enrollment by ID. Should succeed.
+  Replaces: grpc se GetOwnSectionEnrollment (own id) in run_section_enrollment_flow.sh.
+  Bash check: "GetOwnSectionEnrollment student A (own id)"

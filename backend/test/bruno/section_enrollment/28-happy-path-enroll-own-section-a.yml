@@ -1,0 +1,48 @@
+info:
+  name: 28 Happy Path EnrollOwnSection Student A
+  type: http
+  seq: 28
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollOwnSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{section_id}}",
+        "programId": "{{prog_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("se_a_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.status
+      operator: eq
+      value: "in_progress"
+
+docs: |
+  Happy path: student A self-enrolls into the open-window section with a paid enrollment.
+  Captures se_a_id for use in downstream tests.
+  Replaces: grpc se EnrollOwnSection (student A) in run_section_enrollment_flow.sh.
+  Bash checks: "EnrollOwnSection student A -> in_progress", "EnrollOwnSection status is in_progress"

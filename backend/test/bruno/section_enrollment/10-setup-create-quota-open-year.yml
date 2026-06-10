@@ -1,0 +1,38 @@
+info:
+  name: 10 Setup Create Program Quota Open Year
+  type: http
+  seq: 10
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgramQuota"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{prog_id}}",
+        "year": 2026,
+        "admissionQuota": 50
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Catalog setup — program quota for enrollment year 2026.
+  Replaces: grpc cat CreateProgramQuota (year=2026) in run_section_enrollment_flow.sh.
+  Bash check: "CreateProgramQuota (year=2026)"

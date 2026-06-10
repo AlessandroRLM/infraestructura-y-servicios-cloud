@@ -1,0 +1,35 @@
+info:
+  name: 55 Denial Role-less ListOwnSectionEnrollments
+  type: http
+  seq: 55
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/ListOwnSectionEnrollments"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{noadmin_sid}}"
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "permission_denied"
+
+docs: |
+  Denial: role-less user attempts ListOwnSectionEnrollments (requires sections.enroll or equivalent
+  student permission) -> permission_denied.
+  Replaces: grpc se ListOwnSectionEnrollments (noadmin) in run_section_enrollment_flow.sh.
+  Bash check: "role-less ListOwnSectionEnrollments (-> PermissionDenied)"

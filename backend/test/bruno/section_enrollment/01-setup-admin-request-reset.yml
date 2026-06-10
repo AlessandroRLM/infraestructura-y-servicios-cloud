@@ -1,0 +1,58 @@
+info:
+  name: 01 Setup Admin Request Reset
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/RequestPasswordReset"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{admin_email}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Seed a unique suffix for this run so repeated executions against a
+        // persistent DB do not collide on unique code/email constraints.
+        // faker.seed(42) makes the suffix reproducible within a single bru run.
+        const { faker } = require("@faker-js/faker");
+        faker.seed(Date.now());
+        const sfx = String(Date.now()).slice(-6);
+        bru.setVar("sfx", sfx);
+        bru.setVar("enroll_year", 2026);
+        bru.setVar("mismatch_year", 2025);
+        // Student emails, period ids, and terms come from seed.sh via env vars:
+        // the users and academic periods are created there, outside the API.
+        bru.setVar("prog_code", `SEPROG-${sfx}`);
+        bru.setVar("course_code", `SECRS-${sfx}`);
+        bru.setVar("other_prog_code", `SEOTHER-${sfx}`);
+        console.log(`[setup] sfx=${sfx}`);
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.devToken) {
+          bru.setVar("admin_reset_token", body.devToken);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Section enrollment setup — step 1: request password reset for admin.
+  Also generates all run-scoped faker variables (sfx, student emails, codes, terms).
+  Replaces: login_with_reset "$ADMIN_EMAIL" in run_section_enrollment_flow.sh.

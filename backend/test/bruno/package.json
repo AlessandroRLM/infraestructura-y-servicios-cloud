@@ -1,0 +1,9 @@
+{
+  "name": "backend-smoke",
+  "version": "1.0.0",
+  "description": "Bruno collection npm dependencies for backend-smoke",
+  "private": true,
+  "dependencies": {
+    "@faker-js/faker": "^9.0.0"
+  }
+}

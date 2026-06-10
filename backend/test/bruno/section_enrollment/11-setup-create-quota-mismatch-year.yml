@@ -1,0 +1,38 @@
+info:
+  name: 11 Setup Create Program Quota Mismatch Year
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgramQuota"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{prog_id}}",
+        "year": 2025,
+        "admissionQuota": 50
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Catalog setup — program quota for mismatch year 2025 (needed for the year-mismatch test).
+  Replaces: grpc cat CreateProgramQuota (year=2025) in run_section_enrollment_flow.sh.
+  Bash check: "CreateProgramQuota (year=2025)"

@@ -1,0 +1,41 @@
+info:
+  name: 01 Admin Request Password Reset
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/RequestPasswordReset"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{admin_email}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.devToken) {
+          bru.setVar("admin_reset_token", body.devToken);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Step 1 of the login_with_reset flow for the admin actor.
+  Captures devToken from the response (APP_ENV=dev only) into var admin_reset_token.
+  Replaces: grpc auth RequestPasswordReset in run_section_enrollment_flow.sh (admin login setup).

@@ -1,0 +1,38 @@
+info:
+  name: 32 Window Closed EnrollOwnSection
+  type: http
+  seq: 32
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollOwnSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{student_c_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{closed_section_id}}",
+        "programId": "{{prog_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "failed_precondition"
+
+docs: |
+  Window closed: student C attempts to self-enroll into a section whose enrollment window
+  hasn't opened yet (enrollment_starts_at = now+24h). Should return failed_precondition.
+  Replaces: grpc se EnrollOwnSection window closed in run_section_enrollment_flow.sh.
+  Bash check: "EnrollOwnSection window closed (-> FailedPrecondition)"

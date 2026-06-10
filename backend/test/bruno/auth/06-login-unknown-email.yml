@@ -1,0 +1,34 @@
+info:
+  name: 06 Login Unknown Email
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/Login"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "ghost@dev.local",
+        "password": "whatever"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "unauthenticated"
+
+docs: |
+  Login table case: unknown email -> unauthenticated.
+  Replaces: login_cases.json row "unknown email" in run_auth_flow.sh.

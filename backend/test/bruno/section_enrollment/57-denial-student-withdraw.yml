@@ -1,0 +1,36 @@
+info:
+  name: 57 Denial Student WithdrawSection Management RPC
+  type: http
+  seq: 57
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/WithdrawSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{se_b_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "permission_denied"
+
+docs: |
+  Denial: a student tries to call the admin-only WithdrawSection RPC -> permission_denied.
+  Replaces: grpc se WithdrawSection (student A) in run_section_enrollment_flow.sh.
+  Bash check: "student WithdrawSection (management RPC) (-> PermissionDenied)"

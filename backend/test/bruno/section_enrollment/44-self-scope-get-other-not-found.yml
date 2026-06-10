@@ -1,0 +1,37 @@
+info:
+  name: 44 Self-Scope GetOwnSectionEnrollment Other Student ID Not Found
+  type: http
+  seq: 44
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/GetOwnSectionEnrollment"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{se_b_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "not_found"
+
+docs: |
+  Self-scope: student A tries to fetch student B's section enrollment ID. The server must
+  not disclose existence — returns not_found regardless of actual existence.
+  Replaces: grpc se GetOwnSectionEnrollment other student's id in run_section_enrollment_flow.sh.
+  Bash check: "GetOwnSectionEnrollment other student's id -> NotFound"

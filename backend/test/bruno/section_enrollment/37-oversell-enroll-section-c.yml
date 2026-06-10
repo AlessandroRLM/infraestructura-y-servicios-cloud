@@ -1,0 +1,38 @@
+info:
+  name: 37 Oversell EnrollSection Student C
+  type: http
+  seq: 37
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "enrollmentId": "{{enroll_c_id}}",
+        "sectionId": "{{section_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "failed_precondition"
+
+docs: |
+  Oversell: capacity=2, students A and B already enrolled (2/2). Admin attempts a 3rd enrollment.
+  Should return failed_precondition (ErrSectionFull).
+  Replaces: grpc se EnrollSection oversell (section full) in run_section_enrollment_flow.sh.
+  Bash check: "EnrollSection oversell (section full) (-> FailedPrecondition)"

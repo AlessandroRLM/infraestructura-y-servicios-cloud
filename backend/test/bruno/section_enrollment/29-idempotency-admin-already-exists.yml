@@ -1,0 +1,38 @@
+info:
+  name: 29 Idempotency EnrollSection Admin Already Exists
+  type: http
+  seq: 29
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "enrollmentId": "{{enroll_a_id}}",
+        "sectionId": "{{section_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "already_exists"
+
+docs: |
+  Idempotency/duplicate: admin tries to re-enroll an already in_progress (enrollment, section) pair.
+  The section is not full (only 1 seat taken) so capacity is not the limiting factor — uniqueness fires.
+  Replaces: grpc se EnrollSection duplicate in_progress (admin) in run_section_enrollment_flow.sh.
+  Bash check: "EnrollSection duplicate in_progress (admin) (-> AlreadyExists)"

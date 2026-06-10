@@ -1,0 +1,37 @@
+info:
+  name: 21 Setup Mark Enrollment A 2025 Paid
+  type: http
+  seq: 21
+
+http:
+  method: POST
+  url: "{{host}}/enrollment.v1.EnrollmentService/MarkEnrollmentPaid"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{enroll_a_2025_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Enrollment setup — marks student A's 2025 enrollment as paid (needed so the year-mismatch
+  check is the limiting factor, not the unpaid state).
+  Replaces: grpc enr MarkEnrollmentPaid student A 2025 in run_section_enrollment_flow.sh.
+  Bash check: "MarkEnrollmentPaid student A 2025 -> paid"

@@ -1,0 +1,32 @@
+info:
+  name: 49 Denial ListOwnSectionEnrollments No Session
+  type: http
+  seq: 49
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/ListOwnSectionEnrollments"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "unauthenticated"
+
+docs: |
+  Denial: ListOwnSectionEnrollments without a session cookie -> unauthenticated.
+  Replaces: grpc se ListOwnSectionEnrollments (no cookie) in run_section_enrollment_flow.sh.
+  Bash check: "ListOwnSectionEnrollments without session (-> Unauthenticated)"

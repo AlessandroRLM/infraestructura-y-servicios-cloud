@@ -1,0 +1,36 @@
+info:
+  name: 54 Denial Role-less WithdrawSection
+  type: http
+  seq: 54
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/WithdrawSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{noadmin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{se_b_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "permission_denied"
+
+docs: |
+  Denial: role-less user attempts WithdrawSection (requires enrollment.manage) -> permission_denied.
+  Replaces: grpc se WithdrawSection (noadmin) in run_section_enrollment_flow.sh.
+  Bash check: "role-less WithdrawSection (-> PermissionDenied)"

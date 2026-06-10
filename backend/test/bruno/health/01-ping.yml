@@ -1,0 +1,31 @@
+info:
+  name: 01 Ping
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}/health.v1.HealthService/Ping"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Smoke-checks server reachability via HealthService.Ping (Connect-JSON).
+  Replaces: bash reachability probe in run_auth_flow.sh (pre-flight dial check).

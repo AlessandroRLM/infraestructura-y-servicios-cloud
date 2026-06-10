@@ -1,0 +1,41 @@
+info:
+  name: 50 Denial Setup Noadmin Request Reset
+  type: http
+  seq: 50
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/RequestPasswordReset"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{noadmin_email}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.devToken) {
+          bru.setVar("noadmin_reset_token", body.devToken);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Denial setup — step 1: request password reset for the role-less user (noadmin@se.smoke).
+  The user is seeded by seed.sh. No role assignment — used to verify PermissionDenied on mgmt RPCs.
+  Replaces: login_with_reset "$NOADMIN_EMAIL" in run_section_enrollment_flow.sh (denial section).
