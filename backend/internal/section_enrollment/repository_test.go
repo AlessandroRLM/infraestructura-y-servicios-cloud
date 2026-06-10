@@ -81,6 +81,13 @@ type fakeQuerier struct {
 	listOwnCalled bool
 	listOwnRows   []section_enrollmentdb.SectionEnrollment
 	listOwnErr    error
+
+	// SetSectionEnrollmentOutcome
+	setOutcomeCalled     bool
+	setOutcomeRow        section_enrollmentdb.SectionEnrollment
+	setOutcomeErr        error
+	setOutcomeLastStatus string
+	setOutcomeLastGrade  pgtype.Numeric
 }
 
 func (f *fakeQuerier) GetSectionCapacity(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.GetSectionCapacityRow, error) {
@@ -148,8 +155,11 @@ func (f *fakeQuerier) ListOwnSectionEnrollments(_ context.Context, _ pgtype.UUID
 	return f.listOwnRows, f.listOwnErr
 }
 
-func (f *fakeQuerier) SetSectionEnrollmentOutcome(_ context.Context, _ section_enrollmentdb.SetSectionEnrollmentOutcomeParams) (section_enrollmentdb.SectionEnrollment, error) {
-	return section_enrollmentdb.SectionEnrollment{}, nil
+func (f *fakeQuerier) SetSectionEnrollmentOutcome(_ context.Context, arg section_enrollmentdb.SetSectionEnrollmentOutcomeParams) (section_enrollmentdb.SectionEnrollment, error) {
+	f.setOutcomeCalled = true
+	f.setOutcomeLastStatus = arg.Status
+	f.setOutcomeLastGrade = arg.FinalGrade
+	return f.setOutcomeRow, f.setOutcomeErr
 }
 
 // makePgUUID creates a valid pgtype.UUID from a uuid.UUID.
@@ -269,5 +279,113 @@ func TestTranslatePgError_LockTimeout(t *testing.T) {
 	got := TranslatePgError(pgErr)
 	if !errors.Is(got, ErrLockTimeout) {
 		t.Errorf("TranslatePgError(55P03) = %v; want ErrLockTimeout", got)
+	}
+}
+
+// =====================================================================================
+// SetSectionEnrollmentOutcome transition guard tests (via setOutcomeWithQuerier seam).
+// The SQL WHERE clause enforces: source IN (in_progress, passed, failed) AND target IN
+// (passed, failed). Zero rows → ErrInvalidTransition. The tests here verify that the
+// repository layer correctly maps the 0-row signal to ErrInvalidTransition and
+// propagates real DB errors via TranslatePgError.
+// =====================================================================================
+
+func TestSetOutcomeWithQuerier_WithdrawnSource_ReturnsInvalidTransition(t *testing.T) {
+	t.Parallel()
+
+	// The SQL returns 0 rows (ErrNoRows) when the source status is withdrawn.
+	fq := &fakeQuerier{setOutcomeErr: pgx.ErrNoRows}
+	id := uuid.New()
+
+	_, err := setOutcomeWithQuerier(context.Background(), fq, id, "passed", pgtype.Numeric{})
+	if !fq.setOutcomeCalled {
+		t.Fatal("SetSectionEnrollmentOutcome was not called")
+	}
+	if !errors.Is(err, ErrInvalidTransition) {
+		t.Errorf("withdrawn source = %v; want ErrInvalidTransition", err)
+	}
+}
+
+func TestSetOutcomeWithQuerier_InProgressTarget_ReturnsInvalidTransition(t *testing.T) {
+	t.Parallel()
+
+	// The SQL returns 0 rows when the target is in_progress (not in allowed targets).
+	fq := &fakeQuerier{setOutcomeErr: pgx.ErrNoRows}
+	id := uuid.New()
+
+	_, err := setOutcomeWithQuerier(context.Background(), fq, id, "in_progress", pgtype.Numeric{})
+	if !errors.Is(err, ErrInvalidTransition) {
+		t.Errorf("in_progress target = %v; want ErrInvalidTransition", err)
+	}
+}
+
+func TestSetOutcomeWithQuerier_PassedToPassed_Allowed(t *testing.T) {
+	t.Parallel()
+
+	id := uuid.New()
+	expectedRow := newInsertedRow(id, uuid.New(), uuid.New())
+	expectedRow.Status = "passed"
+	fq := &fakeQuerier{setOutcomeRow: expectedRow}
+
+	got, err := setOutcomeWithQuerier(context.Background(), fq, id, "passed", pgtype.Numeric{})
+	if err != nil {
+		t.Fatalf("passed→passed: unexpected error %v", err)
+	}
+	if got.Status != "passed" {
+		t.Errorf("status = %q, want passed", got.Status)
+	}
+}
+
+func TestSetOutcomeWithQuerier_FailedToPassed_Allowed(t *testing.T) {
+	t.Parallel()
+
+	id := uuid.New()
+	expectedRow := newInsertedRow(id, uuid.New(), uuid.New())
+	expectedRow.Status = "passed"
+	fq := &fakeQuerier{setOutcomeRow: expectedRow}
+
+	got, err := setOutcomeWithQuerier(context.Background(), fq, id, "passed", pgtype.Numeric{})
+	if err != nil {
+		t.Fatalf("failed→passed: unexpected error %v", err)
+	}
+	if got.Status != "passed" {
+		t.Errorf("status = %q, want passed", got.Status)
+	}
+}
+
+func TestSetOutcomeWithQuerier_FinalGradeWrittenWithOutcome(t *testing.T) {
+	t.Parallel()
+
+	id := uuid.New()
+	expectedRow := newInsertedRow(id, uuid.New(), uuid.New())
+	expectedRow.Status = "passed"
+
+	var finalGrade pgtype.Numeric
+	_ = finalGrade.Scan("4.0")
+
+	fq := &fakeQuerier{setOutcomeRow: expectedRow}
+	_, err := setOutcomeWithQuerier(context.Background(), fq, id, "passed", finalGrade)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !fq.setOutcomeCalled {
+		t.Fatal("SetSectionEnrollmentOutcome was not called")
+	}
+	// Verify the grade was forwarded to the querier.
+	if !fq.setOutcomeLastGrade.Valid {
+		t.Error("final_grade forwarded to querier must be valid (non-null)")
+	}
+}
+
+func TestSetOutcomeWithQuerier_DBError_Propagated(t *testing.T) {
+	t.Parallel()
+
+	dbErr := &pgconn.PgError{Code: "23503"}
+	fq := &fakeQuerier{setOutcomeErr: dbErr}
+	id := uuid.New()
+
+	_, err := setOutcomeWithQuerier(context.Background(), fq, id, "passed", pgtype.Numeric{})
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("FK violation = %v; want ErrInvalidInput", err)
 	}
 }
