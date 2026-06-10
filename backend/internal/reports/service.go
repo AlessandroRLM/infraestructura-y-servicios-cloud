@@ -3,6 +3,7 @@ package reports
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -373,7 +374,11 @@ func buildOccupancyResponse(periodID uuid.UUID, rows []reportsdb.OccupancyForPer
 	protoRows := make([]*reportsv1.SectionOccupancyRow, 0, len(rows))
 	for _, r := range rows {
 		sectionID := uuid.UUID(r.SectionID.Bytes)
-		active := int32(r.ActiveSeatCount) // DB returns int64; proto uses int32
+		seatCount := r.ActiveSeatCount // DB returns int64; proto uses int32
+		if seatCount > math.MaxInt32 {
+			seatCount = math.MaxInt32
+		}
+		active := int32(seatCount)
 		capacity := r.Capacity
 
 		row := &reportsv1.SectionOccupancyRow{
