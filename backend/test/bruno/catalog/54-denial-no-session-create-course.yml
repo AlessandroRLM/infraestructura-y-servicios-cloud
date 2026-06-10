@@ -1,0 +1,36 @@
+info:
+  name: 54 Denial No Session Create Course
+  type: http
+  seq: 54
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateCourse"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "code": "NOSESSION-COURSE",
+        "name": "No Session Course",
+        "credits": 3
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "unauthenticated"
+
+docs: |
+  Denial: CreateCourse called without a session cookie.
+  The session interceptor rejects before authz or the handler runs.
+  Expected: unauthenticated.

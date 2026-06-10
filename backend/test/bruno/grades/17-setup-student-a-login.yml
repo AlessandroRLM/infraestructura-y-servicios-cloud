@@ -1,7 +1,7 @@
 info:
-  name: 03 Setup Admin Login
+  name: 17 Setup Student A Login
   type: http
-  seq: 3
+  seq: 17
 
 http:
   method: POST
@@ -13,8 +13,8 @@ http:
     type: json
     data: |-
       {
-        "email": "{{admin_email}}",
-        "password": "{{admin_password}}"
+        "email": "{{student_a_email}}",
+        "password": "{{student_a_password}}"
       }
 
 settings:
@@ -30,12 +30,12 @@ runtime:
         const sc = res.headers["set-cookie"];
         const raw = Array.isArray(sc) ? sc.join(";") : String(sc || "");
         const m = raw.match(/sid=([^;]+)/);
-        if (m) { bru.setVar("admin_sid", m[1]); }
+        if (m) { bru.setVar("grades_student_a_sid", m[1]); }
   assertions:
     - expression: res.status
       operator: eq
       value: "200"
 
 docs: |
-  Grades setup — step 3: admin login, captures admin_sid.
-  Admin holds grades.override + catalog.manage + enrollment.manage + all other permissions.
+  Grades setup — step 3 of student A login chain: login, captures grades_student_a_sid.
+  Student A holds grades.view_own only — used for ListOwnGrades and denial tests.

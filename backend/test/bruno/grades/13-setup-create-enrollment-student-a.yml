@@ -1,11 +1,11 @@
 info:
-  name: 04 Setup Create Program
+  name: 13 Setup Create Enrollment Student A
   type: http
-  seq: 4
+  seq: 13
 
 http:
   method: POST
-  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  url: "{{host}}/enrollment.v1.EnrollmentService/CreateEnrollment"
   headers:
     - name: Content-Type
       value: application/json
@@ -15,8 +15,9 @@ http:
     type: json
     data: |-
       {
-        "code": "{{grades_prog_code}}",
-        "name": "Grades Test Program"
+        "studentId": "{{student_a_id}}",
+        "programId": "{{grades_prog_id}}",
+        "year": 2026
       }
 
 settings:
@@ -31,7 +32,7 @@ runtime:
       code: |-
         const body = res.body;
         if (body && body.id) {
-          bru.setVar("grades_prog_id", body.id);
+          bru.setVar("grades_enroll_a_id", body.id);
         }
   assertions:
     - expression: res.status
@@ -42,5 +43,6 @@ runtime:
       value: ""
 
 docs: |
-  Grades setup — creates the test program.
-  Captures grades_prog_id.
+  Grades setup — creates a pending annual enrollment for student A (year=2026).
+  student_a_id and grades_prog_id must both be set before this step.
+  Captures grades_enroll_a_id.

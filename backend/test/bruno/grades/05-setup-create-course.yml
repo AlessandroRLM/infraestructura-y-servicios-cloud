@@ -1,11 +1,11 @@
 info:
-  name: 04 Setup Create Program
+  name: 05 Setup Create Course
   type: http
-  seq: 4
+  seq: 5
 
 http:
   method: POST
-  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  url: "{{host}}/catalog.v1.CatalogService/CreateCourse"
   headers:
     - name: Content-Type
       value: application/json
@@ -15,8 +15,9 @@ http:
     type: json
     data: |-
       {
-        "code": "{{grades_prog_code}}",
-        "name": "Grades Test Program"
+        "code": "{{grades_course_code}}",
+        "name": "Grades Test Course",
+        "credits": 4
       }
 
 settings:
@@ -31,7 +32,7 @@ runtime:
       code: |-
         const body = res.body;
         if (body && body.id) {
-          bru.setVar("grades_prog_id", body.id);
+          bru.setVar("grades_course_id", body.id);
         }
   assertions:
     - expression: res.status
@@ -42,5 +43,5 @@ runtime:
       value: ""
 
 docs: |
-  Grades setup — creates the test program.
-  Captures grades_prog_id.
+  Grades setup — creates the test course.
+  Captures grades_course_id. The evaluation scheme will be tied to this course.

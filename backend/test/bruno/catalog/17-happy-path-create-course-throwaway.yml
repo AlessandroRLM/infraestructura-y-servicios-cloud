@@ -1,11 +1,11 @@
 info:
-  name: 04 Setup Create Program
+  name: 17 Happy Path Create Course Throwaway
   type: http
-  seq: 4
+  seq: 17
 
 http:
   method: POST
-  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  url: "{{host}}/catalog.v1.CatalogService/CreateCourse"
   headers:
     - name: Content-Type
       value: application/json
@@ -15,8 +15,9 @@ http:
     type: json
     data: |-
       {
-        "code": "{{grades_prog_code}}",
-        "name": "Grades Test Program"
+        "code": "{{cat_course2_code}}",
+        "name": "Catalog Throwaway Course",
+        "credits": 2
       }
 
 settings:
@@ -31,7 +32,7 @@ runtime:
       code: |-
         const body = res.body;
         if (body && body.id) {
-          bru.setVar("grades_prog_id", body.id);
+          bru.setVar("cat_course2_id", body.id);
         }
   assertions:
     - expression: res.status
@@ -42,5 +43,5 @@ runtime:
       value: ""
 
 docs: |
-  Grades setup — creates the test program.
-  Captures grades_prog_id.
+  Happy path: CreateCourse (throwaway) — creates a second course to be deleted in the
+  next request, keeping cat_course_id available for section and association tests.

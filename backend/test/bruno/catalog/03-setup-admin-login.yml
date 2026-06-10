@@ -37,5 +37,5 @@ runtime:
       value: "200"
 
 docs: |
-  Grades setup — step 3: admin login, captures admin_sid.
-  Admin holds grades.override + catalog.manage + enrollment.manage + all other permissions.
+  Catalog setup — step 3: admin login, captures admin_sid.
+  Admin holds catalog.manage + all other permissions.

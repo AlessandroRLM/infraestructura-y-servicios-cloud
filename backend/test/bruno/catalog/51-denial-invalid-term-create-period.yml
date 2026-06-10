@@ -1,0 +1,39 @@
+info:
+  name: 51 Denial Invalid Term Create Period
+  type: http
+  seq: 51
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateAcademicPeriod"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "year": 2035,
+        "term": 3,
+        "startDate": "2035-01-01",
+        "endDate": "2035-06-30"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "invalid_argument"
+
+docs: |
+  Denial: CreateAcademicPeriod with term=3 (must be 1 or 2).
+  validateAcademicPeriod checks term != 1 && term != 2 → ErrInvalidInput → "invalid_argument".
+  Evidence: service.go:371-373 (term guard).

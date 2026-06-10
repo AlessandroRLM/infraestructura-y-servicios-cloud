@@ -1,0 +1,38 @@
+info:
+  name: 45 Denial Duplicate Program Code
+  type: http
+  seq: 45
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "{{cat_prog_code}}",
+        "name": "Duplicate Program"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "already_exists"
+
+docs: |
+  Denial: CreateProgram with an already-used code.
+  Postgres unique_violation (23503) on programs.code → TranslatePgError → ErrAlreadyExists
+  → MapError → connect.CodeAlreadyExists → "already_exists".
+  Evidence: errors.go:22-23 (ErrAlreadyExists, code 23505), handler.go:44-46 (MapError).

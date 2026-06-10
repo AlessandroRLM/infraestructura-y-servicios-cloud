@@ -1,0 +1,40 @@
+info:
+  name: 08 Happy Path Get Program
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/GetProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_prog_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: eq
+      value: "{{cat_prog_id}}"
+    - expression: res.body.code
+      operator: eq
+      value: "{{cat_prog_code}}"
+
+docs: |
+  Happy path: GetProgram — retrieves the created program by id.

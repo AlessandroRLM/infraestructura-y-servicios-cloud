@@ -1,0 +1,41 @@
+info:
+  name: 41 Happy Path List Section Teachers
+  type: http
+  seq: 41
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/ListSectionTeachers"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{cat_section_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.sectionTeachers
+      operator: isArray
+      value: ""
+    - expression: res.body.sectionTeachers.some(t => t.teacherId === "a0000000-0000-0000-0000-000000000001")
+      operator: eq
+      value: "true"
+
+docs: |
+  Happy path: ListSectionTeachers — verifies the bootstrap admin appears as teacher.
+  Response field is sectionTeachers (lowerCamelCase protojson).

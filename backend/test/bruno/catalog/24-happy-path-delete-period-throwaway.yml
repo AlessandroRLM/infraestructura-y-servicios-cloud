@@ -1,20 +1,21 @@
 info:
-  name: 02 Setup Admin Confirm Reset
+  name: 24 Happy Path Delete Period Throwaway
   type: http
-  seq: 2
+  seq: 24
 
 http:
   method: POST
-  url: "{{host}}/auth.v1.AuthService/ConfirmPasswordReset"
+  url: "{{host}}/catalog.v1.CatalogService/DeleteAcademicPeriod"
   headers:
     - name: Content-Type
       value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
   body:
     type: json
     data: |-
       {
-        "token": "{{admin_reset_token}}",
-        "newPassword": "{{admin_password}}"
+        "id": "{{cat_period2_id}}"
       }
 
 settings:
@@ -30,4 +31,5 @@ runtime:
       value: "200"
 
 docs: |
-  Grades setup — step 2: confirm admin password reset.
+  Happy path: DeleteAcademicPeriod — soft-deletes the throwaway period.
+  cat_period_id is preserved for section creation.

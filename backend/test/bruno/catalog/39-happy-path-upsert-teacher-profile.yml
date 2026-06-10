@@ -1,0 +1,38 @@
+info:
+  name: 39 Happy Path Upsert Teacher Profile
+  type: http
+  seq: 39
+
+http:
+  method: POST
+  url: "{{host}}/profiles.v1.ProfileService/UpsertTeacherProfile"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "userId": "a0000000-0000-0000-0000-000000000001",
+        "department": "Catalog Smoke Test Department"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Setup: UpsertTeacherProfile for the bootstrap admin.
+  Required before AssignTeacherToSection: sections.teacher_id has a foreign key to
+  teacher_profiles(user_id). Idempotent (upsert), safe across repeated runs.
+  Uses the bootstrap admin id a0000000-0000-0000-0000-000000000001.

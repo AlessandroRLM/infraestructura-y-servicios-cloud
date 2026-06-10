@@ -1,7 +1,7 @@
 info:
-  name: 02 Setup Admin Confirm Reset
+  name: 16 Setup Student A Confirm Reset
   type: http
-  seq: 2
+  seq: 16
 
 http:
   method: POST
@@ -13,8 +13,8 @@ http:
     type: json
     data: |-
       {
-        "token": "{{admin_reset_token}}",
-        "newPassword": "{{admin_password}}"
+        "token": "{{student_a_reset_token}}",
+        "newPassword": "StudentAGrades123!"
       }
 
 settings:
@@ -24,10 +24,14 @@ settings:
   maxRedirects: 0
 
 runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        bru.setVar("student_a_password", "StudentAGrades123!");
   assertions:
     - expression: res.status
       operator: eq
       value: "200"
 
 docs: |
-  Grades setup — step 2: confirm admin password reset.
+  Grades setup — step 2 of student A login chain: confirm password reset.

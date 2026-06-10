@@ -1,0 +1,36 @@
+info:
+  name: 32 Denial No Session Override Grade
+  type: http
+  seq: 32
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/OverrideGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{eval_1_id}}",
+        "sectionEnrollmentId": "{{grades_se_a_id}}",
+        "value": "5.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "unauthenticated"
+
+docs: |
+  Denial: OverrideGrade called without a session cookie.
+  The session interceptor rejects before authz runs.
+  Expected error: unauthenticated.

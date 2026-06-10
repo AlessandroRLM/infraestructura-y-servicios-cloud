@@ -1,11 +1,11 @@
 info:
-  name: 04 Setup Create Program
+  name: 35 Happy Path Create Section
   type: http
-  seq: 4
+  seq: 35
 
 http:
   method: POST
-  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  url: "{{host}}/catalog.v1.CatalogService/CreateSection"
   headers:
     - name: Content-Type
       value: application/json
@@ -15,8 +15,9 @@ http:
     type: json
     data: |-
       {
-        "code": "{{grades_prog_code}}",
-        "name": "Grades Test Program"
+        "courseId": "{{cat_course_id}}",
+        "academicPeriodId": "{{cat_period_id}}",
+        "seatCapacity": 30
       }
 
 settings:
@@ -31,7 +32,7 @@ runtime:
       code: |-
         const body = res.body;
         if (body && body.id) {
-          bru.setVar("grades_prog_id", body.id);
+          bru.setVar("cat_section_id", body.id);
         }
   assertions:
     - expression: res.status
@@ -40,7 +41,13 @@ runtime:
     - expression: res.body.id
       operator: neq
       value: ""
+    - expression: res.body.courseId
+      operator: eq
+      value: "{{cat_course_id}}"
+    - expression: res.body.seatCapacity
+      operator: eq
+      value: "30"
 
 docs: |
-  Grades setup — creates the test program.
-  Captures grades_prog_id.
+  Happy path: CreateSection — creates the main test section.
+  Captures cat_section_id. Links to cat_course_id and cat_period_id.

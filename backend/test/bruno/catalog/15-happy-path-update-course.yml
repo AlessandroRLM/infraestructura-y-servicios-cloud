@@ -1,0 +1,43 @@
+info:
+  name: 15 Happy Path Update Course
+  type: http
+  seq: 15
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/UpdateCourse"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_course_id}}",
+        "code": "{{cat_course_code}}",
+        "name": "Catalog Test Course Updated",
+        "credits": 6
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.name
+      operator: eq
+      value: "Catalog Test Course Updated"
+    - expression: res.body.credits
+      operator: eq
+      value: "6"
+
+docs: |
+  Happy path: UpdateCourse — updates name and credits of the main test course.

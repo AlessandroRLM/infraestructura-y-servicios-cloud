@@ -1,0 +1,36 @@
+info:
+  name: 47 Denial Get Nonexistent Program
+  type: http
+  seq: 47
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/GetProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "00000000-0000-0000-0000-000000000099"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "not_found"
+
+docs: |
+  Denial: GetProgram with a valid UUID that does not exist in the database.
+  pgx.ErrNoRows → TranslatePgError → ErrNotFound → MapError → connect.CodeNotFound → "not_found".
+  Evidence: errors.go:37-39 (ErrNoRows branch), handler.go:40-42 (MapError).

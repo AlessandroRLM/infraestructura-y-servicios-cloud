@@ -1,0 +1,53 @@
+info:
+  name: 23 Happy Path Create Period Throwaway
+  type: http
+  seq: 23
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateAcademicPeriod"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: "{{cat_period2_body}}"
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Use term=2 with the same sfx-derived year for guaranteed uniqueness.
+        const y = bru.getVar("cat_period_year");
+        const body = JSON.stringify({
+          year: parseInt(y, 10),
+          term: 2,
+          startDate: `${y}-08-01`,
+          endDate: `${y}-12-31`
+        });
+        bru.setVar("cat_period2_body", body);
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("cat_period2_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+
+docs: |
+  Happy path: CreateAcademicPeriod (throwaway) — creates term=2 for the same sfx-derived year.
+  Using term=2 guarantees no collision with the main period (term=1, same year).

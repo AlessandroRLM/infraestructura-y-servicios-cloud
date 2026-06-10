@@ -1,7 +1,7 @@
 info:
-  name: 04 Setup Create Program
+  name: 07 Happy Path Create Program
   type: http
-  seq: 4
+  seq: 7
 
 http:
   method: POST
@@ -15,8 +15,8 @@ http:
     type: json
     data: |-
       {
-        "code": "{{grades_prog_code}}",
-        "name": "Grades Test Program"
+        "code": "{{cat_prog_code}}",
+        "name": "Catalog Test Program"
       }
 
 settings:
@@ -31,7 +31,7 @@ runtime:
       code: |-
         const body = res.body;
         if (body && body.id) {
-          bru.setVar("grades_prog_id", body.id);
+          bru.setVar("cat_prog_id", body.id);
         }
   assertions:
     - expression: res.status
@@ -40,7 +40,13 @@ runtime:
     - expression: res.body.id
       operator: neq
       value: ""
+    - expression: res.body.code
+      operator: eq
+      value: "{{cat_prog_code}}"
+    - expression: res.body.name
+      operator: eq
+      value: "Catalog Test Program"
 
 docs: |
-  Grades setup — creates the test program.
-  Captures grades_prog_id.
+  Happy path: CreateProgram — creates the main test program.
+  Captures cat_prog_id for dependent entity tests.

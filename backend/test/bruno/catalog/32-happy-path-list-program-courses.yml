@@ -1,0 +1,41 @@
+info:
+  name: 32 Happy Path List Program Courses
+  type: http
+  seq: 32
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/ListProgramCourses"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{cat_prog_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.programCourses
+      operator: isArray
+      value: ""
+    - expression: res.body.programCourses.some(e => e.courseId === bru.getVar("cat_course_id"))
+      operator: eq
+      value: "true"
+
+docs: |
+  Happy path: ListProgramCourses — verifies the course association appears.
+  Response field is programCourses (lowerCamelCase protojson).

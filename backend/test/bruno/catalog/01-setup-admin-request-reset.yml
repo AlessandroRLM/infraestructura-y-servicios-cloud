@@ -30,9 +30,11 @@ runtime:
         // do not collide on unique code/email constraints.
         const sfx = String(Date.now()).slice(-6);
         bru.setVar("sfx", sfx);
-        bru.setVar("grades_prog_code", `GRPROG-${sfx}`);
-        bru.setVar("grades_course_code", `GRCRS-${sfx}`);
-        console.log(`[grades-setup] sfx=${sfx}`);
+        bru.setVar("cat_prog_code", `CATPROG-${sfx}`);
+        bru.setVar("cat_course_code", `CATCRS-${sfx}`);
+        bru.setVar("cat_prog2_code", `CATPROG2-${sfx}`);
+        bru.setVar("cat_course2_code", `CATCRS2-${sfx}`);
+        console.log(`[catalog-setup] sfx=${sfx}`);
     - type: after-response
       code: |-
         const body = res.body;
@@ -45,5 +47,6 @@ runtime:
       value: "200"
 
 docs: |
-  Grades setup — step 1: request password reset for admin.
+  Catalog setup — step 1: request password reset for admin.
   Also seeds run-scoped variables (sfx, program/course codes).
+  Uses cat_ prefixed vars to avoid collisions with other folder runs.

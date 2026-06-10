@@ -1,7 +1,7 @@
 info:
-  name: 04 Setup Create Program
+  name: 11 Happy Path Create Program Throwaway
   type: http
-  seq: 4
+  seq: 11
 
 http:
   method: POST
@@ -15,8 +15,8 @@ http:
     type: json
     data: |-
       {
-        "code": "{{grades_prog_code}}",
-        "name": "Grades Test Program"
+        "code": "{{cat_prog2_code}}",
+        "name": "Catalog Throwaway Program"
       }
 
 settings:
@@ -31,7 +31,7 @@ runtime:
       code: |-
         const body = res.body;
         if (body && body.id) {
-          bru.setVar("grades_prog_id", body.id);
+          bru.setVar("cat_prog2_id", body.id);
         }
   assertions:
     - expression: res.status
@@ -42,5 +42,5 @@ runtime:
       value: ""
 
 docs: |
-  Grades setup — creates the test program.
-  Captures grades_prog_id.
+  Happy path: CreateProgram (throwaway) — creates a second program to be deleted in the
+  next request, keeping cat_prog_id available for dependent entity tests.

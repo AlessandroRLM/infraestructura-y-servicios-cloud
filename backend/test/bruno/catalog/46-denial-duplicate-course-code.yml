@@ -1,0 +1,38 @@
+info:
+  name: 46 Denial Duplicate Course Code
+  type: http
+  seq: 46
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateCourse"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "{{cat_course_code}}",
+        "name": "Duplicate Course",
+        "credits": 3
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "already_exists"
+
+docs: |
+  Denial: CreateCourse with an already-used code.
+  Postgres 23505 unique_violation on courses.code → ErrAlreadyExists → already_exists.
+  Evidence: errors.go:22-23 + handler.go:44-46.

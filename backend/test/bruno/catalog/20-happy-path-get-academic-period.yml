@@ -1,0 +1,40 @@
+info:
+  name: 20 Happy Path Get Academic Period
+  type: http
+  seq: 20
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/GetAcademicPeriod"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_period_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: eq
+      value: "{{cat_period_id}}"
+    - expression: res.body.year === parseInt(bru.getVar("cat_period_year"), 10)
+      operator: eq
+      value: "true"
+
+docs: |
+  Happy path: GetAcademicPeriod — retrieves the created academic period by id.

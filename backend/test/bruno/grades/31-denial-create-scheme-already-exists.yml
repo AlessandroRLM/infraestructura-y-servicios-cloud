@@ -1,0 +1,41 @@
+info:
+  name: 31 Denial Create Scheme Already Exists
+  type: http
+  seq: 31
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/CreateEvaluationScheme"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "courseId": "{{grades_course_id}}",
+        "evaluations": [
+          {"weight": "0.500"},
+          {"weight": "0.500"}
+        ]
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "already_exists"
+
+docs: |
+  Denial: admin attempts to create a second evaluation scheme for a course that already
+  has one (created in request 10). The repository guard detects a live scheme via
+  CountLiveEvaluationsForCourse and returns ErrAlreadyExists → CodeAlreadyExists.
+  Expected error: already_exists.

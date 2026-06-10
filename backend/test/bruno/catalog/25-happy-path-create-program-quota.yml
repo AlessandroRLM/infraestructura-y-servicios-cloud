@@ -1,11 +1,11 @@
 info:
-  name: 04 Setup Create Program
+  name: 25 Happy Path Create Program Quota
   type: http
-  seq: 4
+  seq: 25
 
 http:
   method: POST
-  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgramQuota"
   headers:
     - name: Content-Type
       value: application/json
@@ -15,8 +15,9 @@ http:
     type: json
     data: |-
       {
-        "code": "{{grades_prog_code}}",
-        "name": "Grades Test Program"
+        "programId": "{{cat_prog_id}}",
+        "year": 2030,
+        "admissionQuota": 50
       }
 
 settings:
@@ -31,7 +32,7 @@ runtime:
       code: |-
         const body = res.body;
         if (body && body.id) {
-          bru.setVar("grades_prog_id", body.id);
+          bru.setVar("cat_quota_id", body.id);
         }
   assertions:
     - expression: res.status
@@ -40,7 +41,13 @@ runtime:
     - expression: res.body.id
       operator: neq
       value: ""
+    - expression: res.body.programId
+      operator: eq
+      value: "{{cat_prog_id}}"
+    - expression: res.body.admissionQuota
+      operator: eq
+      value: "50"
 
 docs: |
-  Grades setup — creates the test program.
-  Captures grades_prog_id.
+  Happy path: CreateProgramQuota — creates a quota for the main program, year=2030.
+  Captures cat_quota_id.

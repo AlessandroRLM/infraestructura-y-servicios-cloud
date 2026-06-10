@@ -1,11 +1,11 @@
 info:
-  name: 04 Setup Create Program
+  name: 13 Happy Path Create Course
   type: http
-  seq: 4
+  seq: 13
 
 http:
   method: POST
-  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  url: "{{host}}/catalog.v1.CatalogService/CreateCourse"
   headers:
     - name: Content-Type
       value: application/json
@@ -15,8 +15,9 @@ http:
     type: json
     data: |-
       {
-        "code": "{{grades_prog_code}}",
-        "name": "Grades Test Program"
+        "code": "{{cat_course_code}}",
+        "name": "Catalog Test Course",
+        "credits": 4
       }
 
 settings:
@@ -31,7 +32,7 @@ runtime:
       code: |-
         const body = res.body;
         if (body && body.id) {
-          bru.setVar("grades_prog_id", body.id);
+          bru.setVar("cat_course_id", body.id);
         }
   assertions:
     - expression: res.status
@@ -40,7 +41,13 @@ runtime:
     - expression: res.body.id
       operator: neq
       value: ""
+    - expression: res.body.code
+      operator: eq
+      value: "{{cat_course_code}}"
+    - expression: res.body.credits
+      operator: eq
+      value: "4"
 
 docs: |
-  Grades setup — creates the test program.
-  Captures grades_prog_id.
+  Happy path: CreateCourse — creates the main test course.
+  Captures cat_course_id for dependent entity tests.

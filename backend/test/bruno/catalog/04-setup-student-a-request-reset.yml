@@ -1,22 +1,19 @@
 info:
-  name: 04 Setup Create Program
+  name: 04 Setup Student A Request Reset
   type: http
   seq: 4
 
 http:
   method: POST
-  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  url: "{{host}}/auth.v1.AuthService/RequestPasswordReset"
   headers:
     - name: Content-Type
       value: application/json
-    - name: Cookie
-      value: "sid={{admin_sid}}"
   body:
     type: json
     data: |-
       {
-        "code": "{{grades_prog_code}}",
-        "name": "Grades Test Program"
+        "email": "{{student_a_email}}"
       }
 
 settings:
@@ -30,17 +27,14 @@ runtime:
     - type: after-response
       code: |-
         const body = res.body;
-        if (body && body.id) {
-          bru.setVar("grades_prog_id", body.id);
+        if (body && body.devToken) {
+          bru.setVar("cat_student_a_reset_token", body.devToken);
         }
   assertions:
     - expression: res.status
       operator: eq
       value: "200"
-    - expression: res.body.id
-      operator: neq
-      value: ""
 
 docs: |
-  Grades setup — creates the test program.
-  Captures grades_prog_id.
+  Catalog setup — step 1 of student A login chain: request password reset.
+  student_a_email is set by seed.sh. Student A is used for permission denial tests.

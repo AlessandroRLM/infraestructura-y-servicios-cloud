@@ -1,0 +1,63 @@
+info:
+  name: 11 Setup Create Evaluation Scheme
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/CreateEvaluationScheme"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "courseId": "{{grades_course_id}}",
+        "evaluations": [
+          {"weight": "0.400"},
+          {"weight": "0.300"},
+          {"weight": "0.300"}
+        ]
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && Array.isArray(body.evaluations) && body.evaluations.length === 3) {
+          bru.setVar("eval_1_id", body.evaluations[0].id);
+          bru.setVar("eval_2_id", body.evaluations[1].id);
+          bru.setVar("eval_3_id", body.evaluations[2].id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.evaluations[0].id
+      operator: neq
+      value: ""
+    - expression: res.body.evaluations[0].weight === '0.400'
+      operator: eq
+      value: "true"
+    - expression: res.body.evaluations[1].weight === '0.300'
+      operator: eq
+      value: "true"
+    - expression: res.body.evaluations[2].weight === '0.300'
+      operator: eq
+      value: "true"
+
+docs: |
+  Grades setup — creates a 3-evaluation scheme for the test course.
+  Weights: eval_1=0.4, eval_2=0.3, eval_3=0.3 (sum=1.0).
+  Captures eval_1_id, eval_2_id, eval_3_id for downstream grade recording.
+  Requires grades.override (admin-only).

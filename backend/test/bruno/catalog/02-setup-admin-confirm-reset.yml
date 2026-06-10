@@ -30,4 +30,4 @@ runtime:
       value: "200"
 
 docs: |
-  Grades setup — step 2: confirm admin password reset.
+  Catalog setup — step 2: confirm admin password reset.

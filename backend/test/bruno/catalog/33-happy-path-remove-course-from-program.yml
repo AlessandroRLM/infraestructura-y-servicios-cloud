@@ -1,0 +1,36 @@
+info:
+  name: 33 Happy Path Remove Course From Program
+  type: http
+  seq: 33
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/RemoveCourseFromProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{cat_prog_id}}",
+        "courseId": "{{cat_course_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Happy path: RemoveCourseFromProgram — hard-deletes the program-course association.
+  Returns empty RemoveCourseFromProgramResponse; 200 = success.

@@ -1,20 +1,21 @@
 info:
-  name: 02 Setup Admin Confirm Reset
+  name: 12 Happy Path Delete Program Throwaway
   type: http
-  seq: 2
+  seq: 12
 
 http:
   method: POST
-  url: "{{host}}/auth.v1.AuthService/ConfirmPasswordReset"
+  url: "{{host}}/catalog.v1.CatalogService/DeleteProgram"
   headers:
     - name: Content-Type
       value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
   body:
     type: json
     data: |-
       {
-        "token": "{{admin_reset_token}}",
-        "newPassword": "{{admin_password}}"
+        "id": "{{cat_prog2_id}}"
       }
 
 settings:
@@ -30,4 +31,5 @@ runtime:
       value: "200"
 
 docs: |
-  Grades setup — step 2: confirm admin password reset.
+  Happy path: DeleteProgram — soft-deletes the throwaway program.
+  cat_prog_id (main program) is preserved for all downstream tests.

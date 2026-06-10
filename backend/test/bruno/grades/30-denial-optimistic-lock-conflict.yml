@@ -1,0 +1,41 @@
+info:
+  name: 30 Denial Optimistic Lock Conflict Stale Version
+  type: http
+  seq: 30
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/OverrideGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{eval_1_id}}",
+        "sectionEnrollmentId": "{{grades_se_a_id}}",
+        "value": "6.0",
+        "expectedVersion": 0
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "aborted"
+
+docs: |
+  Denial: admin attempts to correct grade_1 with a stale expectedVersion=0.
+  The grade was inserted at version=1 in request 18; version 0 does not match.
+  UpdateGradeByVersion returns 0 rows; the repository returns ErrConflict.
+  MapError maps ErrConflict to CodeAborted.
+  Expected error: aborted.

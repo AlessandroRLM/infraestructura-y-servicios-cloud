@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# seed.sh — one-time DB seeding for the backend-smoke Bruno collection.
+# seed.sh — DB seeding for the backend-smoke Bruno collection.
 #
-# Run this script ONCE against a running dev stack before executing `bru run`.
+# Idempotent: safe to run before every `bru run`, including repeatedly against
+# the same database (academic period collisions upsert instead of failing).
 # It performs the SQL inserts that the API cannot do (direct enrollment-window
 # manipulation and user/role seeding without an onboarding RPC).
 #
@@ -73,30 +74,34 @@ TEACHER_ID="$($PSQL_CMD -tAq -c "SELECT id FROM users WHERE email='${TEACHER_EMA
   { echo "FATAL: could not fetch teacher ID" >&2; exit 2; }
 
 echo "▶ seeding academic_periods with enrollment windows"
-# academic_periods has UNIQUE(year, term) and the SFX-derived terms can collide
-# across runs. seed_period retries with a bumped term until the insert lands.
-seed_period() {
-  local term="$1" start_date="$2" end_date="$3" win_start="$4" win_end="$5"
-  local id="" attempt=0
-  while [ -z "$id" ] && [ "$attempt" -lt 20 ]; do
-    id="$($PSQL_CMD -tAq -c "
-      INSERT INTO academic_periods (id, year, term, start_date, end_date, enrollment_starts_at, enrollment_ends_at)
-      VALUES (uuidv7(), ${ENROLL_YEAR}, $((term + attempt)),
-              '${start_date}', '${end_date}', ${win_start}, ${win_end})
-      ON CONFLICT (year, term) DO NOTHING
-      RETURNING id;" 2>/dev/null)"
-    attempt=$((attempt + 1))
-  done
-  echo "$id"
-}
-
 # Open window: started 1 hour ago, ends 1 hour from now.
-OPEN_PERIOD_ID="$(seed_period "${OPEN_TERM}" "${ENROLL_YEAR}-03-01" "${ENROLL_YEAR}-07-15" \
-  "now() - interval '1 hour'" "now() + interval '1 hour'")"
+# ON CONFLICT (year, term): a colliding term from a previous seed reuses the
+# existing period row and refreshes its enrollment window, so repeated seeds
+# against the same database are safe (the windows are relative to now()).
+OPEN_PERIOD_ID="$($PSQL_CMD -tAq -c "
+  INSERT INTO academic_periods (id, year, term, start_date, end_date, enrollment_starts_at, enrollment_ends_at)
+  VALUES (uuidv7(), ${ENROLL_YEAR}, ${OPEN_TERM},
+          '${ENROLL_YEAR}-03-01', '${ENROLL_YEAR}-07-15',
+          now() - interval '1 hour', now() + interval '1 hour')
+  ON CONFLICT (year, term) DO UPDATE SET
+    start_date           = EXCLUDED.start_date,
+    end_date             = EXCLUDED.end_date,
+    enrollment_starts_at = EXCLUDED.enrollment_starts_at,
+    enrollment_ends_at   = EXCLUDED.enrollment_ends_at
+  RETURNING id;")"
 
 # Closed window: starts 24 hours in the future — never open right now.
-CLOSED_PERIOD_ID="$(seed_period "${CLOSED_TERM}" "${ENROLL_YEAR}-08-01" "${ENROLL_YEAR}-12-15" \
-  "now() + interval '24 hours'" "now() + interval '48 hours'")"
+CLOSED_PERIOD_ID="$($PSQL_CMD -tAq -c "
+  INSERT INTO academic_periods (id, year, term, start_date, end_date, enrollment_starts_at, enrollment_ends_at)
+  VALUES (uuidv7(), ${ENROLL_YEAR}, ${CLOSED_TERM},
+          '${ENROLL_YEAR}-08-01', '${ENROLL_YEAR}-12-15',
+          now() + interval '24 hours', now() + interval '48 hours')
+  ON CONFLICT (year, term) DO UPDATE SET
+    start_date           = EXCLUDED.start_date,
+    end_date             = EXCLUDED.end_date,
+    enrollment_starts_at = EXCLUDED.enrollment_starts_at,
+    enrollment_ends_at   = EXCLUDED.enrollment_ends_at
+  RETURNING id;")"
 
 [ -n "$OPEN_PERIOD_ID" ] && [ -n "$CLOSED_PERIOD_ID" ] || \
   { echo "FATAL: could not create academic periods after retries" >&2; exit 2; }

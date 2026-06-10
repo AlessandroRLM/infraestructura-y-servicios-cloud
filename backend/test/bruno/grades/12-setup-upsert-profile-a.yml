@@ -1,0 +1,38 @@
+info:
+  name: 12 Setup Upsert Student Profile A
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{host}}/profiles.v1.ProfileService/UpsertStudentProfile"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "userId": "{{student_a_id}}",
+        "admissionYear": 2026
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Grades setup — upsert student profile for student A.
+  Required before CreateEnrollment: enrollments.student_id has a foreign key
+  to student_profiles(user_id), so a bare seeded user row is not enough.
+  student_a_id must be seeded by seed.sh and injected via --env-var.

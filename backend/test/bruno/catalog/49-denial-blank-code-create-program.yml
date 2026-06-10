@@ -1,0 +1,37 @@
+info:
+  name: 49 Denial Blank Code Create Program
+  type: http
+  seq: 49
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "",
+        "name": "Program Without Code"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "invalid_argument"
+
+docs: |
+  Denial: CreateProgram with an empty code field.
+  Service validates p.Code == "" → ErrInvalidInput → MapError → CodeInvalidArgument → "invalid_argument".
+  Evidence: service.go:63-65 (code required guard).

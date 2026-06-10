@@ -1,0 +1,35 @@
+info:
+  name: 30 Happy Path Delete Quota Throwaway
+  type: http
+  seq: 30
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/DeleteProgramQuota"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_quota2_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Happy path: DeleteProgramQuota — soft-deletes the throwaway quota.
+  program_quotas has no downstream dependents, so delete always succeeds on a live row.
