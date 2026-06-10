@@ -1,0 +1,36 @@
+info:
+  name: 48 Denial Malformed UUID
+  type: http
+  seq: 48
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/GetProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "not-a-uuid"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "invalid_argument"
+
+docs: |
+  Denial: GetProgram with a malformed UUID string.
+  parseUUID fails → connect.NewError(connect.CodeInvalidArgument, ...) → "invalid_argument".
+  Evidence: handler.go:55-61 (parseUUID helper).

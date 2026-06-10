@@ -1,0 +1,41 @@
+info:
+  name: 28 Happy Path List Program Quotas
+  type: http
+  seq: 28
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/ListProgramQuotas"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{cat_prog_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.programQuotas
+      operator: isArray
+      value: ""
+    - expression: res.body.programQuotas.some(q => q.id === bru.getVar("cat_quota_id"))
+      operator: eq
+      value: "true"
+
+docs: |
+  Happy path: ListProgramQuotas — verifies the created quota appears in the list.
+  Response field is programQuotas (lowerCamelCase protojson).

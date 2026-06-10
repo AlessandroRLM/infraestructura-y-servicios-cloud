@@ -1,0 +1,42 @@
+info:
+  name: 09 Happy Path Update Program
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/UpdateProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_prog_id}}",
+        "code": "{{cat_prog_code}}",
+        "name": "Catalog Test Program Updated"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.name
+      operator: eq
+      value: "Catalog Test Program Updated"
+    - expression: res.body.id
+      operator: eq
+      value: "{{cat_prog_id}}"
+
+docs: |
+  Happy path: UpdateProgram — updates the name of the main test program.

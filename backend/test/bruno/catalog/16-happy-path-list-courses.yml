@@ -1,0 +1,38 @@
+info:
+  name: 16 Happy Path List Courses
+  type: http
+  seq: 16
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/ListCourses"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.courses
+      operator: isArray
+      value: ""
+    - expression: res.body.courses.some(c => c.id === bru.getVar("cat_course_id"))
+      operator: eq
+      value: "true"
+
+docs: |
+  Happy path: ListCourses — verifies the created course appears in the list.

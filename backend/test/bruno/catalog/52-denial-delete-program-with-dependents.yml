@@ -1,0 +1,38 @@
+info:
+  name: 52 Denial Delete Program With Dependents
+  type: http
+  seq: 52
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/DeleteProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_prog_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "failed_precondition"
+
+docs: |
+  Denial: DeleteProgram when the program has live program_courses and program_quotas.
+  DeleteProgramTx counts live dependents; if any exist returns ErrHasDependents.
+  MapError: ErrHasDependents → connect.CodeFailedPrecondition → "failed_precondition".
+  Evidence: service.go:96-98, handler.go:47-49 (MapError ErrHasDependents branch),
+  errors.go:26-27 (ErrHasDependents sentinel).

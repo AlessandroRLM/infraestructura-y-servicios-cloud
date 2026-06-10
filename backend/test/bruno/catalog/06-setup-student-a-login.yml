@@ -1,0 +1,42 @@
+info:
+  name: 06 Setup Student A Login
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/Login"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{student_a_email}}",
+        "password": "{{cat_student_a_password}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const sc = res.headers["set-cookie"];
+        const raw = Array.isArray(sc) ? sc.join(";") : String(sc || "");
+        const m = raw.match(/sid=([^;]+)/);
+        if (m) { bru.setVar("cat_student_a_sid", m[1]); }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Catalog setup — step 3 of student A login chain: login, captures cat_student_a_sid.
+  Student A holds grades.view_own only — no catalog.manage permission.
+  Used for permission denial tests.

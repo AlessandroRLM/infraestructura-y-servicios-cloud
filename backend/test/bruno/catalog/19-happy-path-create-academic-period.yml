@@ -1,0 +1,62 @@
+info:
+  name: 19 Happy Path Create Academic Period
+  type: http
+  seq: 19
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateAcademicPeriod"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: "{{cat_period_body}}"
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Derive a unique year from sfx to avoid unique_violation (year+term unique in DB).
+        // sfx is a 6-digit timestamp tail; map it to a year in the range 3000–3999.
+        const sfx = bru.getVar("sfx") || String(Date.now()).slice(-6);
+        const year = 3000 + (parseInt(sfx, 10) % 1000);
+        const y = String(year);
+        bru.setVar("cat_period_year", y);
+        const body = JSON.stringify({
+          year: year,
+          term: 1,
+          startDate: `${y}-03-01`,
+          endDate: `${y}-07-31`
+        });
+        bru.setVar("cat_period_body", body);
+        console.log(`[catalog] period year=${year}`);
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("cat_period_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+    - expression: res.body.term
+      operator: eq
+      value: "1"
+
+docs: |
+  Happy path: CreateAcademicPeriod — creates the main test academic period.
+  Year is derived from sfx (3000 + sfx % 1000) to guarantee uniqueness across runs.
+  Captures cat_period_id for section creation.

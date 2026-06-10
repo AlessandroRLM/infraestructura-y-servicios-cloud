@@ -1,0 +1,47 @@
+info:
+  name: 17 Happy Path Create Course Throwaway
+  type: http
+  seq: 17
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateCourse"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "{{cat_course2_code}}",
+        "name": "Catalog Throwaway Course",
+        "credits": 2
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("cat_course2_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+
+docs: |
+  Happy path: CreateCourse (throwaway) — creates a second course to be deleted in the
+  next request, keeping cat_course_id available for section and association tests.

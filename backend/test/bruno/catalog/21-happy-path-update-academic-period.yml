@@ -1,0 +1,48 @@
+info:
+  name: 21 Happy Path Update Academic Period
+  type: http
+  seq: 21
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/UpdateAcademicPeriod"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: "{{cat_period_update_body}}"
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        const y = bru.getVar("cat_period_year");
+        const id = bru.getVar("cat_period_id");
+        const body = JSON.stringify({
+          id: id,
+          year: parseInt(y, 10),
+          term: 1,
+          startDate: `${y}-03-01`,
+          endDate: `${y}-08-15`
+        });
+        bru.setVar("cat_period_update_body", body);
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: eq
+      value: "{{cat_period_id}}"
+
+docs: |
+  Happy path: UpdateAcademicPeriod — updates the end date of the main test period.
+  Uses dynamic year from cat_period_year var to keep dates consistent.

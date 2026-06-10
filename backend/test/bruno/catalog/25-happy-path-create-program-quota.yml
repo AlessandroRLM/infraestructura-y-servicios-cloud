@@ -1,0 +1,53 @@
+info:
+  name: 25 Happy Path Create Program Quota
+  type: http
+  seq: 25
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgramQuota"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{cat_prog_id}}",
+        "year": 2030,
+        "admissionQuota": 50
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("cat_quota_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+    - expression: res.body.programId
+      operator: eq
+      value: "{{cat_prog_id}}"
+    - expression: res.body.admissionQuota
+      operator: eq
+      value: "50"
+
+docs: |
+  Happy path: CreateProgramQuota — creates a quota for the main program, year=2030.
+  Captures cat_quota_id.

@@ -1,0 +1,53 @@
+info:
+  name: 13 Happy Path Create Course
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateCourse"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "{{cat_course_code}}",
+        "name": "Catalog Test Course",
+        "credits": 4
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("cat_course_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+    - expression: res.body.code
+      operator: eq
+      value: "{{cat_course_code}}"
+    - expression: res.body.credits
+      operator: eq
+      value: "4"
+
+docs: |
+  Happy path: CreateCourse — creates the main test course.
+  Captures cat_course_id for dependent entity tests.

@@ -1,0 +1,52 @@
+info:
+  name: 07 Happy Path Create Program
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "{{cat_prog_code}}",
+        "name": "Catalog Test Program"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("cat_prog_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+    - expression: res.body.code
+      operator: eq
+      value: "{{cat_prog_code}}"
+    - expression: res.body.name
+      operator: eq
+      value: "Catalog Test Program"
+
+docs: |
+  Happy path: CreateProgram — creates the main test program.
+  Captures cat_prog_id for dependent entity tests.

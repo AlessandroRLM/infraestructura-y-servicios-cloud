@@ -1,0 +1,38 @@
+info:
+  name: 50 Denial Credits Zero Create Course
+  type: http
+  seq: 50
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateCourse"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "BADCREDITS",
+        "name": "Bad Credits Course",
+        "credits": 0
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "invalid_argument"
+
+docs: |
+  Denial: CreateCourse with credits=0 (must be > 0).
+  Service validates p.Credits <= 0 → ErrInvalidInput → MapError → CodeInvalidArgument → "invalid_argument".
+  Evidence: service.go:110-112 (credits guard).

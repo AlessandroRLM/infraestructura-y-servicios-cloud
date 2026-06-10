@@ -1,0 +1,35 @@
+info:
+  name: 24 Happy Path Delete Period Throwaway
+  type: http
+  seq: 24
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/DeleteAcademicPeriod"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_period2_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Happy path: DeleteAcademicPeriod — soft-deletes the throwaway period.
+  cat_period_id is preserved for section creation.

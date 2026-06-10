@@ -1,0 +1,41 @@
+info:
+  name: 37 Happy Path Update Section
+  type: http
+  seq: 37
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/UpdateSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_section_id}}",
+        "seatCapacity": 45
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.seatCapacity
+      operator: eq
+      value: "45"
+    - expression: res.body.id
+      operator: eq
+      value: "{{cat_section_id}}"
+
+docs: |
+  Happy path: UpdateSection — updates seatCapacity from 30 to 45.

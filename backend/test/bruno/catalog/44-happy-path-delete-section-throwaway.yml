@@ -1,0 +1,35 @@
+info:
+  name: 44 Happy Path Delete Section Throwaway
+  type: http
+  seq: 44
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/DeleteSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_section2_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Happy path: DeleteSection — soft-deletes the throwaway section (no dependents).
+  cat_section_id is preserved for negative tests (has teacher assigned from 40).
