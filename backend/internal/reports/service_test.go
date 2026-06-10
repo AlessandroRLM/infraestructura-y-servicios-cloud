@@ -476,6 +476,7 @@ func TestGetStudentRecordReport_AdminPath_CacheMiss_CallsRepo(t *testing.T) {
 				EvaluationID:       pgUUID(uuid.New()),
 				Position:           pgtype.Int4{Int32: 1, Valid: true},
 				GradeValue:         pgNum("5.5"),
+				StudentName:        "Ana Test",
 			},
 		},
 	}

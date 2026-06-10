@@ -185,7 +185,6 @@ func (x *StudentGradeRow) GetOutcome() string {
 type SectionOccupancyRow struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	SectionId       string                 `protobuf:"bytes,1,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
-	SectionName     string                 `protobuf:"bytes,2,opt,name=section_name,json=sectionName,proto3" json:"section_name,omitempty"`
 	CourseName      string                 `protobuf:"bytes,3,opt,name=course_name,json=courseName,proto3" json:"course_name,omitempty"`
 	Capacity        int32                  `protobuf:"varint,4,opt,name=capacity,proto3" json:"capacity,omitempty"`
 	ActiveSeatCount int32                  `protobuf:"varint,5,opt,name=active_seat_count,json=activeSeatCount,proto3" json:"active_seat_count,omitempty"`
@@ -228,13 +227,6 @@ func (*SectionOccupancyRow) Descriptor() ([]byte, []int) {
 func (x *SectionOccupancyRow) GetSectionId() string {
 	if x != nil {
 		return x.SectionId
-	}
-	return ""
-}
-
-func (x *SectionOccupancyRow) GetSectionName() string {
-	if x != nil {
-		return x.SectionName
 	}
 	return ""
 }
@@ -352,7 +344,6 @@ type AcademicRecordRow struct {
 	AcademicPeriodId   string                 `protobuf:"bytes,1,opt,name=academic_period_id,json=academicPeriodId,proto3" json:"academic_period_id,omitempty"`
 	AcademicPeriodName string                 `protobuf:"bytes,2,opt,name=academic_period_name,json=academicPeriodName,proto3" json:"academic_period_name,omitempty"`
 	SectionId          string                 `protobuf:"bytes,3,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
-	SectionName        string                 `protobuf:"bytes,4,opt,name=section_name,json=sectionName,proto3" json:"section_name,omitempty"`
 	CourseName         string                 `protobuf:"bytes,5,opt,name=course_name,json=courseName,proto3" json:"course_name,omitempty"`
 	// enrollment_status is the section_enrollment status: in_progress, passed, failed, withdrawn.
 	EnrollmentStatus string `protobuf:"bytes,6,opt,name=enrollment_status,json=enrollmentStatus,proto3" json:"enrollment_status,omitempty"`
@@ -411,13 +402,6 @@ func (x *AcademicRecordRow) GetAcademicPeriodName() string {
 func (x *AcademicRecordRow) GetSectionId() string {
 	if x != nil {
 		return x.SectionId
-	}
-	return ""
-}
-
-func (x *AcademicRecordRow) GetSectionName() string {
-	if x != nil {
-		return x.SectionName
 	}
 	return ""
 }
@@ -956,34 +940,32 @@ const file_reports_v1_reports_proto_rawDesc = "" +
 	"\x0epartial_grades\x18\x05 \x03(\v2\x18.reports.v1.PartialGradeR\rpartialGrades\x12\x1f\n" +
 	"\vfinal_grade\x18\x06 \x01(\tR\n" +
 	"finalGrade\x12\x18\n" +
-	"\aoutcome\x18\a \x01(\tR\aoutcome\"\xe9\x01\n" +
+	"\aoutcome\x18\a \x01(\tR\aoutcome\"\xda\x01\n" +
 	"\x13SectionOccupancyRow\x12\x1d\n" +
 	"\n" +
-	"section_id\x18\x01 \x01(\tR\tsectionId\x12!\n" +
-	"\fsection_name\x18\x02 \x01(\tR\vsectionName\x12\x1f\n" +
+	"section_id\x18\x01 \x01(\tR\tsectionId\x12\x1f\n" +
 	"\vcourse_name\x18\x03 \x01(\tR\n" +
 	"courseName\x12\x1a\n" +
 	"\bcapacity\x18\x04 \x01(\x05R\bcapacity\x12*\n" +
 	"\x11active_seat_count\x18\x05 \x01(\x05R\x0factiveSeatCount\x12'\n" +
-	"\x0ffill_percentage\x18\x06 \x01(\tR\x0efillPercentage\"\xd1\x01\n" +
+	"\x0ffill_percentage\x18\x06 \x01(\tR\x0efillPercentageJ\x04\b\x02\x10\x03R\fsection_name\"\xd1\x01\n" +
 	"\x14ProgramEnrollmentRow\x12\x19\n" +
 	"\bquota_id\x18\x01 \x01(\tR\aquotaId\x12%\n" +
 	"\x0equota_capacity\x18\x02 \x01(\x05R\rquotaCapacity\x12%\n" +
 	"\x0eenrolled_count\x18\x03 \x01(\x05R\renrolledCount\x12'\n" +
 	"\x0favailable_seats\x18\x04 \x01(\x05R\x0eavailableSeats\x12'\n" +
-	"\x0ffill_percentage\x18\x05 \x01(\tR\x0efillPercentage\"\xbe\x02\n" +
+	"\x0ffill_percentage\x18\x05 \x01(\tR\x0efillPercentage\"\xaf\x02\n" +
 	"\x11AcademicRecordRow\x12,\n" +
 	"\x12academic_period_id\x18\x01 \x01(\tR\x10academicPeriodId\x120\n" +
 	"\x14academic_period_name\x18\x02 \x01(\tR\x12academicPeriodName\x12\x1d\n" +
 	"\n" +
-	"section_id\x18\x03 \x01(\tR\tsectionId\x12!\n" +
-	"\fsection_name\x18\x04 \x01(\tR\vsectionName\x12\x1f\n" +
+	"section_id\x18\x03 \x01(\tR\tsectionId\x12\x1f\n" +
 	"\vcourse_name\x18\x05 \x01(\tR\n" +
 	"courseName\x12+\n" +
 	"\x11enrollment_status\x18\x06 \x01(\tR\x10enrollmentStatus\x12\x1f\n" +
 	"\vfinal_grade\x18\a \x01(\tR\n" +
 	"finalGrade\x12\x18\n" +
-	"\aoutcome\x18\b \x01(\tR\aoutcome\"=\n" +
+	"\aoutcome\x18\b \x01(\tR\aoutcomeJ\x04\b\x04\x10\x05R\fsection_name\"=\n" +
 	"\x1cGetSectionGradeReportRequest\x12\x1d\n" +
 	"\n" +
 	"section_id\x18\x01 \x01(\tR\tsectionId\"\xb0\x01\n" +

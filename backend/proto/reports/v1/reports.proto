@@ -55,7 +55,8 @@ message StudentGradeRow {
 // SectionOccupancyRow holds capacity and active enrollment counts for a single section.
 message SectionOccupancyRow {
   string section_id = 1;
-  string section_name = 2;
+  reserved 2;
+  reserved "section_name";
   string course_name = 3;
   int32 capacity = 4;
   int32 active_seat_count = 5;
@@ -79,7 +80,8 @@ message AcademicRecordRow {
   string academic_period_id = 1;
   string academic_period_name = 2;
   string section_id = 3;
-  string section_name = 4;
+  reserved 4;
+  reserved "section_name";
   string course_name = 5;
   // enrollment_status is the section_enrollment status: in_progress, passed, failed, withdrawn.
   string enrollment_status = 6;

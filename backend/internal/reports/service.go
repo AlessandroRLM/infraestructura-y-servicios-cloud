@@ -506,6 +506,8 @@ func buildProgramSummaryResponse(programID uuid.UUID, year int32, rows []reports
 }
 
 // buildStudentRecordResponse converts FichaForStudentRow slice to proto response.
+// student_name is taken from the first row's student_name column (given_names + last_name_paternal
+// composed in SQL). Empty string when rows is empty (student exists but has no enrollments).
 // Note: AcademicRecordRow in the proto does not have PartialGrades — grade info
 // is stored directly as final_grade/outcome fields. Individual evaluation grades
 // are intentionally not exposed in the ficha RPC.
@@ -513,6 +515,12 @@ func buildStudentRecordResponse(studentID uuid.UUID, rows []reportsdb.FichaForSt
 	truncated := len(rows) > cap
 	if truncated {
 		rows = rows[:cap]
+	}
+
+	// student_name is uniform across all rows for the same student; take from first row.
+	var studentName string
+	if len(rows) > 0 {
+		studentName = rows[0].StudentName
 	}
 
 	protoRows := make([]*reportsv1.AcademicRecordRow, 0, len(rows))
@@ -537,6 +545,7 @@ func buildStudentRecordResponse(studentID uuid.UUID, rows []reportsdb.FichaForSt
 
 	return &reportsv1.GetStudentRecordReportResponse{
 		StudentId:   studentID.String(),
+		StudentName: studentName,
 		GeneratedAt: generatedAt(),
 		Truncated:   truncated,
 		Rows:        protoRows,

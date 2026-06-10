@@ -146,15 +146,16 @@ SELECT EXISTS(
 
 -- name: FichaForStudent :many
 SELECT
-    ap.id                                   AS academic_period_id,
-    (ap.year::text || '-' || ap.term::text)::text AS academic_period_name,
-    s.id                                    AS section_id,
-    c.name                                  AS course_name,
-    se.status                               AS enrollment_status,
-    se.final_grade                          AS final_grade,
-    ev.id                                   AS evaluation_id,
-    ev.position                             AS position,
-    g.value                                 AS grade_value
+    ap.id                                                           AS academic_period_id,
+    (ap.year::text || '-' || ap.term::text)::text                  AS academic_period_name,
+    s.id                                                            AS section_id,
+    c.name                                                          AS course_name,
+    se.status                                                       AS enrollment_status,
+    se.final_grade                                                  AS final_grade,
+    ev.id                                                           AS evaluation_id,
+    ev.position                                                     AS position,
+    g.value                                                         AS grade_value,
+    (up.given_names || ' ' || up.last_name_paternal)::text         AS student_name
 FROM enrollments e
 JOIN section_enrollments se
     ON se.enrollment_id = e.id
@@ -166,6 +167,9 @@ JOIN courses c
     ON c.id = s.course_id
 JOIN academic_periods ap
     ON ap.id = s.academic_period_id
+JOIN user_profiles up
+    ON up.user_id = e.student_id
+    AND up.deleted_at IS NULL
 LEFT JOIN grades g
     ON g.section_enrollment_id = se.id
     AND g.deleted_at IS NULL
