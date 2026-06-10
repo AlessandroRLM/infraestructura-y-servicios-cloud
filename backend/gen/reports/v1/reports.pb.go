@@ -598,9 +598,11 @@ type GetSectionOccupancyReportResponse struct {
 	Rows             []*SectionOccupancyRow `protobuf:"bytes,2,rep,name=rows,proto3" json:"rows,omitempty"`
 	GeneratedAt      string                 `protobuf:"bytes,3,opt,name=generated_at,json=generatedAt,proto3" json:"generated_at,omitempty"`
 	// truncated is true when the result set was capped at 1000 rows.
-	Truncated     bool `protobuf:"varint,4,opt,name=truncated,proto3" json:"truncated,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Truncated bool `protobuf:"varint,4,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	// academic_period_name is the human-readable label for the period (e.g. "2025-1").
+	AcademicPeriodName string `protobuf:"bytes,5,opt,name=academic_period_name,json=academicPeriodName,proto3" json:"academic_period_name,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *GetSectionOccupancyReportResponse) Reset() {
@@ -659,6 +661,13 @@ func (x *GetSectionOccupancyReportResponse) GetTruncated() bool {
 		return x.Truncated
 	}
 	return false
+}
+
+func (x *GetSectionOccupancyReportResponse) GetAcademicPeriodName() string {
+	if x != nil {
+		return x.AcademicPeriodName
+	}
+	return ""
 }
 
 type GetProgramSummaryReportRequest struct {
@@ -976,12 +985,13 @@ const file_reports_v1_reports_proto_rawDesc = "" +
 	"\fgenerated_at\x18\x03 \x01(\tR\vgeneratedAt\x12\x1c\n" +
 	"\ttruncated\x18\x04 \x01(\bR\ttruncated\"P\n" +
 	" GetSectionOccupancyReportRequest\x12,\n" +
-	"\x12academic_period_id\x18\x01 \x01(\tR\x10academicPeriodId\"\xc7\x01\n" +
+	"\x12academic_period_id\x18\x01 \x01(\tR\x10academicPeriodId\"\xf9\x01\n" +
 	"!GetSectionOccupancyReportResponse\x12,\n" +
 	"\x12academic_period_id\x18\x01 \x01(\tR\x10academicPeriodId\x123\n" +
 	"\x04rows\x18\x02 \x03(\v2\x1f.reports.v1.SectionOccupancyRowR\x04rows\x12!\n" +
 	"\fgenerated_at\x18\x03 \x01(\tR\vgeneratedAt\x12\x1c\n" +
-	"\ttruncated\x18\x04 \x01(\bR\ttruncated\"S\n" +
+	"\ttruncated\x18\x04 \x01(\bR\ttruncated\x120\n" +
+	"\x14academic_period_name\x18\x05 \x01(\tR\x12academicPeriodName\"S\n" +
 	"\x1eGetProgramSummaryReportRequest\x12\x1d\n" +
 	"\n" +
 	"program_id\x18\x01 \x01(\tR\tprogramId\x12\x12\n" +

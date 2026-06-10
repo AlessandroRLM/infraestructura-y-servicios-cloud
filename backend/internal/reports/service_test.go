@@ -691,3 +691,208 @@ func TestGetProgramSummaryReport_YearValidation_BoundaryValid(t *testing.T) {
 		}
 	}
 }
+
+// --- W-1: program_name populated in GetProgramSummaryReport ---
+
+// TestGetProgramSummaryReport_ProgramNamePopulated verifies that the program_name
+// field in the response is sourced from the ProgramSummaryRow.ProgramName column
+// (W-1: was always empty because the query didn't JOIN programs).
+func TestGetProgramSummaryReport_ProgramNamePopulated(t *testing.T) {
+	programID := uuid.New()
+	repo := &fakeRepository{
+		programExistsResult: true,
+		programSummaryResult: []reportsdb.ProgramSummaryRow{
+			{
+				QuotaID:       pgUUID(uuid.New()),
+				QuotaCapacity: 100,
+				EnrolledCount: 50,
+				ProgramName:   "Computer Science",
+			},
+		},
+	}
+	cache := &fakeRedis{}
+	svc := newSvc(repo, cache)
+
+	got, err := svc.GetProgramSummaryReport(adminCtx(), programID, 2025)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.ProgramName != "Computer Science" {
+		t.Errorf("ProgramName = %q, want %q", got.ProgramName, "Computer Science")
+	}
+}
+
+// --- W-2: academic_period_name populated in GetSectionOccupancyReport ---
+
+// TestGetSectionOccupancyReport_AcademicPeriodNamePopulated verifies that the
+// academic_period_name field in the response is set from the query result
+// (W-2: was missing entirely from proto and response builder).
+func TestGetSectionOccupancyReport_AcademicPeriodNamePopulated(t *testing.T) {
+	periodID := uuid.New()
+	repo := &fakeRepository{
+		periodExistsResult: true,
+		occupancyResult: []reportsdb.OccupancyForPeriodRow{
+			{
+				SectionID:          pgUUID(uuid.New()),
+				Capacity:           30,
+				CourseName:         pgtype.Text{String: "Math", Valid: true},
+				ActiveSeatCount:    10,
+				AcademicPeriodName: "2025-1",
+			},
+		},
+	}
+	cache := &fakeRedis{}
+	svc := newSvc(repo, cache)
+
+	got, err := svc.GetSectionOccupancyReport(adminCtx(), periodID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.AcademicPeriodName != "2025-1" {
+		t.Errorf("AcademicPeriodName = %q, want %q", got.AcademicPeriodName, "2025-1")
+	}
+}
+
+// --- W-3: outcome = "in_progress" when final_grade is NULL ---
+
+// TestBuildSectionGradeResponse_Outcome_InProgress verifies that when a student
+// has no final_grade (NULL), the outcome field is set to "in_progress".
+// Previously it was left as "" (empty string).
+func TestBuildSectionGradeResponse_Outcome_InProgress(t *testing.T) {
+	sectionID := uuid.New()
+	studentID := uuid.New()
+
+	// No final_grade (Valid=false), no evaluation grades.
+	repo := &fakeRepository{
+		sectionExistsResult: true,
+		actaAdminResult: []reportsdb.ActaForSectionAdminRow{
+			{
+				StudentID:        pgUUID(studentID),
+				GivenNames:       "Carlos",
+				LastNamePaternal: "Ruiz",
+				EnrollmentStatus: "in_progress",
+				// FinalGrade.Valid = false (zero value) — student not yet graded.
+			},
+		},
+	}
+	cache := &fakeRedis{}
+	svc := newSvc(repo, cache)
+
+	got, err := svc.GetSectionGradeReport(adminCtx(), sectionID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got.Rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(got.Rows))
+	}
+	if got.Rows[0].Outcome != "in_progress" {
+		t.Errorf("Outcome = %q, want %q", got.Rows[0].Outcome, "in_progress")
+	}
+	// final_grade must remain empty when not set.
+	if got.Rows[0].FinalGrade != "" {
+		t.Errorf("FinalGrade = %q, want empty string when no grade", got.Rows[0].FinalGrade)
+	}
+}
+
+// TestBuildSectionGradeResponseFromTeacher_Outcome_InProgress verifies the same
+// in_progress outcome for the teacher-scoped acta path.
+func TestBuildSectionGradeResponseFromTeacher_Outcome_InProgress(t *testing.T) {
+	sectionID := uuid.New()
+	studentID := uuid.New()
+
+	repo := &fakeRepository{
+		isTeacherForSectionResult: true,
+		actaTeacherResult: []reportsdb.ActaForSectionByTeacherRow{
+			{
+				StudentID:        pgUUID(studentID),
+				GivenNames:       "Lucia",
+				LastNamePaternal: "Mora",
+				EnrollmentStatus: "in_progress",
+				// FinalGrade.Valid = false — not yet graded.
+			},
+		},
+	}
+	cache := &fakeRedis{}
+	svc := newSvc(repo, cache)
+
+	got, err := svc.GetSectionGradeReport(teacherCtx(), sectionID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got.Rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(got.Rows))
+	}
+	if got.Rows[0].Outcome != "in_progress" {
+		t.Errorf("Outcome = %q, want %q", got.Rows[0].Outcome, "in_progress")
+	}
+}
+
+// TestBuildStudentRecordResponse_Outcome_InProgress verifies that a ficha row with
+// NULL final_grade and enrollment_status "in_progress" produces outcome="in_progress".
+func TestBuildStudentRecordResponse_Outcome_InProgress(t *testing.T) {
+	studentID := uuid.New()
+
+	repo := &fakeRepository{
+		studentExistsResult: true,
+		fichaResult: []reportsdb.FichaForStudentRow{
+			{
+				AcademicPeriodID:   pgUUID(uuid.New()),
+				AcademicPeriodName: "2025-1",
+				SectionID:          pgUUID(uuid.New()),
+				CourseName:         "Álgebra",
+				EnrollmentStatus:   "in_progress",
+				StudentName:        "Pedro Test",
+				// FinalGrade.Valid = false — student in progress.
+			},
+		},
+	}
+	cache := &fakeRedis{}
+	svc := newSvc(repo, cache)
+
+	got, err := svc.GetStudentRecordReport(adminCtx(), studentID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got.Rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(got.Rows))
+	}
+	row := got.Rows[0]
+	if row.Outcome != "in_progress" {
+		t.Errorf("Outcome = %q, want %q", row.Outcome, "in_progress")
+	}
+}
+
+// TestBuildStudentRecordResponse_Outcome_Withdrawn verifies that a ficha row with
+// NULL final_grade and enrollment_status "withdrawn" produces outcome="withdrawn".
+func TestBuildStudentRecordResponse_Outcome_Withdrawn(t *testing.T) {
+	studentID := uuid.New()
+
+	repo := &fakeRepository{
+		studentExistsResult: true,
+		fichaResult: []reportsdb.FichaForStudentRow{
+			{
+				AcademicPeriodID:   pgUUID(uuid.New()),
+				AcademicPeriodName: "2025-1",
+				SectionID:          pgUUID(uuid.New()),
+				CourseName:         "Física",
+				EnrollmentStatus:   "withdrawn",
+				StudentName:        "Pedro Test",
+				// FinalGrade.Valid = false — withdrawn students have no final_grade.
+			},
+		},
+	}
+	cache := &fakeRedis{}
+	svc := newSvc(repo, cache)
+
+	got, err := svc.GetStudentRecordReport(adminCtx(), studentID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got.Rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(got.Rows))
+	}
+	row := got.Rows[0]
+	if row.Outcome != "withdrawn" {
+		t.Errorf("Outcome = %q, want %q", row.Outcome, "withdrawn")
+	}
+}

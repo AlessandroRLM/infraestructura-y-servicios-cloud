@@ -114,6 +114,8 @@ message GetSectionOccupancyReportResponse {
   string generated_at = 3;
   // truncated is true when the result set was capped at 1000 rows.
   bool truncated = 4;
+  // academic_period_name is the human-readable label for the period (e.g. "2025-1").
+  string academic_period_name = 5;
 }
 
 message GetProgramSummaryReportRequest {

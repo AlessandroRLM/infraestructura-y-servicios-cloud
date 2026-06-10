@@ -307,11 +307,14 @@ func (q *Queries) IsTeacherForSection(ctx context.Context, arg IsTeacherForSecti
 
 const occupancyForPeriod = `-- name: OccupancyForPeriod :many
 SELECT
-    s.id                                    AS section_id,
-    s.capacity                              AS capacity,
-    c.name                                  AS course_name,
-    COUNT(se.id)                            AS active_seat_count
+    s.id                                            AS section_id,
+    s.capacity                                      AS capacity,
+    c.name                                          AS course_name,
+    COUNT(se.id)                                    AS active_seat_count,
+    (ap.year::text || '-' || ap.term::text)::text   AS academic_period_name
 FROM sections s
+JOIN academic_periods ap
+    ON ap.id = s.academic_period_id
 LEFT JOIN section_enrollments se
     ON se.section_id = s.id
     AND se.status != 'withdrawn'
@@ -320,16 +323,17 @@ LEFT JOIN courses c
     ON c.id = s.course_id
 WHERE s.academic_period_id = $1
   AND s.deleted_at IS NULL
-GROUP BY s.id, s.capacity, c.name
+GROUP BY s.id, s.capacity, c.name, ap.year, ap.term
 ORDER BY s.id
 LIMIT 1001
 `
 
 type OccupancyForPeriodRow struct {
-	SectionID       pgtype.UUID
-	Capacity        int32
-	CourseName      pgtype.Text
-	ActiveSeatCount int64
+	SectionID          pgtype.UUID
+	Capacity           int32
+	CourseName         pgtype.Text
+	ActiveSeatCount    int64
+	AcademicPeriodName string
 }
 
 func (q *Queries) OccupancyForPeriod(ctx context.Context, academicPeriodID pgtype.UUID) ([]OccupancyForPeriodRow, error) {
@@ -346,6 +350,7 @@ func (q *Queries) OccupancyForPeriod(ctx context.Context, academicPeriodID pgtyp
 			&i.Capacity,
 			&i.CourseName,
 			&i.ActiveSeatCount,
+			&i.AcademicPeriodName,
 		); err != nil {
 			return nil, err
 		}
@@ -392,8 +397,12 @@ SELECT
      WHERE e.program_id = $1
        AND e.year = $2
        AND e.status != 'cancelled'
-       AND e.deleted_at IS NULL)::int4                                  AS enrolled_count
+       AND e.deleted_at IS NULL)::int4                                  AS enrolled_count,
+    p.name                                                              AS program_name
 FROM program_quotas pq
+JOIN programs p
+    ON p.id = pq.program_id
+    AND p.deleted_at IS NULL
 WHERE pq.program_id = $1
   AND pq.year = $2
   AND pq.deleted_at IS NULL
@@ -409,6 +418,7 @@ type ProgramSummaryRow struct {
 	QuotaID       pgtype.UUID
 	QuotaCapacity int32
 	EnrolledCount int32
+	ProgramName   string
 }
 
 func (q *Queries) ProgramSummary(ctx context.Context, arg ProgramSummaryParams) ([]ProgramSummaryRow, error) {
@@ -420,7 +430,7 @@ func (q *Queries) ProgramSummary(ctx context.Context, arg ProgramSummaryParams) 
 	var items []ProgramSummaryRow
 	for rows.Next() {
 		var i ProgramSummaryRow
-		if err := rows.Scan(&i.QuotaID, &i.QuotaCapacity, &i.EnrolledCount); err != nil {
+		if err := rows.Scan(&i.QuotaID, &i.QuotaCapacity, &i.EnrolledCount, &i.ProgramName); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

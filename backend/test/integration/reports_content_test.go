@@ -98,6 +98,77 @@ func TestReports_Content_GetSectionGradeReport_WithEnrollment(t *testing.T) {
 	}
 }
 
+// TestReports_Content_GetSectionGradeReport_WithGrades asserts PartialGrades,
+// FinalGrade, and Outcome for a student who has a recorded evaluation grade (S-3).
+func TestReports_Content_GetSectionGradeReport_WithGrades(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedUserWithSession(t, "reports-grades-admin@reports.test", "admin")
+
+	programID, courseID, programCleanup := seedProgramWithCourse(t)
+	t.Cleanup(programCleanup)
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, false, false)
+	t.Cleanup(periodCleanup)
+	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 30)
+	t.Cleanup(sectionCleanup)
+
+	studentID, _ := seedUserWithSession(t, "reports-grades-student@reports.test", "student")
+	seedStudentProfile(t, studentID, periodYear)
+	seedUserProfile(t, studentID, "Gradeable")
+
+	enrollmentID, enrollCleanup := seedPaidEnrollment(t, studentID.String(), programID, periodYear)
+	t.Cleanup(enrollCleanup)
+
+	seClient := newSectionEnrollmentClient(nil)
+	se, err := seEnrollAdmin(ctx, seClient, adminSID, enrollmentID, sectionID)
+	if err != nil {
+		t.Fatalf("section enroll: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM section_enrollments WHERE id = $1`, se.GetId())
+	})
+
+	// Seed a teacher and assign to the section — RecordGrade requires a teacher for the section.
+	teacherIDStr, teacherSID := gradesSeedTeacherWithSession(t, "rpt-grades", sectionID)
+	_ = teacherIDStr
+
+	// Seed a two-evaluation scheme and record one grade (weight 0.5 each).
+	evals := seedEvaluationScheme(t, courseID, []string{"0.5", "0.5"}, adminSID)
+	if len(evals) != 2 {
+		t.Fatalf("expected 2 evaluations, got %d", len(evals))
+	}
+	seedGrade(t, evals[0].GetId(), se.GetId(), "6.0", teacherSID)
+
+	testRedisClient.Del(ctx, "report:section_grades:"+sectionID)
+
+	client := newReportsClient(nil)
+	req := connect.NewRequest(&reportsv1.GetSectionGradeReportRequest{SectionId: sectionID})
+	req.Header().Set("Cookie", "sid="+adminSID)
+
+	resp, err := client.GetSectionGradeReport(ctx, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Msg.Rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(resp.Msg.Rows))
+	}
+	row := resp.Msg.Rows[0]
+
+	// Partial grades: must have exactly 1 entry (only one grade recorded).
+	if len(row.PartialGrades) != 1 {
+		t.Errorf("PartialGrades count = %d, want 1", len(row.PartialGrades))
+	} else if row.PartialGrades[0].Value != "6.0" {
+		t.Errorf("PartialGrades[0].Value = %q, want %q", row.PartialGrades[0].Value, "6.0")
+	}
+
+	// No final_grade yet — student is in_progress.
+	if row.FinalGrade != "" {
+		t.Errorf("FinalGrade = %q, want empty (not yet computed)", row.FinalGrade)
+	}
+	if row.Outcome != "in_progress" {
+		t.Errorf("Outcome = %q, want %q", row.Outcome, "in_progress")
+	}
+}
+
 // TestReports_Content_NonExistentSection_CodeNotFound verifies that requesting a report
 // for a section UUID that does not exist returns CodeNotFound.
 func TestReports_Content_NonExistentSection_CodeNotFound(t *testing.T) {
@@ -312,11 +383,15 @@ func TestReports_Content_StudentRecordReport_WithHistory(t *testing.T) {
 		t.Error("expected StudentName to be populated, got empty string")
 	}
 
-	// Verify the section is referenced.
+	// Verify the section is referenced and outcome is set (W-3: was empty before fix).
 	found := false
 	for _, r := range resp.Msg.Rows {
 		if r.SectionId == sectionID {
 			found = true
+			// A freshly enrolled student has no final_grade → outcome must be "in_progress".
+			if r.Outcome == "" {
+				t.Errorf("Outcome = empty for section %s, want %q", sectionID, "in_progress")
+			}
 			break
 		}
 	}
@@ -632,6 +707,66 @@ func TestReports_Content_SoftDelete_Awareness(t *testing.T) {
 			t.Errorf("expected 0 rows in ficha after SE soft-delete, got %d", len(resp.Msg.Rows))
 		}
 	})
+}
+
+// TestReports_Content_OccupancyReport_AcademicPeriodName verifies that the occupancy
+// response includes the academic_period_name field populated from the periods table (W-2).
+func TestReports_Content_OccupancyReport_AcademicPeriodName(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedUserWithSession(t, "reports-occupancy-periname@reports.test", "admin")
+
+	_, courseID, programCleanup := seedProgramWithCourse(t)
+	t.Cleanup(programCleanup)
+	periodID, _, periodCleanup := seedAcademicPeriodWithWindow(t, false, false)
+	t.Cleanup(periodCleanup)
+	_, sectionCleanup := seedSection(t, courseID, periodID, 10)
+	t.Cleanup(sectionCleanup)
+
+	testRedisClient.Del(ctx, "report:section_occupancy:"+periodID)
+
+	client := newReportsClient(nil)
+	req := connect.NewRequest(&reportsv1.GetSectionOccupancyReportRequest{AcademicPeriodId: periodID})
+	req.Header().Set("Cookie", "sid="+adminSID)
+
+	resp, err := client.GetSectionOccupancyReport(ctx, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// academic_period_name must be non-empty and follow the "year-term" format.
+	if resp.Msg.AcademicPeriodName == "" {
+		t.Error("AcademicPeriodName = empty, want a non-empty year-term string")
+	}
+}
+
+// TestReports_Content_ProgramSummaryReport_ProgramName verifies that the program summary
+// response includes the program_name field (W-1: was always empty before the JOIN fix).
+func TestReports_Content_ProgramSummaryReport_ProgramName(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedUserWithSession(t, "reports-progname-admin@reports.test", "admin")
+
+	// seedProgramWithQuota creates a program with a quota — we need both to get rows.
+	programID, programCleanup := seedProgramWithQuota(t, 50, 2025)
+	t.Cleanup(programCleanup)
+
+	testRedisClient.Del(ctx, fmt.Sprintf("report:program_enrollment:%s:%d", programID, 2025))
+
+	client := newReportsClient(nil)
+	req := connect.NewRequest(&reportsv1.GetProgramSummaryReportRequest{
+		ProgramId: programID,
+		Year:      2025,
+	})
+	req.Header().Set("Cookie", "sid="+adminSID)
+
+	resp, err := client.GetProgramSummaryReport(ctx, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Msg.Rows) == 0 {
+		t.Fatal("expected at least 1 row, got 0")
+	}
+	if resp.Msg.ProgramName == "" {
+		t.Error("ProgramName = empty, want the seeded program name")
+	}
 }
 
 // TestReports_Content_OccupancyReport_ZeroCapacitySection verifies that a section with

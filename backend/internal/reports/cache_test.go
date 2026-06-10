@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	reportsv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/reports/v1"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports/reportsdb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -121,6 +122,7 @@ func TestBuildStudentRecordKey(t *testing.T) {
 type fakeRedis struct {
 	getCalled bool
 	setCalled bool
+	setTTL    time.Duration
 	getVal    []byte
 	getErr    error
 	setErr    error
@@ -139,6 +141,7 @@ func (f *fakeRedis) Get(ctx context.Context, key string) ([]byte, bool, error) {
 
 func (f *fakeRedis) Set(ctx context.Context, key string, data []byte, ttl time.Duration) error {
 	f.setCalled = true
+	f.setTTL = ttl
 	return f.setErr
 }
 
@@ -235,4 +238,30 @@ func TestRedisCacheSetHappy(t *testing.T) {
 // on the fakeRedis stub which already satisfies Cache).
 func newFakeCache(fr *fakeRedis) Cache {
 	return fr
+}
+
+// TestCacheMissPath_SetTTL_EqualsConfiguredTTL verifies that on a cache miss the
+// cacheSet call passes the Service's configured TTL to the underlying Cache.Set.
+// This is S-2: fakeRedis.Set captures the TTL and the test asserts it matches.
+func TestCacheMissPath_SetTTL_EqualsConfiguredTTL(t *testing.T) {
+	const wantTTL = 7 * time.Minute
+	sectionID := uuid.New()
+
+	repo := &fakeRepository{
+		sectionExistsResult: true,
+		actaAdminResult:     []reportsdb.ActaForSectionAdminRow{},
+	}
+	fr := &fakeRedis{}
+	svc := NewService(repo, fr, wantTTL)
+
+	_, err := svc.GetSectionGradeReport(adminCtx(), sectionID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !fr.setCalled {
+		t.Fatal("expected cache.Set to be called on miss path, but it was not")
+	}
+	if fr.setTTL != wantTTL {
+		t.Errorf("cache.Set received TTL=%v, want %v", fr.setTTL, wantTTL)
+	}
 }

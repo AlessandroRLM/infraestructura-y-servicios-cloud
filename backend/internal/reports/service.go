@@ -343,6 +343,8 @@ func buildSectionGradeResponse(sectionID uuid.UUID, rows []reportsdb.ActaForSect
 		if r.FinalGrade.Valid {
 			row.FinalGrade = numericToString(r.FinalGrade)
 			row.Outcome = gradeOutcome(row.FinalGrade)
+		} else {
+			row.Outcome = "in_progress"
 		}
 		gradeRows = append(gradeRows, row)
 	}
@@ -411,6 +413,8 @@ func buildSectionGradeResponseFromTeacher(sectionID uuid.UUID, rows []reportsdb.
 		if r.FinalGrade.Valid {
 			row.FinalGrade = numericToString(r.FinalGrade)
 			row.Outcome = gradeOutcome(row.FinalGrade)
+		} else {
+			row.Outcome = "in_progress"
 		}
 		gradeRows = append(gradeRows, row)
 	}
@@ -457,11 +461,18 @@ func buildOccupancyResponse(periodID uuid.UUID, rows []reportsdb.OccupancyForPer
 		protoRows = append(protoRows, row)
 	}
 
+	// academic_period_name is uniform across all rows (same period); take from first row.
+	var periodName string
+	if len(rows) > 0 {
+		periodName = rows[0].AcademicPeriodName
+	}
+
 	return &reportsv1.GetSectionOccupancyReportResponse{
-		AcademicPeriodId: periodID.String(),
-		GeneratedAt:      generatedAt(),
-		Truncated:        truncated,
-		Rows:             protoRows,
+		AcademicPeriodId:   periodID.String(),
+		AcademicPeriodName: periodName,
+		GeneratedAt:        generatedAt(),
+		Truncated:          truncated,
+		Rows:               protoRows,
 	}
 }
 
@@ -496,8 +507,15 @@ func buildProgramSummaryResponse(programID uuid.UUID, year int32, rows []reports
 		protoRows = append(protoRows, row)
 	}
 
+	// program_name is uniform across all rows for the same program; take from first row.
+	var programName string
+	if len(rows) > 0 {
+		programName = rows[0].ProgramName
+	}
+
 	return &reportsv1.GetProgramSummaryReportResponse{
 		ProgramId:   programID.String(),
+		ProgramName: programName,
 		Year:        year,
 		GeneratedAt: generatedAt(),
 		Truncated:   truncated,
@@ -539,6 +557,13 @@ func buildStudentRecordResponse(studentID uuid.UUID, rows []reportsdb.FichaForSt
 		if r.FinalGrade.Valid {
 			row.FinalGrade = numericToString(r.FinalGrade)
 			row.Outcome = gradeOutcome(row.FinalGrade)
+		} else {
+			// Map outcome directly from the SE status column so that "withdrawn"
+			// is preserved rather than collapsed into "in_progress".
+			// Valid SE statuses: in_progress, passed, failed, withdrawn.
+			// passed/failed always have a final_grade so the else branch covers
+			// only in_progress and withdrawn.
+			row.Outcome = r.EnrollmentStatus
 		}
 		protoRows = append(protoRows, row)
 	}
