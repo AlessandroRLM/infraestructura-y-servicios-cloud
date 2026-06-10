@@ -72,3 +72,12 @@ sql:
         out: "internal/grades/gradesdb"
         sql_package: "pgx/v5"
         emit_interface: true
+  - engine: "postgresql"
+    queries: "internal/reports/query.sql"
+    schema: "migrations/"
+    gen:
+      go:
+        package: "reportsdb"
+        out: "internal/reports/reportsdb"
+        sql_package: "pgx/v5"
+        emit_interface: true

@@ -34,6 +34,8 @@ type Config struct {
 	CookieSecure bool
 	// AppEnv identifies the runtime environment (e.g. "production"). Defaults to "".
 	AppEnv string
+	// ReportsCacheTTL is the TTL for report cache entries in Redis. Required; must be > 0.
+	ReportsCacheTTL time.Duration
 }
 
 const (
@@ -125,6 +127,12 @@ func Load() (Config, error) {
 	}
 
 	cfg.AppEnv = os.Getenv("APP_ENV")
+
+	reportsCacheTTL, err := requireDuration("REPORTS_CACHE_TTL")
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.ReportsCacheTTL = reportsCacheTTL
 
 	return cfg, nil
 }

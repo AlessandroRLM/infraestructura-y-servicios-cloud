@@ -20,6 +20,7 @@ import (
 	enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1/enrollmentv1connect"
 	gradesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1/gradesv1connect"
 	profilesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1/profilesv1connect"
+	reportsv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/reports/v1/reportsv1connect"
 	section_enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
@@ -32,6 +33,8 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades"
 	gradesdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/health"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports"
+	reportsdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports/reportsdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
@@ -117,6 +120,10 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "failed to set REDIS_URL: %v\n", err) //nolint:errcheck
 		os.Exit(1)
 	}
+	if err := os.Setenv("REPORTS_CACHE_TTL", "5m"); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to set REPORTS_CACHE_TTL: %v\n", err) //nolint:errcheck
+		os.Exit(1)
+	}
 
 	pool, err := db.NewPool(ctx, pgDSN, 5)
 	if err != nil {
@@ -145,11 +152,12 @@ func TestMain(m *testing.M) {
 	}
 	testRedisClient = redisClient
 	sharedCfg = config.Config{
-		BcryptCost:    4, // fast for tests
-		SessionTTL:    time.Hour,
-		ResetTokenTTL: 15 * time.Minute,
-		AppEnv:        "test",
-		CookieSecure:  false,
+		BcryptCost:      4, // fast for tests
+		SessionTTL:      time.Hour,
+		ResetTokenTTL:   15 * time.Minute,
+		ReportsCacheTTL: 5 * time.Minute,
+		AppEnv:          "test",
+		CookieSecure:    false,
 	}
 	testCfg := sharedCfg
 
@@ -243,6 +251,12 @@ func TestMain(m *testing.M) {
 		gradesv1connect.GradesServiceGetGradeProcedure:             authz.RequirePermission(authz.PermGradesRead),
 		// Grades student self-view — require grades.view_own.
 		gradesv1connect.GradesServiceListOwnGradesProcedure: authz.RequirePermission(authz.PermGradesViewOwn),
+
+		// Reports procedures — all require reports.read.
+		reportsv1connect.ReportsServiceGetSectionGradeReportProcedure:     authz.RequirePermission(authz.PermReportsRead),
+		reportsv1connect.ReportsServiceGetSectionOccupancyReportProcedure: authz.RequirePermission(authz.PermReportsRead),
+		reportsv1connect.ReportsServiceGetProgramSummaryReportProcedure:   authz.RequirePermission(authz.PermReportsRead),
+		reportsv1connect.ReportsServiceGetStudentRecordReportProcedure:    authz.RequirePermission(authz.PermReportsRead),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
@@ -307,8 +321,18 @@ func TestMain(m *testing.M) {
 		grades.Register(mux, gradesHandler, authOpts...)
 	}
 
+	// Reports handler wiring — mirrors cmd/api/main.go exactly.
+	reportsQueries := reportsdb.New(pool)
+	reportsRepo := reports.NewPostgresRepository(reportsQueries)
+	reportsCache := reports.NewRedisCache(redisClient)
+	reportsSvc := reports.NewService(reportsRepo, reportsCache, sharedCfg.ReportsCacheTTL)
+	reportsHandler := reports.NewHandler(reportsSvc)
+	reportsReg := func(mux *http.ServeMux) {
+		reports.Register(mux, reportsHandler, authOpts...)
+	}
+
 	log := logging.New(slog.LevelError) // suppress output in tests
-	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg, enrollmentReg, sectionEnrollmentReg, gradesReg)
+	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg, enrollmentReg, sectionEnrollmentReg, gradesReg, reportsReg)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

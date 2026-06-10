@@ -1,0 +1,664 @@
+package reports
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"math/big"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+
+	reportsv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/reports/v1"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports/reportsdb"
+)
+
+const (
+	// actaCap is the maximum number of StudentGradeRows returned by GetSectionGradeReport.
+	// The query uses LIMIT actaCap+1; if actaCap+1 rows arrive, Truncated is set.
+	actaCap = 500
+	// occupancyCap is the maximum number of rows for GetSectionOccupancyReport.
+	occupancyCap = 1000
+	// programCap is the maximum number of rows for GetProgramSummaryReport.
+	programCap = 200
+	// fichaCap is the maximum number of rows for GetStudentRecordReport.
+	fichaCap = 1000
+)
+
+// Service implements the reports domain use cases: four read RPCs with
+// Redis cache-aside, per-RPC authz guard, and row grouping for the grade acta.
+type Service struct {
+	repo  Repository
+	cache Cache
+	ttl   time.Duration
+}
+
+// NewService constructs a Service with the provided dependencies.
+// ttl sets the Redis TTL for all cached reports and must be > 0.
+func NewService(repo Repository, cache Cache, ttl time.Duration) *Service {
+	return &Service{repo: repo, cache: cache, ttl: ttl}
+}
+
+// GetSectionGradeReport returns the grade acta for a section.
+// Admin callers (PermCatalogManage) receive all rows.
+// Teacher callers: membership is verified BEFORE the cache lookup so that
+// an out-of-scope teacher cannot read another teacher's cached acta.
+// Out-of-scope teacher → ErrNotFound (anti-leak: existence is never disclosed).
+func (s *Service) GetSectionGradeReport(ctx context.Context, sectionID uuid.UUID) (*reportsv1.GetSectionGradeReportResponse, error) {
+	isAdmin := callerIsAdmin(ctx)
+
+	// For non-admin callers, resolve the caller ID and run the membership check
+	// BEFORE any cache access. A non-member receives ErrNotFound regardless of
+	// whether the section exists, so section existence is never revealed.
+	var callerID uuid.UUID
+	if !isAdmin {
+		var ok bool
+		callerID, ok = auth.UserIDFromContext(ctx)
+		if !ok {
+			return nil, ErrNotFound
+		}
+		isMember, err := s.repo.IsTeacherForSection(ctx, sectionID, callerID)
+		if err != nil {
+			return nil, err
+		}
+		if !isMember {
+			return nil, ErrNotFound
+		}
+	}
+
+	// Cache lookup (fail-open: redis errors treated as miss).
+	cacheKey := buildSectionGradeKey(sectionID)
+	var target reportsv1.GetSectionGradeReportResponse
+	if msg, ok := s.cacheGet(ctx, cacheKey, &target); ok {
+		resp, ok := msg.(*reportsv1.GetSectionGradeReportResponse)
+		if !ok {
+			logCacheGetError(ctx, cacheKey, fmt.Errorf("type assertion failed: got %T", msg))
+			// fall through to DB path
+		} else {
+			return resp, nil
+		}
+	}
+
+	// Existence check (admin path only; teacher path confirmed existence via membership).
+	if isAdmin {
+		exists, err := s.repo.SectionExists(ctx, sectionID)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, ErrNotFound
+		}
+	}
+
+	var resp *reportsv1.GetSectionGradeReportResponse
+
+	if isAdmin {
+		rows, err := s.repo.ActaForSectionAdmin(ctx, sectionID)
+		if err != nil {
+			return nil, err
+		}
+		resp = buildSectionGradeResponse(sectionID, rows, actaCap)
+	} else {
+		rows, err := s.repo.ActaForSectionByTeacher(ctx, sectionID, callerID)
+		if err != nil {
+			return nil, err
+		}
+		resp = buildSectionGradeResponseFromTeacher(sectionID, rows, actaCap)
+	}
+
+	s.cacheSet(ctx, cacheKey, resp)
+	return resp, nil
+}
+
+// GetSectionOccupancyReport returns occupancy data for all sections in an academic period.
+// Admin-only (PermCatalogManage). Teachers receive ErrPermissionDenied immediately — no cache or DB access.
+func (s *Service) GetSectionOccupancyReport(ctx context.Context, periodID uuid.UUID) (*reportsv1.GetSectionOccupancyReportResponse, error) {
+	// Admin guard BEFORE cache lookup.
+	if !callerIsAdmin(ctx) {
+		return nil, ErrPermissionDenied
+	}
+
+	cacheKey := buildOccupancyKey(periodID)
+	var target reportsv1.GetSectionOccupancyReportResponse
+	if msg, ok := s.cacheGet(ctx, cacheKey, &target); ok {
+		resp, ok := msg.(*reportsv1.GetSectionOccupancyReportResponse)
+		if !ok {
+			logCacheGetError(ctx, cacheKey, fmt.Errorf("type assertion failed: got %T", msg))
+			// fall through to DB path
+		} else {
+			return resp, nil
+		}
+	}
+
+	exists, err := s.repo.PeriodExists(ctx, periodID)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	rows, err := s.repo.OccupancyForPeriod(ctx, periodID)
+	if err != nil {
+		return nil, err
+	}
+	resp := buildOccupancyResponse(periodID, rows, occupancyCap)
+	s.cacheSet(ctx, cacheKey, resp)
+	return resp, nil
+}
+
+// GetProgramSummaryReport returns quota and enrollment counts for a program in a given year.
+// Admin-only (PermCatalogManage). Teachers receive ErrPermissionDenied.
+func (s *Service) GetProgramSummaryReport(ctx context.Context, programID uuid.UUID, year int32) (*reportsv1.GetProgramSummaryReportResponse, error) {
+	if !callerIsAdmin(ctx) {
+		return nil, ErrPermissionDenied
+	}
+
+	// Year range validation BEFORE any cache or DB access.
+	if year < 2000 || year > 2100 {
+		return nil, fmt.Errorf("%w: year must be between 2000 and 2100, got %d", ErrInvalidInput, year)
+	}
+
+	cacheKey := buildProgramSummaryKey(programID, int(year))
+	var target reportsv1.GetProgramSummaryReportResponse
+	if msg, ok := s.cacheGet(ctx, cacheKey, &target); ok {
+		resp, ok := msg.(*reportsv1.GetProgramSummaryReportResponse)
+		if !ok {
+			logCacheGetError(ctx, cacheKey, fmt.Errorf("type assertion failed: got %T", msg))
+			// fall through to DB path
+		} else {
+			return resp, nil
+		}
+	}
+
+	exists, err := s.repo.ProgramExists(ctx, programID)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	rows, err := s.repo.ProgramSummary(ctx, programID, year)
+	if err != nil {
+		return nil, err
+	}
+	resp := buildProgramSummaryResponse(programID, year, rows, programCap)
+	s.cacheSet(ctx, cacheKey, resp)
+	return resp, nil
+}
+
+// GetStudentRecordReport returns the complete academic record for a student.
+// Admin-only (PermCatalogManage). Teachers receive ErrPermissionDenied.
+func (s *Service) GetStudentRecordReport(ctx context.Context, studentID uuid.UUID) (*reportsv1.GetStudentRecordReportResponse, error) {
+	if !callerIsAdmin(ctx) {
+		return nil, ErrPermissionDenied
+	}
+
+	cacheKey := buildStudentRecordKey(studentID)
+	var target reportsv1.GetStudentRecordReportResponse
+	if msg, ok := s.cacheGet(ctx, cacheKey, &target); ok {
+		resp, ok := msg.(*reportsv1.GetStudentRecordReportResponse)
+		if !ok {
+			logCacheGetError(ctx, cacheKey, fmt.Errorf("type assertion failed: got %T", msg))
+			// fall through to DB path
+		} else {
+			return resp, nil
+		}
+	}
+
+	exists, err := s.repo.StudentExists(ctx, studentID)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	rows, err := s.repo.FichaForStudent(ctx, studentID)
+	if err != nil {
+		return nil, err
+	}
+	resp := buildStudentRecordResponse(studentID, rows, fichaCap)
+	s.cacheSet(ctx, cacheKey, resp)
+	return resp, nil
+}
+
+// --- Cache helpers ---
+
+// cacheGet retrieves and deserializes a cached proto message.
+// Returns (msg, true) on hit. Returns (nil, false) on miss OR Redis error (fail-open).
+// target must be the zero value of the target type.
+func (s *Service) cacheGet(ctx context.Context, key string, target proto.Message) (proto.Message, bool) {
+	data, found, err := s.cache.Get(ctx, key)
+	if err != nil {
+		logCacheGetError(ctx, key, err)
+		return nil, false
+	}
+	if !found {
+		return nil, false
+	}
+	if err := protojson.Unmarshal(data, target); err != nil {
+		// Corrupt cache entry — treat as miss so we recompute.
+		logCacheGetError(ctx, key, fmt.Errorf("protojson unmarshal: %w", err))
+		return nil, false
+	}
+	return target, true
+}
+
+// cacheSet serializes a proto message and stores it with the service TTL.
+// Redis errors are swallowed after logging (best-effort).
+func (s *Service) cacheSet(ctx context.Context, key string, msg proto.Message) {
+	data, err := protoMarshal(msg)
+	if err != nil {
+		logCacheSetError(ctx, key, fmt.Errorf("protojson marshal: %w", err))
+		return
+	}
+	if err := s.cache.Set(ctx, key, data, s.ttl); err != nil {
+		logCacheSetError(ctx, key, err)
+	}
+}
+
+// protoMarshal serializes a proto message to JSON bytes using protojson.
+// protojson is required (not encoding/json) because proto structs have unexported fields.
+func protoMarshal(msg proto.Message) ([]byte, error) {
+	return protojson.Marshal(msg)
+}
+
+// --- callerIsAdmin ---
+
+// callerIsAdmin returns true when the authenticated caller holds PermCatalogManage,
+// which identifies admin-level access in the reports domain.
+// Teachers hold PermReportsRead but NOT PermCatalogManage.
+func callerIsAdmin(ctx context.Context) bool {
+	perms, ok := authz.PermissionsFromContext(ctx)
+	if !ok {
+		return false
+	}
+	return perms.Has(authz.PermCatalogManage)
+}
+
+// --- Response builders ---
+
+// buildSectionGradeResponse groups flat ActaForSectionAdminRow results into
+// StudentGradeRows with nested PartialGrades. Applies LIMIT cap+1 truncation detection.
+func buildSectionGradeResponse(sectionID uuid.UUID, rows []reportsdb.ActaForSectionAdminRow, cap int) *reportsv1.GetSectionGradeReportResponse {
+	truncated := len(rows) > cap
+	if truncated {
+		rows = rows[:cap]
+	}
+
+	// Group by student UUID (preserving insertion order via slice of keys).
+	type studentEntry struct {
+		row    reportsdb.ActaForSectionAdminRow
+		grades []*reportsv1.PartialGrade
+	}
+	studentMap := make(map[uuid.UUID]*studentEntry)
+	var studentOrder []uuid.UUID
+
+	for _, r := range rows {
+		studentID := uuid.UUID(r.StudentID.Bytes)
+		entry, exists := studentMap[studentID]
+		if !exists {
+			entry = &studentEntry{row: r}
+			studentMap[studentID] = entry
+			studentOrder = append(studentOrder, studentID)
+		}
+
+		// Guard: LEFT JOIN on grades/evaluations produces a NULL evaluation_id row
+		// when a student has no grades. Skip appending a zero-UUID PartialGrade.
+		if !r.EvaluationID.Valid {
+			continue
+		}
+
+		partial := &reportsv1.PartialGrade{
+			EvaluationId: uuid.UUID(r.EvaluationID.Bytes).String(),
+			Position:     r.Position.Int32,
+		}
+		if r.GradeValue.Valid {
+			partial.Value = numericToString(r.GradeValue)
+		}
+		entry.grades = append(entry.grades, partial)
+	}
+
+	gradeRows := make([]*reportsv1.StudentGradeRow, 0, len(studentOrder))
+	for _, sid := range studentOrder {
+		entry := studentMap[sid]
+		r := entry.row
+
+		row := &reportsv1.StudentGradeRow{
+			StudentId:        sid.String(),
+			GivenNames:       r.GivenNames,
+			LastNamePaternal: r.LastNamePaternal,
+			PartialGrades:    entry.grades,
+		}
+		if r.LastNameMaternal.Valid {
+			row.LastNameMaternal = r.LastNameMaternal.String
+		}
+		if r.FinalGrade.Valid {
+			row.FinalGrade = numericToString(r.FinalGrade)
+			row.Outcome = gradeOutcome(row.FinalGrade)
+		} else {
+			row.Outcome = "in_progress"
+		}
+		gradeRows = append(gradeRows, row)
+	}
+
+	return &reportsv1.GetSectionGradeReportResponse{
+		SectionId:   sectionID.String(),
+		GeneratedAt: generatedAt(),
+		Truncated:   truncated,
+		Rows:        gradeRows,
+	}
+}
+
+// buildSectionGradeResponseFromTeacher groups flat ActaForSectionByTeacherRow results.
+func buildSectionGradeResponseFromTeacher(sectionID uuid.UUID, rows []reportsdb.ActaForSectionByTeacherRow, cap int) *reportsv1.GetSectionGradeReportResponse {
+	truncated := len(rows) > cap
+	if truncated {
+		rows = rows[:cap]
+	}
+
+	type studentEntry struct {
+		row    reportsdb.ActaForSectionByTeacherRow
+		grades []*reportsv1.PartialGrade
+	}
+	studentMap := make(map[uuid.UUID]*studentEntry)
+	var studentOrder []uuid.UUID
+
+	for _, r := range rows {
+		studentID := uuid.UUID(r.StudentID.Bytes)
+		entry, exists := studentMap[studentID]
+		if !exists {
+			entry = &studentEntry{row: r}
+			studentMap[studentID] = entry
+			studentOrder = append(studentOrder, studentID)
+		}
+
+		// Guard: LEFT JOIN on grades/evaluations produces a NULL evaluation_id row
+		// when a student has no grades. Skip appending a zero-UUID PartialGrade.
+		if !r.EvaluationID.Valid {
+			continue
+		}
+
+		partial := &reportsv1.PartialGrade{
+			EvaluationId: uuid.UUID(r.EvaluationID.Bytes).String(),
+			Position:     r.Position.Int32,
+		}
+		if r.GradeValue.Valid {
+			partial.Value = numericToString(r.GradeValue)
+		}
+		entry.grades = append(entry.grades, partial)
+	}
+
+	gradeRows := make([]*reportsv1.StudentGradeRow, 0, len(studentOrder))
+	for _, sid := range studentOrder {
+		entry := studentMap[sid]
+		r := entry.row
+
+		row := &reportsv1.StudentGradeRow{
+			StudentId:        sid.String(),
+			GivenNames:       r.GivenNames,
+			LastNamePaternal: r.LastNamePaternal,
+			PartialGrades:    entry.grades,
+		}
+		if r.LastNameMaternal.Valid {
+			row.LastNameMaternal = r.LastNameMaternal.String
+		}
+		if r.FinalGrade.Valid {
+			row.FinalGrade = numericToString(r.FinalGrade)
+			row.Outcome = gradeOutcome(row.FinalGrade)
+		} else {
+			row.Outcome = "in_progress"
+		}
+		gradeRows = append(gradeRows, row)
+	}
+
+	return &reportsv1.GetSectionGradeReportResponse{
+		SectionId:   sectionID.String(),
+		GeneratedAt: generatedAt(),
+		Truncated:   truncated,
+		Rows:        gradeRows,
+	}
+}
+
+// buildOccupancyResponse converts OccupancyForPeriodRow slice to proto response.
+func buildOccupancyResponse(periodID uuid.UUID, rows []reportsdb.OccupancyForPeriodRow, cap int) *reportsv1.GetSectionOccupancyReportResponse {
+	truncated := len(rows) > cap
+	if truncated {
+		rows = rows[:cap]
+	}
+
+	protoRows := make([]*reportsv1.SectionOccupancyRow, 0, len(rows))
+	for _, r := range rows {
+		sectionID := uuid.UUID(r.SectionID.Bytes)
+		seatCount := r.ActiveSeatCount // DB returns int64; proto uses int32
+		if seatCount > math.MaxInt32 {
+			seatCount = math.MaxInt32
+		}
+		active := int32(seatCount)
+		capacity := r.Capacity
+
+		row := &reportsv1.SectionOccupancyRow{
+			SectionId:       sectionID.String(),
+			Capacity:        capacity,
+			ActiveSeatCount: active,
+		}
+		if r.CourseName.Valid {
+			row.CourseName = r.CourseName.String
+		}
+		// fill_percentage: guard against division by zero.
+		if capacity > 0 {
+			row.FillPercentage = fmt.Sprintf("%.2f", float64(active)/float64(capacity)*100)
+		} else {
+			row.FillPercentage = "0.00"
+		}
+		protoRows = append(protoRows, row)
+	}
+
+	// academic_period_name is uniform across all rows (same period); take from first row.
+	var periodName string
+	if len(rows) > 0 {
+		periodName = rows[0].AcademicPeriodName
+	}
+
+	return &reportsv1.GetSectionOccupancyReportResponse{
+		AcademicPeriodId:   periodID.String(),
+		AcademicPeriodName: periodName,
+		GeneratedAt:        generatedAt(),
+		Truncated:          truncated,
+		Rows:               protoRows,
+	}
+}
+
+// buildProgramSummaryResponse converts ProgramSummaryRow slice to proto response.
+func buildProgramSummaryResponse(programID uuid.UUID, year int32, rows []reportsdb.ProgramSummaryRow, cap int) *reportsv1.GetProgramSummaryReportResponse {
+	truncated := len(rows) > cap
+	if truncated {
+		rows = rows[:cap]
+	}
+
+	protoRows := make([]*reportsv1.ProgramEnrollmentRow, 0, len(rows))
+	for _, r := range rows {
+		quotaID := uuid.UUID(r.QuotaID.Bytes)
+		capacity := r.QuotaCapacity
+		enrolled := r.EnrolledCount
+		available := capacity - enrolled
+		if available < 0 {
+			available = 0
+		}
+
+		row := &reportsv1.ProgramEnrollmentRow{
+			QuotaId:        quotaID.String(),
+			QuotaCapacity:  capacity,
+			EnrolledCount:  enrolled,
+			AvailableSeats: available,
+		}
+		if capacity > 0 {
+			row.FillPercentage = fmt.Sprintf("%.2f", float64(enrolled)/float64(capacity)*100)
+		} else {
+			row.FillPercentage = "0.00"
+		}
+		protoRows = append(protoRows, row)
+	}
+
+	// program_name is uniform across all rows for the same program; take from first row.
+	var programName string
+	if len(rows) > 0 {
+		programName = rows[0].ProgramName
+	}
+
+	return &reportsv1.GetProgramSummaryReportResponse{
+		ProgramId:   programID.String(),
+		ProgramName: programName,
+		Year:        year,
+		GeneratedAt: generatedAt(),
+		Truncated:   truncated,
+		Rows:        protoRows,
+	}
+}
+
+// buildStudentRecordResponse converts FichaForStudentRow slice to proto response.
+// student_name is taken from the first row's student_name column (given_names + last_name_paternal
+// composed in SQL). Empty string when rows is empty (student exists but has no enrollments).
+// Note: AcademicRecordRow in the proto does not have PartialGrades — grade info
+// is stored directly as final_grade/outcome fields. Individual evaluation grades
+// are intentionally not exposed in the ficha RPC.
+func buildStudentRecordResponse(studentID uuid.UUID, rows []reportsdb.FichaForStudentRow, cap int) *reportsv1.GetStudentRecordReportResponse {
+	truncated := len(rows) > cap
+	if truncated {
+		rows = rows[:cap]
+	}
+
+	// student_name is uniform across all rows for the same student; take from first row.
+	var studentName string
+	if len(rows) > 0 {
+		studentName = rows[0].StudentName
+	}
+
+	protoRows := make([]*reportsv1.AcademicRecordRow, 0, len(rows))
+	for _, r := range rows {
+		sectionID := uuid.UUID(r.SectionID.Bytes)
+		periodID := uuid.UUID(r.AcademicPeriodID.Bytes)
+
+		row := &reportsv1.AcademicRecordRow{
+			AcademicPeriodId:   periodID.String(),
+			AcademicPeriodName: r.AcademicPeriodName,
+			SectionId:          sectionID.String(),
+			CourseName:         r.CourseName,
+			EnrollmentStatus:   r.EnrollmentStatus,
+		}
+
+		if r.FinalGrade.Valid {
+			row.FinalGrade = numericToString(r.FinalGrade)
+			row.Outcome = gradeOutcome(row.FinalGrade)
+		} else {
+			// Map outcome directly from the SE status column so that "withdrawn"
+			// is preserved rather than collapsed into "in_progress".
+			// Valid SE statuses: in_progress, passed, failed, withdrawn.
+			// passed/failed always have a final_grade so the else branch covers
+			// only in_progress and withdrawn.
+			row.Outcome = r.EnrollmentStatus
+		}
+		protoRows = append(protoRows, row)
+	}
+
+	return &reportsv1.GetStudentRecordReportResponse{
+		StudentId:   studentID.String(),
+		StudentName: studentName,
+		GeneratedAt: generatedAt(),
+		Truncated:   truncated,
+		Rows:        protoRows,
+	}
+}
+
+// --- Conversion helpers ---
+
+// numericToString converts a pgtype.Numeric to its canonical fixed-point decimal string,
+// preserving the scale stored in Exp so that values round-trip without float64 drift.
+//
+// pgtype.Numeric stores the value as coefficient Int × 10^Exp.
+//   - Exp == 0  → integer, no decimal point (e.g. "5")
+//   - Exp < 0   → |Exp| decimal digits (e.g. Int=55, Exp=-1 → "5.5"; Int=50, Exp=-1 → "5.0")
+//   - Exp > 0   → trailing zeros shifted left (scaled integer, no decimal point)
+//
+// Uses pure *big.Int arithmetic — float64 is never involved.
+// Canonical source: internal/grades/repository.go numericToString (duplicated here to
+// avoid a cross-domain import; NFR-3 forbids importing internal/grades from internal/reports).
+func numericToString(n pgtype.Numeric) string {
+	if !n.Valid {
+		return ""
+	}
+	if n.Int == nil {
+		// Zero value with a given scale: produce "0" or "0.000…" depending on Exp.
+		if n.Exp >= 0 {
+			return "0"
+		}
+		scale := int(-n.Exp)
+		return "0." + numericRepeatZero(scale)
+	}
+
+	coeff := new(big.Int).Set(n.Int) // coefficient (may be negative)
+
+	switch {
+	case n.Exp == 0:
+		return coeff.String()
+
+	case n.Exp > 0:
+		mul := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n.Exp)), nil)
+		coeff.Mul(coeff, mul)
+		return coeff.String()
+
+	default: // n.Exp < 0
+		scale := int(-n.Exp)
+		ten := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(scale)), nil)
+
+		neg := coeff.Sign() < 0
+		abs := new(big.Int).Abs(coeff)
+
+		intPart := new(big.Int).Quo(abs, ten)
+		fracPart := new(big.Int).Mod(abs, ten)
+
+		fracStr := fmt.Sprintf("%0*s", scale, fracPart.String())
+
+		sign := ""
+		if neg {
+			sign = "-"
+		}
+		return fmt.Sprintf("%s%s.%s", sign, intPart.String(), fracStr)
+	}
+}
+
+// numericRepeatZero returns a string of n '0' characters (used for zero-valued fixed-point).
+func numericRepeatZero(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = '0'
+	}
+	return string(b)
+}
+
+// gradeOutcome maps a grade string to "passed" / "failed" using the 4.0 threshold.
+// An unparseable grade is mapped to "failed" (safe default).
+func gradeOutcome(grade string) string {
+	// Parse as a Rat to avoid float drift at boundary.
+	r, ok := new(big.Rat).SetString(grade)
+	if !ok {
+		return "failed"
+	}
+	threshold := new(big.Rat).SetFrac(big.NewInt(4), big.NewInt(1))
+	if r.Cmp(threshold) >= 0 {
+		return "passed"
+	}
+	return "failed"
+}
+
+// generatedAt returns the current UTC time formatted as ISO-8601.
+func generatedAt() string {
+	return time.Now().UTC().Format(time.RFC3339)
+}

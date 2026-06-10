@@ -28,3 +28,12 @@ variables:
   - name: student_c_sid
     value: ""
     enabled: true
+  - name: teacher_sid
+    value: ""
+    enabled: true
+  - name: teacher_id
+    value: ""
+    enabled: true
+  - name: teacher_email
+    value: ""
+    enabled: true
