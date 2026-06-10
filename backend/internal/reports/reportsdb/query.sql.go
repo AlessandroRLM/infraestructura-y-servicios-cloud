@@ -204,7 +204,7 @@ func (q *Queries) ActaSectionExists(ctx context.Context, id pgtype.UUID) (bool, 
 const fichaForStudent = `-- name: FichaForStudent :many
 SELECT
     ap.id                                   AS academic_period_id,
-    ap.year::text || '-' || ap.term::text   AS academic_period_name,
+    (ap.year::text || '-' || ap.term::text)::text AS academic_period_name,
     s.id                                    AS section_id,
     c.name                                  AS course_name,
     se.status                               AS enrollment_status,
@@ -237,7 +237,7 @@ LIMIT 1001
 
 type FichaForStudentRow struct {
 	AcademicPeriodID   pgtype.UUID
-	AcademicPeriodName interface{}
+	AcademicPeriodName string
 	SectionID          pgtype.UUID
 	CourseName         string
 	EnrollmentStatus   string
@@ -275,6 +275,28 @@ func (q *Queries) FichaForStudent(ctx context.Context, studentID pgtype.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const isTeacherForSection = `-- name: IsTeacherForSection :one
+SELECT EXISTS(
+    SELECT 1 FROM section_teachers
+    WHERE section_id = $1 AND teacher_id = $2
+) AS is_member
+`
+
+type IsTeacherForSectionParams struct {
+	SectionID pgtype.UUID
+	TeacherID pgtype.UUID
+}
+
+// Returns true when teacher_id appears in section_teachers for the given section_id.
+// Used to gate teacher access BEFORE the cache lookup (anti-leak: caller never learns
+// whether the section exists independently of the membership result).
+func (q *Queries) IsTeacherForSection(ctx context.Context, arg IsTeacherForSectionParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isTeacherForSection, arg.SectionID, arg.TeacherID)
+	var is_member bool
+	err := row.Scan(&is_member)
+	return is_member, err
 }
 
 const occupancyForPeriod = `-- name: OccupancyForPeriod :many

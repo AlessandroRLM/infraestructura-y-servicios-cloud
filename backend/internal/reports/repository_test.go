@@ -16,6 +16,7 @@ import (
 type fakeQuerier struct {
 	// per-method called flags
 	actaSectionExistsCalled      bool
+	isTeacherForSectionCalled    bool
 	actaForSectionAdminCalled    bool
 	actaForSectionTeacherCalled  bool
 	occupancyPeriodExistsCalled  bool
@@ -28,6 +29,8 @@ type fakeQuerier struct {
 	// configurable return values
 	actaSectionExistsResult      bool
 	actaSectionExistsErr         error
+	isTeacherForSectionResult    bool
+	isTeacherForSectionErr       error
 	actaForSectionAdminResult    []reportsdb.ActaForSectionAdminRow
 	actaForSectionAdminErr       error
 	actaForSectionTeacherResult  []reportsdb.ActaForSectionByTeacherRow
@@ -51,6 +54,11 @@ var _ reportsdb.Querier = (*fakeQuerier)(nil)
 func (f *fakeQuerier) ActaSectionExists(_ context.Context, _ pgtype.UUID) (bool, error) {
 	f.actaSectionExistsCalled = true
 	return f.actaSectionExistsResult, f.actaSectionExistsErr
+}
+
+func (f *fakeQuerier) IsTeacherForSection(_ context.Context, _ reportsdb.IsTeacherForSectionParams) (bool, error) {
+	f.isTeacherForSectionCalled = true
+	return f.isTeacherForSectionResult, f.isTeacherForSectionErr
 }
 
 func (f *fakeQuerier) ActaForSectionAdmin(_ context.Context, _ pgtype.UUID) ([]reportsdb.ActaForSectionAdminRow, error) {
@@ -122,6 +130,23 @@ func TestPostgresRepository_SectionExists_TranslatesErrNoRows(t *testing.T) {
 
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestPostgresRepository_IsTeacherForSection_Delegates(t *testing.T) {
+	fq := &fakeQuerier{isTeacherForSectionResult: true}
+	repo := NewPostgresRepository(fq)
+
+	isMember, err := repo.IsTeacherForSection(context.Background(), uuid.New(), uuid.New())
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !fq.isTeacherForSectionCalled {
+		t.Fatal("expected IsTeacherForSection to be called, was not")
+	}
+	if !isMember {
+		t.Fatal("expected isMember=true")
 	}
 }
 

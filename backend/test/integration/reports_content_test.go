@@ -228,6 +228,36 @@ func TestReports_Content_StudentRecordReport_NotFound(t *testing.T) {
 	assertConnectCode(t, err, connect.CodeNotFound)
 }
 
+// TestReports_Content_ProgramSummaryReport_YearOutOfRange verifies that years outside
+// [2000, 2100] return CodeInvalidArgument before any cache or DB access.
+func TestReports_Content_ProgramSummaryReport_YearOutOfRange(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedUserWithSession(t, "reports-content-year-range@reports.test", "admin")
+	client := newReportsClient(nil)
+
+	nonExistentProgramID := "00000000-0000-0000-0000-000000000099"
+
+	t.Run("year_1999", func(t *testing.T) {
+		req := connect.NewRequest(&reportsv1.GetProgramSummaryReportRequest{
+			ProgramId: nonExistentProgramID,
+			Year:      1999,
+		})
+		req.Header().Set("Cookie", "sid="+adminSID)
+		_, err := client.GetProgramSummaryReport(ctx, req)
+		assertConnectCode(t, err, connect.CodeInvalidArgument)
+	})
+
+	t.Run("year_2101", func(t *testing.T) {
+		req := connect.NewRequest(&reportsv1.GetProgramSummaryReportRequest{
+			ProgramId: nonExistentProgramID,
+			Year:      2101,
+		})
+		req.Header().Set("Cookie", "sid="+adminSID)
+		_, err := client.GetProgramSummaryReport(ctx, req)
+		assertConnectCode(t, err, connect.CodeInvalidArgument)
+	})
+}
+
 // TestReports_Content_StudentRecordReport_WithHistory verifies that a student with
 // an enrollment history appears in the ficha report with the correct course data.
 func TestReports_Content_StudentRecordReport_WithHistory(t *testing.T) {

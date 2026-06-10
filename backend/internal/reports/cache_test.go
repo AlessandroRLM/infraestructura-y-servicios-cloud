@@ -185,14 +185,9 @@ func TestProtojsonRoundTrip(t *testing.T) {
 		t.Errorf("round-trip failed: original != decoded")
 	}
 
-	// Byte-stable re-marshal: marshaling decoded should produce the same bytes.
-	b2, err := protojson.Marshal(&decoded)
-	if err != nil {
-		t.Fatalf("protojson.Marshal (second): %v", err)
-	}
-	if string(b) != string(b2) {
-		t.Errorf("re-marshal not byte-stable: first=%q second=%q", b, b2)
-	}
+	// Note: protojson does not guarantee byte-stable re-marshaling (it may vary
+	// whitespace across calls). The proto.Equal round-trip above is the authoritative
+	// fidelity check. Do not assert byte equality of b and b2 here.
 }
 
 // --- redisCache miss / error / set tests ---

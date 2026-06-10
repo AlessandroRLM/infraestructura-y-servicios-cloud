@@ -18,6 +18,10 @@ type Querier interface {
 	// LIMIT cap+1 pattern: service detects len(rows) > cap and sets truncated=true.
 	ActaSectionExists(ctx context.Context, id pgtype.UUID) (bool, error)
 	FichaForStudent(ctx context.Context, studentID pgtype.UUID) ([]FichaForStudentRow, error)
+	// Returns true when teacher_id appears in section_teachers for the given section_id.
+	// Used to gate teacher access BEFORE the cache lookup (anti-leak: caller never learns
+	// whether the section exists independently of the membership result).
+	IsTeacherForSection(ctx context.Context, arg IsTeacherForSectionParams) (bool, error)
 	OccupancyForPeriod(ctx context.Context, academicPeriodID pgtype.UUID) ([]OccupancyForPeriodRow, error)
 	OccupancyPeriodExists(ctx context.Context, id pgtype.UUID) (bool, error)
 	ProgramExists(ctx context.Context, id pgtype.UUID) (bool, error)

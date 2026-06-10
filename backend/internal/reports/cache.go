@@ -34,7 +34,7 @@ type redisCache struct {
 var _ Cache = (*redisCache)(nil)
 
 // NewRedisCache constructs a Cache backed by the provided Redis client.
-// The ttl parameter is accepted for API symmetry but each Set call receives its own ttl.
+// The TTL for each entry is supplied per-call by the Service via Cache.Set.
 func NewRedisCache(client *redis.Client) Cache {
 	return &redisCache{client: client}
 }

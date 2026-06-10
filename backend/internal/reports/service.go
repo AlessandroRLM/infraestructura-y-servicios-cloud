@@ -46,24 +46,53 @@ func NewService(repo Repository, cache Cache, ttl time.Duration) *Service {
 
 // GetSectionGradeReport returns the grade acta for a section.
 // Admin callers (PermCatalogManage) receive all rows.
-// Teacher callers receive only rows for sections they own; out-of-scope → ErrNotFound.
+// Teacher callers: membership is verified BEFORE the cache lookup so that
+// an out-of-scope teacher cannot read another teacher's cached acta.
+// Out-of-scope teacher → ErrNotFound (anti-leak: existence is never disclosed).
 func (s *Service) GetSectionGradeReport(ctx context.Context, sectionID uuid.UUID) (*reportsv1.GetSectionGradeReportResponse, error) {
 	isAdmin := callerIsAdmin(ctx)
+
+	// For non-admin callers, resolve the caller ID and run the membership check
+	// BEFORE any cache access. A non-member receives ErrNotFound regardless of
+	// whether the section exists, so section existence is never revealed.
+	var callerID uuid.UUID
+	if !isAdmin {
+		var ok bool
+		callerID, ok = auth.UserIDFromContext(ctx)
+		if !ok {
+			return nil, ErrNotFound
+		}
+		isMember, err := s.repo.IsTeacherForSection(ctx, sectionID, callerID)
+		if err != nil {
+			return nil, err
+		}
+		if !isMember {
+			return nil, ErrNotFound
+		}
+	}
 
 	// Cache lookup (fail-open: redis errors treated as miss).
 	cacheKey := buildSectionGradeKey(sectionID)
 	var target reportsv1.GetSectionGradeReportResponse
-	if resp, ok := s.cacheGet(ctx, cacheKey, &target); ok {
-		return resp.(*reportsv1.GetSectionGradeReportResponse), nil
+	if msg, ok := s.cacheGet(ctx, cacheKey, &target); ok {
+		resp, ok := msg.(*reportsv1.GetSectionGradeReportResponse)
+		if !ok {
+			logCacheGetError(ctx, cacheKey, fmt.Errorf("type assertion failed: got %T", msg))
+			// fall through to DB path
+		} else {
+			return resp, nil
+		}
 	}
 
-	// Existence check.
-	exists, err := s.repo.SectionExists(ctx, sectionID)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, ErrNotFound
+	// Existence check (admin path only; teacher path confirmed existence via membership).
+	if isAdmin {
+		exists, err := s.repo.SectionExists(ctx, sectionID)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, ErrNotFound
+		}
 	}
 
 	var resp *reportsv1.GetSectionGradeReportResponse
@@ -75,11 +104,6 @@ func (s *Service) GetSectionGradeReport(ctx context.Context, sectionID uuid.UUID
 		}
 		resp = buildSectionGradeResponse(sectionID, rows, actaCap)
 	} else {
-		// Teacher path: must extract caller ID.
-		callerID, ok := auth.UserIDFromContext(ctx)
-		if !ok {
-			return nil, ErrNotFound
-		}
 		rows, err := s.repo.ActaForSectionByTeacher(ctx, sectionID, callerID)
 		if err != nil {
 			return nil, err
@@ -101,8 +125,14 @@ func (s *Service) GetSectionOccupancyReport(ctx context.Context, periodID uuid.U
 
 	cacheKey := buildOccupancyKey(periodID)
 	var target reportsv1.GetSectionOccupancyReportResponse
-	if resp, ok := s.cacheGet(ctx, cacheKey, &target); ok {
-		return resp.(*reportsv1.GetSectionOccupancyReportResponse), nil
+	if msg, ok := s.cacheGet(ctx, cacheKey, &target); ok {
+		resp, ok := msg.(*reportsv1.GetSectionOccupancyReportResponse)
+		if !ok {
+			logCacheGetError(ctx, cacheKey, fmt.Errorf("type assertion failed: got %T", msg))
+			// fall through to DB path
+		} else {
+			return resp, nil
+		}
 	}
 
 	exists, err := s.repo.PeriodExists(ctx, periodID)
@@ -129,10 +159,21 @@ func (s *Service) GetProgramSummaryReport(ctx context.Context, programID uuid.UU
 		return nil, ErrPermissionDenied
 	}
 
+	// Year range validation BEFORE any cache or DB access.
+	if year < 2000 || year > 2100 {
+		return nil, fmt.Errorf("%w: year must be between 2000 and 2100, got %d", ErrInvalidInput, year)
+	}
+
 	cacheKey := buildProgramSummaryKey(programID, int(year))
 	var target reportsv1.GetProgramSummaryReportResponse
-	if resp, ok := s.cacheGet(ctx, cacheKey, &target); ok {
-		return resp.(*reportsv1.GetProgramSummaryReportResponse), nil
+	if msg, ok := s.cacheGet(ctx, cacheKey, &target); ok {
+		resp, ok := msg.(*reportsv1.GetProgramSummaryReportResponse)
+		if !ok {
+			logCacheGetError(ctx, cacheKey, fmt.Errorf("type assertion failed: got %T", msg))
+			// fall through to DB path
+		} else {
+			return resp, nil
+		}
 	}
 
 	exists, err := s.repo.ProgramExists(ctx, programID)
@@ -161,8 +202,14 @@ func (s *Service) GetStudentRecordReport(ctx context.Context, studentID uuid.UUI
 
 	cacheKey := buildStudentRecordKey(studentID)
 	var target reportsv1.GetStudentRecordReportResponse
-	if resp, ok := s.cacheGet(ctx, cacheKey, &target); ok {
-		return resp.(*reportsv1.GetStudentRecordReportResponse), nil
+	if msg, ok := s.cacheGet(ctx, cacheKey, &target); ok {
+		resp, ok := msg.(*reportsv1.GetStudentRecordReportResponse)
+		if !ok {
+			logCacheGetError(ctx, cacheKey, fmt.Errorf("type assertion failed: got %T", msg))
+			// fall through to DB path
+		} else {
+			return resp, nil
+		}
 	}
 
 	exists, err := s.repo.StudentExists(ctx, studentID)
@@ -263,6 +310,12 @@ func buildSectionGradeResponse(sectionID uuid.UUID, rows []reportsdb.ActaForSect
 			studentOrder = append(studentOrder, studentID)
 		}
 
+		// Guard: LEFT JOIN on grades/evaluations produces a NULL evaluation_id row
+		// when a student has no grades. Skip appending a zero-UUID PartialGrade.
+		if !r.EvaluationID.Valid {
+			continue
+		}
+
 		partial := &reportsv1.PartialGrade{
 			EvaluationId: uuid.UUID(r.EvaluationID.Bytes).String(),
 			Position:     r.Position.Int32,
@@ -323,6 +376,12 @@ func buildSectionGradeResponseFromTeacher(sectionID uuid.UUID, rows []reportsdb.
 			entry = &studentEntry{row: r}
 			studentMap[studentID] = entry
 			studentOrder = append(studentOrder, studentID)
+		}
+
+		// Guard: LEFT JOIN on grades/evaluations produces a NULL evaluation_id row
+		// when a student has no grades. Skip appending a zero-UUID PartialGrade.
+		if !r.EvaluationID.Valid {
+			continue
 		}
 
 		partial := &reportsv1.PartialGrade{
@@ -463,7 +522,7 @@ func buildStudentRecordResponse(studentID uuid.UUID, rows []reportsdb.FichaForSt
 
 		row := &reportsv1.AcademicRecordRow{
 			AcademicPeriodId:   periodID.String(),
-			AcademicPeriodName: fmt.Sprintf("%v", r.AcademicPeriodName),
+			AcademicPeriodName: r.AcademicPeriodName,
 			SectionId:          sectionID.String(),
 			CourseName:         r.CourseName,
 			EnrollmentStatus:   r.EnrollmentStatus,
@@ -486,20 +545,68 @@ func buildStudentRecordResponse(studentID uuid.UUID, rows []reportsdb.FichaForSt
 
 // --- Conversion helpers ---
 
-// numericToString converts a pgtype.Numeric to its string representation.
-// Returns empty string if the value is not valid.
+// numericToString converts a pgtype.Numeric to its canonical fixed-point decimal string,
+// preserving the scale stored in Exp so that values round-trip without float64 drift.
+//
+// pgtype.Numeric stores the value as coefficient Int × 10^Exp.
+//   - Exp == 0  → integer, no decimal point (e.g. "5")
+//   - Exp < 0   → |Exp| decimal digits (e.g. Int=55, Exp=-1 → "5.5"; Int=50, Exp=-1 → "5.0")
+//   - Exp > 0   → trailing zeros shifted left (scaled integer, no decimal point)
+//
+// Uses pure *big.Int arithmetic — float64 is never involved.
+// Canonical source: internal/grades/repository.go numericToString (duplicated here to
+// avoid a cross-domain import; NFR-3 forbids importing internal/grades from internal/reports).
 func numericToString(n pgtype.Numeric) string {
 	if !n.Valid {
 		return ""
 	}
-	text, err := n.Value()
-	if err != nil {
-		return ""
+	if n.Int == nil {
+		// Zero value with a given scale: produce "0" or "0.000…" depending on Exp.
+		if n.Exp >= 0 {
+			return "0"
+		}
+		scale := int(-n.Exp)
+		return "0." + numericRepeatZero(scale)
 	}
-	if text == nil {
-		return ""
+
+	coeff := new(big.Int).Set(n.Int) // coefficient (may be negative)
+
+	switch {
+	case n.Exp == 0:
+		return coeff.String()
+
+	case n.Exp > 0:
+		mul := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n.Exp)), nil)
+		coeff.Mul(coeff, mul)
+		return coeff.String()
+
+	default: // n.Exp < 0
+		scale := int(-n.Exp)
+		ten := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(scale)), nil)
+
+		neg := coeff.Sign() < 0
+		abs := new(big.Int).Abs(coeff)
+
+		intPart := new(big.Int).Quo(abs, ten)
+		fracPart := new(big.Int).Mod(abs, ten)
+
+		fracStr := fmt.Sprintf("%0*s", scale, fracPart.String())
+
+		sign := ""
+		if neg {
+			sign = "-"
+		}
+		return fmt.Sprintf("%s%s.%s", sign, intPart.String(), fracStr)
 	}
-	return fmt.Sprintf("%v", text)
+}
+
+// numericRepeatZero returns a string of n '0' characters (used for zero-valued fixed-point).
+func numericRepeatZero(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = '0'
+	}
+	return string(b)
 }
 
 // gradeOutcome maps a grade string to "passed" / "failed" using the 4.0 threshold.

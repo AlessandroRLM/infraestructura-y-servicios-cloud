@@ -14,6 +14,9 @@ import (
 type Repository interface {
 	// SectionExists returns true if the section with the given ID exists and is not soft-deleted.
 	SectionExists(ctx context.Context, id uuid.UUID) (bool, error)
+	// IsTeacherForSection returns true when teacherID appears in section_teachers for sectionID.
+	// This check MUST be performed before any cache lookup to prevent cross-teacher cache leakage.
+	IsTeacherForSection(ctx context.Context, sectionID, teacherID uuid.UUID) (bool, error)
 	// ActaForSectionAdmin returns all grade rows for a section, visible to admin callers.
 	// Returns up to LIMIT cap+1 rows; caller detects truncation.
 	ActaForSectionAdmin(ctx context.Context, sectionID uuid.UUID) ([]reportsdb.ActaForSectionAdminRow, error)
@@ -58,6 +61,18 @@ func (r *postgresRepository) SectionExists(ctx context.Context, id uuid.UUID) (b
 		return false, TranslatePgError(err)
 	}
 	return exists, nil
+}
+
+func (r *postgresRepository) IsTeacherForSection(ctx context.Context, sectionID, teacherID uuid.UUID) (bool, error) {
+	params := reportsdb.IsTeacherForSectionParams{
+		SectionID: pgtype.UUID{Bytes: sectionID, Valid: true},
+		TeacherID: pgtype.UUID{Bytes: teacherID, Valid: true},
+	}
+	isMember, err := r.q.IsTeacherForSection(ctx, params)
+	if err != nil {
+		return false, TranslatePgError(err)
+	}
+	return isMember, nil
 }
 
 func (r *postgresRepository) ActaForSectionAdmin(ctx context.Context, sectionID uuid.UUID) ([]reportsdb.ActaForSectionAdminRow, error) {

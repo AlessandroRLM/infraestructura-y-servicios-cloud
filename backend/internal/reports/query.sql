@@ -7,6 +7,15 @@ SELECT EXISTS(
     SELECT 1 FROM sections WHERE id = $1 AND deleted_at IS NULL
 ) AS exists;
 
+-- name: IsTeacherForSection :one
+-- Returns true when teacher_id appears in section_teachers for the given section_id.
+-- Used to gate teacher access BEFORE the cache lookup (anti-leak: caller never learns
+-- whether the section exists independently of the membership result).
+SELECT EXISTS(
+    SELECT 1 FROM section_teachers
+    WHERE section_id = $1 AND teacher_id = $2
+) AS is_member;
+
 -- name: ActaForSectionAdmin :many
 SELECT
     se.id                       AS se_id,
@@ -138,7 +147,7 @@ SELECT EXISTS(
 -- name: FichaForStudent :many
 SELECT
     ap.id                                   AS academic_period_id,
-    ap.year::text || '-' || ap.term::text   AS academic_period_name,
+    (ap.year::text || '-' || ap.term::text)::text AS academic_period_name,
     s.id                                    AS section_id,
     c.name                                  AS course_name,
     se.status                               AS enrollment_status,

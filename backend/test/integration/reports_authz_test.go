@@ -76,6 +76,25 @@ func TestReports_Student_AllRPCs_CodePermissionDenied(t *testing.T) {
 		_, err := client.GetSectionOccupancyReport(ctx, req)
 		assertConnectCode(t, err, connect.CodePermissionDenied)
 	})
+
+	t.Run("GetProgramSummaryReport", func(t *testing.T) {
+		req := connect.NewRequest(&reportsv1.GetProgramSummaryReportRequest{
+			ProgramId: "00000000-0000-0000-0000-000000000001",
+			Year:      2025,
+		})
+		req.Header().Set("Cookie", "sid="+studentSID)
+		_, err := client.GetProgramSummaryReport(ctx, req)
+		assertConnectCode(t, err, connect.CodePermissionDenied)
+	})
+
+	t.Run("GetStudentRecordReport", func(t *testing.T) {
+		req := connect.NewRequest(&reportsv1.GetStudentRecordReportRequest{
+			StudentId: "00000000-0000-0000-0000-000000000001",
+		})
+		req.Header().Set("Cookie", "sid="+studentSID)
+		_, err := client.GetStudentRecordReport(ctx, req)
+		assertConnectCode(t, err, connect.CodePermissionDenied)
+	})
 }
 
 // TestReports_Teacher_AdminOnlyRPCs_CodePermissionDenied verifies that a teacher
@@ -151,9 +170,11 @@ func TestReports_Teacher_InScopeSection_GetSectionGradeReport_OK(t *testing.T) {
 }
 
 // TestReports_Teacher_OutOfScopeSection_GetSectionGradeReport_NotFound verifies that
-// a teacher NOT assigned to a section receives CodeNotFound — existence is never disclosed.
+// a teacher NOT assigned to a section receives exactly CodeNotFound, and that no cache
+// key is created (membership check fires before cache lookup — anti-leak).
 func TestReports_Teacher_OutOfScopeSection_GetSectionGradeReport_NotFound(t *testing.T) {
 	ctx := context.Background()
+	_, adminSID := seedUserWithSession(t, "reports-outscope-admin@reports.test", "admin")
 	_, teacherSID := seedTeacherProfile(t, "reports-teacher-outscope@reports.test")
 
 	programID, courseID, programCleanup := seedProgramWithCourse(t)
@@ -164,27 +185,33 @@ func TestReports_Teacher_OutOfScopeSection_GetSectionGradeReport_NotFound(t *tes
 	t.Cleanup(sectionCleanup)
 	_ = programID
 
+	cacheKey := "report:section_grades:" + sectionID
+	// Warm the cache via admin call so a cache hit is detectable.
+	adminClient := newReportsClient(nil)
+	adminReq := connect.NewRequest(&reportsv1.GetSectionGradeReportRequest{SectionId: sectionID})
+	adminReq.Header().Set("Cookie", "sid="+adminSID)
+	_, err := adminClient.GetSectionGradeReport(ctx, adminReq)
+	if err != nil {
+		t.Fatalf("admin warm-cache call failed: %v", err)
+	}
+	// Confirm warm cache exists.
+	if testRedisClient.Exists(ctx, cacheKey).Val() != 1 {
+		t.Fatalf("cache key %q not set after admin call", cacheKey)
+	}
+
+	// Now call as out-of-scope teacher — must get CodeNotFound, never a cache hit.
 	client := newReportsClient(nil)
-	req := connect.NewRequest(&reportsv1.GetSectionGradeReportRequest{
-		SectionId: sectionID,
-	})
+	req := connect.NewRequest(&reportsv1.GetSectionGradeReportRequest{SectionId: sectionID})
 	req.Header().Set("Cookie", "sid="+teacherSID)
 
-	// Teacher not in section_teachers → empty result (not 404 since section exists,
-	// but teacher gets 0 rows back). The service returns a 200 with empty rows.
-	// The section exists, so SectionExists returns true; teacher query returns empty.
-	resp, err := client.GetSectionGradeReport(ctx, req)
-	if err != nil {
-		// Some implementations return CodeNotFound; verify it's not CodePermissionDenied.
-		ce, ok := err.(*connect.Error)
-		if !ok || ce.Code() == connect.CodePermissionDenied {
-			t.Fatalf("expected CodeNotFound or empty result for out-of-scope teacher, got: %v", err)
-		}
-		return
-	}
-	// Or 200 with empty rows — both are acceptable.
-	if len(resp.Msg.Rows) != 0 {
-		t.Logf("out-of-scope teacher got %d rows (expected 0 or NotFound)", len(resp.Msg.Rows))
+	_, err = client.GetSectionGradeReport(ctx, req)
+	// MUST be CodeNotFound — the "both are acceptable" tolerance is removed.
+	assertConnectCode(t, err, connect.CodeNotFound)
+
+	// Cache key must still exist (admin populated it) — teacher call must not have
+	// created a second key or caused a cache eviction. The key count stays 1.
+	if testRedisClient.Exists(ctx, cacheKey).Val() != 1 {
+		t.Errorf("cache key %q was unexpectedly deleted by out-of-scope teacher call", cacheKey)
 	}
 }
 
