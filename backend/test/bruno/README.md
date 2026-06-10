@@ -29,9 +29,10 @@ BCRYPT_COST=10
 HTTP_ADDR=:8080
 ```
 
-## One-time seed
+## Seed
 
-Run `seed.sh` once per fresh database to insert:
+Run `seed.sh` before `bru run` (idempotent — repeated runs against the same
+database upsert academic periods instead of failing) to insert:
 - Student users A, B, C (with the `student` role) and a role-less noadmin user
 - Academic periods with the correct enrollment windows (open and closed)
   — the API's `CreateAcademicPeriod` does not accept `enrollment_starts_at` /

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# seed.sh — one-time DB seeding for the backend-smoke Bruno collection.
+# seed.sh — DB seeding for the backend-smoke Bruno collection.
 #
-# Run this script ONCE against a running dev stack before executing `bru run`.
+# Idempotent: safe to run before every `bru run`, including repeatedly against
+# the same database (academic period collisions upsert instead of failing).
 # It performs the SQL inserts that the API cannot do (direct enrollment-window
 # manipulation and user/role seeding without an onboarding RPC).
 #
@@ -62,11 +63,19 @@ STUDENT_C_ID="$($PSQL_CMD -tAq -c "SELECT id FROM users WHERE email='${STUDENT_C
 
 echo "▶ seeding academic_periods with enrollment windows"
 # Open window: started 1 hour ago, ends 1 hour from now.
+# ON CONFLICT (year, term): a colliding term from a previous seed reuses the
+# existing period row and refreshes its enrollment window, so repeated seeds
+# against the same database are safe (the windows are relative to now()).
 OPEN_PERIOD_ID="$($PSQL_CMD -tAq -c "
   INSERT INTO academic_periods (id, year, term, start_date, end_date, enrollment_starts_at, enrollment_ends_at)
   VALUES (uuidv7(), ${ENROLL_YEAR}, ${OPEN_TERM},
           '${ENROLL_YEAR}-03-01', '${ENROLL_YEAR}-07-15',
           now() - interval '1 hour', now() + interval '1 hour')
+  ON CONFLICT (year, term) DO UPDATE SET
+    start_date           = EXCLUDED.start_date,
+    end_date             = EXCLUDED.end_date,
+    enrollment_starts_at = EXCLUDED.enrollment_starts_at,
+    enrollment_ends_at   = EXCLUDED.enrollment_ends_at
   RETURNING id;")"
 
 # Closed window: starts 24 hours in the future — never open right now.
@@ -75,6 +84,11 @@ CLOSED_PERIOD_ID="$($PSQL_CMD -tAq -c "
   VALUES (uuidv7(), ${ENROLL_YEAR}, ${CLOSED_TERM},
           '${ENROLL_YEAR}-08-01', '${ENROLL_YEAR}-12-15',
           now() + interval '24 hours', now() + interval '48 hours')
+  ON CONFLICT (year, term) DO UPDATE SET
+    start_date           = EXCLUDED.start_date,
+    end_date             = EXCLUDED.end_date,
+    enrollment_starts_at = EXCLUDED.enrollment_starts_at,
+    enrollment_ends_at   = EXCLUDED.enrollment_ends_at
   RETURNING id;")"
 
 [ -n "$OPEN_PERIOD_ID" ] && [ -n "$CLOSED_PERIOD_ID" ] || \
