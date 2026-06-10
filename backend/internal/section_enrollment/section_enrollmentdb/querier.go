@@ -57,6 +57,12 @@ type Querier interface {
 	ResolveEnrollmentByStudentAndProgram(ctx context.Context, arg ResolveEnrollmentByStudentAndProgramParams) (ResolveEnrollmentByStudentAndProgramRow, error)
 	// Revives a withdrawn inscription: sets status back to in_progress and clears deleted_at.
 	ReviveSectionEnrollment(ctx context.Context, id pgtype.UUID) (SectionEnrollment, error)
+	// Transitions a section_enrollment status to passed or failed and writes the
+	// computed final grade, within a caller-owned transaction.
+	// Source states in_progress/passed/failed are all valid (allows passed<->failed flips).
+	// withdrawn source is rejected (0 rows returned — treated as ErrInvalidTransition).
+	// Target must be passed or failed; in_progress is not a valid target.
+	SetSectionEnrollmentOutcome(ctx context.Context, arg SetSectionEnrollmentOutcomeParams) (SectionEnrollment, error)
 	// Transitions an in_progress inscription to withdrawn.
 	// Sets updated_at; does NOT set deleted_at — withdrawn rows are retained for audit/revival.
 	WithdrawSectionEnrollment(ctx context.Context, id pgtype.UUID) (SectionEnrollment, error)

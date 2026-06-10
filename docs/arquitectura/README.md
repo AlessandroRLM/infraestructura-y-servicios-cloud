@@ -273,7 +273,7 @@ El sistema cuenta con **13 permisos** definidos como constantes tipadas en `inte
 
 **Dos capas de autorización:**
 
-- El **permiso** habilita la operación (el interceptor lo verifica contra los permisos del rol); la **pertenencia** decide sobre qué recursos. Un docente con permiso para cargar notas solo puede hacerlo en las secciones que dicta (`section_teachers`).
+- El **permiso** habilita la operación (el interceptor lo verifica contra los permisos del rol); la **pertenencia** decide sobre qué recursos. Un docente con permiso para cargar notas solo puede hacerlo en las secciones que dicta (`section_teachers`). La misma pertenencia limita la **lectura** de notas (`grades.read`): los listados fuera de las secciones del docente devuelven vacío y las consultas por id responden not-found, sin revelar la existencia del recurso (patrón anti-leak, igual que en perfiles e inscripciones).
 - **Perfil propio:** todo usuario puede leer sus propios datos personales (operación habilitada por el permiso `profile.view_own`). La pertenencia restringe la lectura al registro cuyo `user_id` coincide con el del solicitante; un usuario nunca ve el perfil de otro por esta vía. La gestión de perfiles de terceros (alta/edición/lectura por id) es una operación administrativa aparte (`users.manage`).
 - **Auto-inscripción vs. administración:** el alumno puede inscribirse a secciones dentro de la ventana habilitada (`sections.enroll`) y consultar sus propias inscripciones (`section_enrollment.view_own`). La anulación de inscripciones es exclusivamente administrativa; no existe WithdrawOwnSection.
 - **Sin auto-acción:** nadie opera sobre sus propios registros académicos. Un docente que también es alumno no puede cargar ni editar la nota de una inscripción donde el alumno sea él mismo. Esta regla aplica a los registros académicos (notas, inscripciones), no a la lectura de los datos personales propios.
@@ -338,10 +338,10 @@ erDiagram
     enrollments ||--o{ section_enrollments : ""
     sections ||--o{ section_enrollments : ""
     section_enrollments ||--o{ grades : ""
-    sections ||--o{ evaluations : ""
+    courses ||--o{ evaluations : ""
     evaluations ||--o{ grades : ""
     users ||--o{ grades : "graded_by"
-    users ||--o{ audit_logs : ""
+    users ||--o{ audit_logs : "actor_id"
 
     users {
         uuid id PK
@@ -454,14 +454,15 @@ erDiagram
         uuid enrollment_id FK
         uuid section_id FK
         string status "in_progress | passed | failed | withdrawn"
+        numeric final_grade "NUMERIC(3,1), NULL hasta el cierre"
         timestamp registered_at
         timestamptz deleted_at
     }
     evaluations {
         uuid id PK
-        uuid section_id FK
-        string name
-        numeric weight
+        uuid course_id FK
+        int position
+        numeric weight "NUMERIC(4,3) CHECK 0 < w <= 1"
     }
     grades {
         uuid id PK
@@ -474,14 +475,12 @@ erDiagram
     }
     audit_logs {
         uuid id PK
-        uuid user_id FK
+        uuid actor_id FK
         string action
         string entity
         uuid entity_id
-        string ip_address
-        json before
-        json after
-        timestamp at
+        jsonb detail
+        timestamptz created_at
     }
 ```
 
@@ -493,10 +492,10 @@ Notas del modelo:
 - **Períodos lectivos:** `academic_periods` usa `term ∈ {1, 2}` (dos semestres por año), con `UNIQUE(year, term)`. Las columnas `enrollment_starts_at` / `enrollment_ends_at` definen la ventana institucional de auto-inscripción evaluada con el reloj del servidor de base de datos; `NULL` equivale a ventana no configurada (fail-closed). `program_quotas` lleva metadata de auditoría y soft-delete (es una entidad mutable sensible, no append-only) y tiene `UNIQUE(program_id, year)`.
 - **Matrícula vs inscripción:** `enrollments` es la matrícula anual por carrera (`program_id` + `year`), con `UNIQUE(student_id, program_id, year)`. `section_enrollments` son las inscripciones a secciones, con unicidad por índice parcial `UNIQUE(enrollment_id, section_id) WHERE deleted_at IS NULL` (filas soft-deleted no bloquean una re-inscripción), y solo existen si hay matrícula vigente. Las notas (`grades`) cuelgan de la inscripción a la sección a través de la evaluación.
 - **Máquina de estados de `section_enrollments`:** `in_progress → withdrawn` (admin); `in_progress → passed | failed` (slice de notas vía `SetSectionEnrollmentOutcome`). `passed` y `failed` son estados terminales; no existe WithdrawOwnSection.
-- **Modelo de notas:** `evaluations` define los instrumentos de evaluación por sección con sus pesos (`weight`). `grades` registra una nota por instrumento por inscripción (`UNIQUE(evaluation_id, section_enrollment_id)`) en escala 1.0–7.0 (`NUMERIC(3,1)`). La nota final es la suma ponderada de las notas parciales; si es computable, ≥ 4.0 → `passed`, < 4.0 → `failed`, aplicado de forma inmediata al registrar o corregir una nota vía `SetSectionEnrollmentOutcome`. Las notas registradas son visibles al alumno de inmediato mediante `grades.view_own`; no existe paso de publicación. `graded_by` referencia `users(id)` —no `teacher_profiles`— para auditar cualquier actor autorizado (docente vía `section_teachers` o admin vía `grades.override`) sin requerir filas fantasma en `teacher_profiles`.
+- **Modelo de notas:** `evaluations` define el esquema de evaluación **por asignatura** (`course_id`): los instrumentos los fija el estándar curricular, no el docente de cada sección. Las evaluaciones no llevan nombre; se identifican por `position` (1..N, asignada por el servidor según el orden de creación), lo que elimina duplicados y errores de tipeo. Los pesos individuales cumplen `0 < w <= 1` y la suma del esquema es exactamente 1.0, validada en la creación. El esquema es **inmutable**: la única corrección posible es la recreación administrativa completa (`grades.override`), permitida solo mientras ninguna evaluación tenga notas registradas (unicidad por índice parcial `UNIQUE(course_id, position) WHERE deleted_at IS NULL`). `grades` registra una nota por instrumento por inscripción (`UNIQUE(evaluation_id, section_enrollment_id)`) en escala 1.0–7.0 (`NUMERIC(3,1)`); las notas no se anulan ni se eliminan — las correcciones solo actualizan el valor bajo optimistic locking (`version`), y **todo cambio de valor queda registrado en `audit_logs`** (actor, valor anterior y nuevo). La nota final es la suma ponderada calculada con aritmética decimal exacta, redondeada half-up a 1 decimal; cuando todas las evaluaciones del esquema tienen nota, ≥ 4.0 → `passed`, < 4.0 → `failed`, y el valor se persiste en `section_enrollments.final_grade` — ambos escritos exclusivamente por `SetSectionEnrollmentOutcome` en la misma transacción que la nota. Las notas registradas son visibles al alumno de inmediato mediante `grades.view_own` (la respuesta al alumno no expone `graded_by`); no existe paso de publicación. `graded_by` referencia `users(id)` —no `teacher_profiles`— para auditar cualquier actor autorizado (docente vía `section_teachers` o admin vía `grades.override`) sin requerir filas fantasma en `teacher_profiles`.
 - **Cupos:** `program_quotas` fija el cupo de admisión por `(carrera, año)` (ej. 40 matrículas); `sections.capacity`, el cupo de cada sección. Ambos se controlan con bloqueo de fila para evitar sobreventa en el pico de inscripción (ver §12).
 - **Pertenencia:** `section_teachers` define qué docentes dictan cada sección. Es la base de la autorización por pertenencia (ver §8.5).
-- `audit_logs` da soporte a la trazabilidad (RF-5). Los reportes (RF-3) se generan por consulta y se cachean en Redis; no requieren tabla propia.
+- `audit_logs` da soporte a la trazabilidad (RF-5): tabla append-only (`actor_id`, `action`, `entity`, `entity_id`, `detail` JSONB) que registra los cambios de valores sensibles — entre ellos, toda corrección u override de nota. Los reportes (RF-3) se generan por consulta y se cachean en Redis; no requieren tabla propia.
 
 ### 10.1 Convención de metadata y auditoría
 
@@ -715,7 +714,8 @@ sequenceDiagram
 | Observabilidad       | Cloud Monitoring         | Prometheus + Grafana             | Nativo, no consume recursos del cluster y trae alertas de costo.                                    |
 | Ambientes            | Namespaces en un cluster | Clusters o proyectos separados   | Aislamiento suficiente al menor costo.                                                              |
 | IaC                  | Terraform                | Scripts gcloud/aws               | Reproducible; permite destruir y recrear para ahorrar.                                              |
-| Modelo de notas      | Evaluaciones parciales ponderadas (`evaluations` + `grades`) | Nota final plana por sección | Permite instrumentos heterogéneos por sección (controles, exámenes, prácticas) con pesos independientes sin cambiar el esquema; la suma ponderada es la nota final. |
+| Modelo de notas      | Evaluaciones parciales ponderadas a nivel de asignatura (`evaluations` + `grades`) | Nota final plana; esquemas por sección o por docente | El estándar curricular define los instrumentos por asignatura con pesos independientes; un esquema por sección fragmentaría la evaluación entre alumnos de distintos programas que comparten la misma sección. La suma ponderada es la nota final. |
+| Identidad de evaluaciones | `position` asignada por el servidor (1..N) | Nombres de texto libre | Elimina duplicados y errores de tipeo; la presentación ("Evaluación N") es responsabilidad del frontend, no del modelo. |
 | Auditor de nota      | `graded_by` → `users(id)` | `graded_by` → `teacher_profiles(user_id)` | El admin puede sobrescribir cualquier nota (`grades.override`) sin ser docente; una FK a `teacher_profiles` requeriría una fila fantasma o una unión polimorfa. La referencia a `users` cubre todos los actores autorizados sin excepción. |
 | Aplicación del resultado | Inmediata al registrar o corregir la nota (`SetSectionEnrollmentOutcome`) | Paso explícito de cierre de sección | Eliminar el paso de cierre reduce la superficie operativa y evita el estado intermedio "notas cargadas pero resultado no aplicado". Las correcciones recalculan automáticamente. |
 | Visibilidad de notas | Inmediata (`grades.view_own`) | Publicación explícita por el docente | El alumno accede a cada nota en cuanto se registra; no existe estado draft. Reduce la fricción docente y simplifica el modelo de datos al eliminar un campo de estado adicional. |

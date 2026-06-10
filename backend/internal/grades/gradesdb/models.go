@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.31.1
 
-package enrollmentdb
+package gradesdb
 
 import (
 	"github.com/jackc/pgx/v5/pgtype"

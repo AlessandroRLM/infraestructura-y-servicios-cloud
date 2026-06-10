@@ -79,7 +79,7 @@ func (q *Queries) GetSectionCapacity(ctx context.Context, id pgtype.UUID) (GetSe
 }
 
 const getSectionEnrollmentByID = `-- name: GetSectionEnrollmentByID :one
-SELECT id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at FROM section_enrollments
+SELECT id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at, final_grade FROM section_enrollments
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -95,12 +95,13 @@ func (q *Queries) GetSectionEnrollmentByID(ctx context.Context, id pgtype.UUID) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.FinalGrade,
 	)
 	return i, err
 }
 
 const getSectionEnrollmentByKeyForUpdate = `-- name: GetSectionEnrollmentByKeyForUpdate :one
-SELECT id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at FROM section_enrollments
+SELECT id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at, final_grade FROM section_enrollments
 WHERE enrollment_id = $1 AND section_id = $2 AND deleted_at IS NULL
 FOR UPDATE
 `
@@ -125,6 +126,7 @@ func (q *Queries) GetSectionEnrollmentByKeyForUpdate(ctx context.Context, arg Ge
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.FinalGrade,
 	)
 	return i, err
 }
@@ -173,7 +175,7 @@ func (q *Queries) GetSectionForUpdateWithWindow(ctx context.Context, id pgtype.U
 const insertSectionEnrollment = `-- name: InsertSectionEnrollment :one
 INSERT INTO section_enrollments (enrollment_id, section_id, status)
 VALUES ($1, $2, 'in_progress')
-RETURNING id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at
+RETURNING id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at, final_grade
 `
 
 type InsertSectionEnrollmentParams struct {
@@ -193,12 +195,13 @@ func (q *Queries) InsertSectionEnrollment(ctx context.Context, arg InsertSection
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.FinalGrade,
 	)
 	return i, err
 }
 
 const listOwnSectionEnrollments = `-- name: ListOwnSectionEnrollments :many
-SELECT se.id, se.enrollment_id, se.section_id, se.status, se.registered_at, se.created_at, se.updated_at, se.deleted_at
+SELECT se.id, se.enrollment_id, se.section_id, se.status, se.registered_at, se.created_at, se.updated_at, se.deleted_at, se.final_grade
 FROM section_enrollments se
 JOIN enrollments e ON e.id = se.enrollment_id
 WHERE e.student_id = $1
@@ -225,6 +228,7 @@ func (q *Queries) ListOwnSectionEnrollments(ctx context.Context, studentID pgtyp
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.FinalGrade,
 		); err != nil {
 			return nil, err
 		}
@@ -237,7 +241,7 @@ func (q *Queries) ListOwnSectionEnrollments(ctx context.Context, studentID pgtyp
 }
 
 const listSectionEnrollments = `-- name: ListSectionEnrollments :many
-SELECT id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at FROM section_enrollments
+SELECT id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at, final_grade FROM section_enrollments
 WHERE deleted_at IS NULL
   AND ($1::uuid IS NULL   OR section_id   = $1::uuid)
   AND ($2::uuid IS NULL OR enrollment_id = $2::uuid)
@@ -269,6 +273,7 @@ func (q *Queries) ListSectionEnrollments(ctx context.Context, arg ListSectionEnr
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.FinalGrade,
 		); err != nil {
 			return nil, err
 		}
@@ -366,7 +371,7 @@ SET status     = 'in_progress',
     deleted_at = NULL,
     updated_at = now()
 WHERE id = $1
-RETURNING id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at
+RETURNING id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at, final_grade
 `
 
 // Revives a withdrawn inscription: sets status back to in_progress and clears deleted_at.
@@ -382,6 +387,47 @@ func (q *Queries) ReviveSectionEnrollment(ctx context.Context, id pgtype.UUID) (
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.FinalGrade,
+	)
+	return i, err
+}
+
+const setSectionEnrollmentOutcome = `-- name: SetSectionEnrollmentOutcome :one
+UPDATE section_enrollments
+SET status      = $2,
+    final_grade = $3,
+    updated_at  = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+  AND status IN ('in_progress', 'passed', 'failed')
+  AND $2 IN ('passed', 'failed')
+RETURNING id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at, final_grade
+`
+
+type SetSectionEnrollmentOutcomeParams struct {
+	ID         pgtype.UUID
+	Status     string
+	FinalGrade pgtype.Numeric
+}
+
+// Transitions a section_enrollment status to passed or failed and writes the
+// computed final grade, within a caller-owned transaction.
+// Source states in_progress/passed/failed are all valid (allows passed<->failed flips).
+// withdrawn source is rejected (0 rows returned — treated as ErrInvalidTransition).
+// Target must be passed or failed; in_progress is not a valid target.
+func (q *Queries) SetSectionEnrollmentOutcome(ctx context.Context, arg SetSectionEnrollmentOutcomeParams) (SectionEnrollment, error) {
+	row := q.db.QueryRow(ctx, setSectionEnrollmentOutcome, arg.ID, arg.Status, arg.FinalGrade)
+	var i SectionEnrollment
+	err := row.Scan(
+		&i.ID,
+		&i.EnrollmentID,
+		&i.SectionID,
+		&i.Status,
+		&i.RegisteredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.FinalGrade,
 	)
 	return i, err
 }
@@ -391,7 +437,7 @@ UPDATE section_enrollments
 SET status     = 'withdrawn',
     updated_at = now()
 WHERE id = $1 AND status = 'in_progress' AND deleted_at IS NULL
-RETURNING id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at
+RETURNING id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at, final_grade
 `
 
 // Transitions an in_progress inscription to withdrawn.
@@ -408,6 +454,7 @@ func (q *Queries) WithdrawSectionEnrollment(ctx context.Context, id pgtype.UUID)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.FinalGrade,
 	)
 	return i, err
 }

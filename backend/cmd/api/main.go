@@ -13,6 +13,7 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
 	catalogv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
 	enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1/enrollmentv1connect"
+	gradesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1/gradesv1connect"
 	profilesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1/profilesv1connect"
 	section_enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
@@ -23,6 +24,8 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog/catalogdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/enrollment"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/enrollment/enrollmentdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades"
+	gradesdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/health"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
@@ -160,6 +163,19 @@ func main() {
 		section_enrollmentv1connect.SectionEnrollmentServiceWithdrawSectionProcedure:      authz.RequirePermission(authz.PermEnrollmentManage),
 		section_enrollmentv1connect.SectionEnrollmentServiceGetSectionEnrollmentProcedure: authz.RequirePermission(authz.PermEnrollmentManage),
 		section_enrollmentv1connect.SectionEnrollmentServiceListSectionEnrollmentsProcedure: authz.RequirePermission(authz.PermEnrollmentManage),
+
+		// Grades admin procedures — require grades.override.
+		gradesv1connect.GradesServiceCreateEvaluationSchemeProcedure:   authz.RequirePermission(authz.PermGradesOverride),
+		gradesv1connect.GradesServiceRecreateEvaluationSchemeProcedure: authz.RequirePermission(authz.PermGradesOverride),
+		gradesv1connect.GradesServiceOverrideGradeProcedure:            authz.RequirePermission(authz.PermGradesOverride),
+		// Grades teacher write procedure — require grades.write.
+		gradesv1connect.GradesServiceRecordGradeProcedure: authz.RequirePermission(authz.PermGradesWrite),
+		// Grades read procedures — require grades.read.
+		gradesv1connect.GradesServiceListEvaluationsProcedure:     authz.RequirePermission(authz.PermGradesRead),
+		gradesv1connect.GradesServiceListGradesForSectionProcedure: authz.RequirePermission(authz.PermGradesRead),
+		gradesv1connect.GradesServiceGetGradeProcedure:             authz.RequirePermission(authz.PermGradesRead),
+		// Grades student self-view — require grades.view_own.
+		gradesv1connect.GradesServiceListOwnGradesProcedure: authz.RequirePermission(authz.PermGradesViewOwn),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
@@ -231,6 +247,17 @@ func main() {
 		section_enrollment.Register(mux, seHandler, seOpts...)
 	}
 
+	// Grades handler (gradesdb.Querier → repository → service → Connect handler).
+	// seRepo provides SetSectionEnrollmentOutcomeTx for the atomic outcome mediation.
+	gradesQueries := gradesdb.New(pool)
+	gradesRepo := grades.NewPostgresRepository(gradesQueries, pool, seRepo)
+	gradesSvc := grades.NewService(gradesRepo)
+	gradesHandler := grades.NewHandler(gradesSvc)
+
+	gradesReg := func(mux *http.ServeMux) {
+		grades.Register(mux, gradesHandler, authOpts...)
+	}
+
 	// Redis pinger for the readyz handler.
 	redisPinger, err := platformredis.NewPinger(cfg.RedisURL)
 	if err != nil {
@@ -245,6 +272,7 @@ func main() {
 		catalogReg,
 		enrollmentReg,
 		sectionEnrollmentReg,
+		gradesReg,
 	)
 	srv.Addr = cfg.HTTPAddr
 
