@@ -211,6 +211,128 @@ func TestGradesOutcome_RoundHalfUpBoundary_Fails(t *testing.T) {
 	assertSEStatus(t, fix.SectionEnrollmentID, "failed", ptr("3.9"))
 }
 
+// TestGradesOutcome_CorrectionFlipsFailedToPassed: correct a grade so the
+// weighted final rises to ≥ 4.0 → SE flips from failed to passed.
+//
+// Scheme: weights 0.5/0.5
+// Initial: 3.0/3.0 → 3.0 → failed
+// After correction of grade[1] to 5.0: 3.0/5.0 → 4.0 → passed
+func TestGradesOutcome_CorrectionFlipsFailedToPassed(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedGradesAdminSID(t, "outcome-flip-pass")
+	fix := seedGradesFixture(t, adminSID)
+
+	evals := seedEvaluationScheme(t, fix.CourseID, []string{"0.5", "0.5"}, adminSID)
+	_, teacherSID := gradesSeedTeacherWithSession(t, "outcome-flip-pass", fix.SectionID)
+	client := newGradesClient(nil)
+
+	// Grade both evaluations at 3.0 → failed.
+	r0, err := client.RecordGrade(ctx, withSID(connect.NewRequest(&gradesv1.RecordGradeRequest{
+		EvaluationId:        evals[0].GetId(),
+		SectionEnrollmentId: fix.SectionEnrollmentID,
+		Value:               "3.0",
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("RecordGrade eval[0]: %v", err)
+	}
+	withGradeCleanup(t, r0.Msg.GetGrade().GetId())
+
+	r1, err := client.RecordGrade(ctx, withSID(connect.NewRequest(&gradesv1.RecordGradeRequest{
+		EvaluationId:        evals[1].GetId(),
+		SectionEnrollmentId: fix.SectionEnrollmentID,
+		Value:               "3.0",
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("RecordGrade eval[1]: %v", err)
+	}
+	withGradeCleanup(t, r1.Msg.GetGrade().GetId())
+
+	assertSEStatus(t, fix.SectionEnrollmentID, "failed", ptr("3.0"))
+
+	// Correct grade[1] to 5.0 → 3.0×0.5 + 5.0×0.5 = 4.0 → passed.
+	v1 := int32(1)
+	_, err = client.RecordGrade(ctx, withSID(connect.NewRequest(&gradesv1.RecordGradeRequest{
+		EvaluationId:        evals[1].GetId(),
+		SectionEnrollmentId: fix.SectionEnrollmentID,
+		Value:               "5.0",
+		ExpectedVersion:     &v1,
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("RecordGrade correction: %v", err)
+	}
+
+	assertSEStatus(t, fix.SectionEnrollmentID, "passed", ptr("4.0"))
+}
+
+// TestGradesOutcome_CorrectionNoFlip: a correction that keeps the final ≥ 4.0
+// → SE stays passed, final_grade updates to the new value.
+//
+// Scheme: weight 1.0
+// Initial: 5.0 → passed, final_grade = 5.0
+// Correction to 4.5 → still passed, final_grade = 4.5
+func TestGradesOutcome_CorrectionNoFlip(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedGradesAdminSID(t, "outcome-no-flip")
+	fix := seedGradesFixture(t, adminSID)
+
+	evals := seedEvaluationScheme(t, fix.CourseID, []string{"1.0"}, adminSID)
+	_, teacherSID := gradesSeedTeacherWithSession(t, "outcome-no-flip", fix.SectionID)
+	client := newGradesClient(nil)
+
+	r0, err := client.RecordGrade(ctx, withSID(connect.NewRequest(&gradesv1.RecordGradeRequest{
+		EvaluationId:        evals[0].GetId(),
+		SectionEnrollmentId: fix.SectionEnrollmentID,
+		Value:               "5.0",
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("RecordGrade (initial): %v", err)
+	}
+	withGradeCleanup(t, r0.Msg.GetGrade().GetId())
+
+	assertSEStatus(t, fix.SectionEnrollmentID, "passed", ptr("5.0"))
+
+	// Correct to 4.5 → final stays ≥ 4.0 → still passed.
+	v1 := int32(1)
+	_, err = client.RecordGrade(ctx, withSID(connect.NewRequest(&gradesv1.RecordGradeRequest{
+		EvaluationId:        evals[0].GetId(),
+		SectionEnrollmentId: fix.SectionEnrollmentID,
+		Value:               "4.5",
+		ExpectedVersion:     &v1,
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("RecordGrade (correction): %v", err)
+	}
+
+	assertSEStatus(t, fix.SectionEnrollmentID, "passed", ptr("4.5"))
+}
+
+// TestGradesOutcome_ExactBoundary4: all evaluations score exactly 4.0 → weighted final
+// is exactly 4.0 → passed (inclusive threshold).
+func TestGradesOutcome_ExactBoundary4(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedGradesAdminSID(t, "outcome-exact-4")
+	fix := seedGradesFixture(t, adminSID)
+
+	evals := seedEvaluationScheme(t, fix.CourseID, []string{"0.4", "0.3", "0.3"}, adminSID)
+	_, teacherSID := gradesSeedTeacherWithSession(t, "outcome-exact-4", fix.SectionID)
+	client := newGradesClient(nil)
+
+	// 4.0×0.4 + 4.0×0.3 + 4.0×0.3 = 1.6 + 1.2 + 1.2 = 4.0 → passed.
+	for i := range evals {
+		resp, err := client.RecordGrade(ctx, withSID(connect.NewRequest(&gradesv1.RecordGradeRequest{
+			EvaluationId:        evals[i].GetId(),
+			SectionEnrollmentId: fix.SectionEnrollmentID,
+			Value:               "4.0",
+		}), teacherSID))
+		if err != nil {
+			t.Fatalf("RecordGrade eval[%d]: %v", i, err)
+		}
+		withGradeCleanup(t, resp.Msg.GetGrade().GetId())
+	}
+
+	assertSEStatus(t, fix.SectionEnrollmentID, "passed", ptr("4.0"))
+}
+
 // TestGradesOutcome_WithdrawnSEBlocksGrade (AS-24-related): grading a withdrawn
 // section_enrollment → CodeFailedPrecondition.
 func TestGradesOutcome_WithdrawnSEBlocksGrade(t *testing.T) {

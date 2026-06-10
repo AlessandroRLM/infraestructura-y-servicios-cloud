@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 
 	gradesv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1"
+	section_enrollmentv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1"
 )
 
 // TestGradesRead_StudentListOwnGrades (AS-14): student sees their own grades only.
@@ -142,21 +143,20 @@ func TestGradesRead_TeacherListGradesForSection(t *testing.T) {
 	}
 }
 
-// TestGradesRead_TeacherListGradesAcrossSections: teachers with grades.read permission
-// can list grades for any section (no section_teachers scoping on read; write requires membership).
-// This verifies that the permission system works correctly: teacher has grades.read, not grades.write.
-func TestGradesRead_TeacherListGradesAcrossSections(t *testing.T) {
+// TestGradesRead_TeacherListOutOfScopeSection: a teacher who is NOT in section_teachers
+// for a given section gets an empty list (not an error) when calling ListGradesForSection.
+func TestGradesRead_TeacherListOutOfScopeSection(t *testing.T) {
 	ctx := context.Background()
-	_, adminSID := seedGradesAdminSID(t, "teacher-across-sections")
+	_, adminSID := seedGradesAdminSID(t, "teacher-out-of-scope-list")
 
 	// Two separate fixtures with different courses and sections.
 	fix1 := seedGradesFixture(t, adminSID)
 	fix2 := seedGradesFixture(t, adminSID)
 
-	// Teacher1 is assigned only to section1 (for write permission purposes).
-	_, teacher1SID := gradesSeedTeacherWithSession(t, "across-t1", fix1.SectionID)
+	// Teacher1 is assigned only to section1, NOT section2.
+	_, teacher1SID := gradesSeedTeacherWithSession(t, "out-scope-list-t1", fix1.SectionID)
 
-	// Create a grade in section2 via admin override.
+	// Create a grade in section2 via admin override so there is data to find (or not).
 	evals2 := seedEvaluationScheme(t, fix2.CourseID, []string{"1.0"}, adminSID)
 	_, err := newGradesClient(nil).OverrideGrade(ctx, withSID(connect.NewRequest(&gradesv1.OverrideGradeRequest{
 		EvaluationId:        evals2[0].GetId(),
@@ -171,18 +171,50 @@ func TestGradesRead_TeacherListGradesAcrossSections(t *testing.T) {
 			`DELETE FROM grades WHERE section_enrollment_id = $1`, fix2.SectionEnrollmentID)
 	})
 
-	// Teacher1 can list section2's grades (grades.read is not section-scoped on reads).
-	// This confirms that write authz (section_teachers) is separate from read authz (permission only).
+	// Teacher1 lists section2 → must return empty list (no error, just empty).
 	resp, err := newGradesClient(nil).ListGradesForSection(ctx, withSID(connect.NewRequest(&gradesv1.ListGradesForSectionRequest{
 		SectionId: fix2.SectionID,
 	}), teacher1SID))
 	if err != nil {
-		t.Fatalf("ListGradesForSection cross-section: %v", err)
+		t.Fatalf("ListGradesForSection out-of-scope: %v", err)
 	}
-	// Teacher CAN see section2's grades (grades.read is not section-scoped).
-	if len(resp.Msg.GetGrades()) < 1 {
-		t.Errorf("teacher1 should see at least 1 grade in section2, got %d", len(resp.Msg.GetGrades()))
+	if len(resp.Msg.GetGrades()) != 0 {
+		t.Errorf("teacher not in section_teachers should see 0 grades, got %d", len(resp.Msg.GetGrades()))
 	}
+}
+
+// TestGradesRead_TeacherGetGradeOutOfScope: a teacher who is NOT in section_teachers
+// for the section that owns a grade gets CodeNotFound (not PermissionDenied) on GetGrade.
+func TestGradesRead_TeacherGetGradeOutOfScope(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedGradesAdminSID(t, "teacher-get-out-of-scope")
+
+	fix1 := seedGradesFixture(t, adminSID)
+	fix2 := seedGradesFixture(t, adminSID)
+
+	// Teacher assigned only to section1.
+	_, teacherSID := gradesSeedTeacherWithSession(t, "get-out-scope", fix1.SectionID)
+
+	// Create a grade in section2 via admin override.
+	evals2 := seedEvaluationScheme(t, fix2.CourseID, []string{"1.0"}, adminSID)
+	overrideResp, err := newGradesClient(nil).OverrideGrade(ctx, withSID(connect.NewRequest(&gradesv1.OverrideGradeRequest{
+		EvaluationId:        evals2[0].GetId(),
+		SectionEnrollmentId: fix2.SectionEnrollmentID,
+		Value:               "5.0",
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("admin OverrideGrade for section2: %v", err)
+	}
+	gradeID := overrideResp.Msg.GetGrade().GetId()
+	t.Cleanup(func() {
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM grades WHERE id = $1`, gradeID)
+	})
+
+	// Teacher tries to fetch a grade from section2 (out of their scope) → NotFound.
+	_, err = newGradesClient(nil).GetGrade(ctx, withSID(connect.NewRequest(&gradesv1.GetGradeRequest{
+		Id: gradeID,
+	}), teacherSID))
+	assertConnectCode(t, err, connect.CodeNotFound)
 }
 
 // TestGradesRead_GetGradeHappyPath: admin can fetch a single grade by id.
@@ -361,5 +393,75 @@ func TestGradesRead_UnauthenticatedDeniedOnAllEndpoints(t *testing.T) {
 			err := tc.call()
 			assertConnectCode(t, err, connect.CodeUnauthenticated)
 		})
+	}
+}
+
+// TestGradesRead_ImmediateVisibility: a grade recorded by the teacher is immediately
+// visible in the student's ListOwnGrades response within the same test.
+func TestGradesRead_ImmediateVisibility(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedGradesAdminSID(t, "immediate-vis")
+	fix := seedGradesFixture(t, adminSID)
+
+	evals := seedEvaluationScheme(t, fix.CourseID, []string{"1.0"}, adminSID)
+	_, teacherSID := gradesSeedTeacherWithSession(t, "immediate-vis", fix.SectionID)
+
+	// No grades yet — student sees empty list.
+	client := newGradesClient(nil)
+	before, err := client.ListOwnGrades(ctx, withSID(connect.NewRequest(&gradesv1.ListOwnGradesRequest{}), fix.StudentSID))
+	if err != nil {
+		t.Fatalf("ListOwnGrades (before): %v", err)
+	}
+	countBefore := len(before.Msg.GetGrades())
+
+	// Teacher records a grade.
+	g := seedGrade(t, evals[0].GetId(), fix.SectionEnrollmentID, "6.0", teacherSID)
+	_ = g
+
+	// Student immediately sees the new grade.
+	after, err := client.ListOwnGrades(ctx, withSID(connect.NewRequest(&gradesv1.ListOwnGradesRequest{}), fix.StudentSID))
+	if err != nil {
+		t.Fatalf("ListOwnGrades (after): %v", err)
+	}
+	if len(after.Msg.GetGrades()) != countBefore+1 {
+		t.Errorf("ListOwnGrades after record: got %d, want %d", len(after.Msg.GetGrades()), countBefore+1)
+	}
+}
+
+// TestGradesRead_EndToEndFinalGrade: after the last grade is recorded (completing the scheme),
+// the student's GetOwnSectionEnrollment returns status=passed when all grades sum to ≥ 4.0.
+func TestGradesRead_EndToEndFinalGrade(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedGradesAdminSID(t, "e2e-final")
+	fix := seedGradesFixture(t, adminSID)
+
+	evals := seedEvaluationScheme(t, fix.CourseID, []string{"0.5", "0.5"}, adminSID)
+	_, teacherSID := gradesSeedTeacherWithSession(t, "e2e-final", fix.SectionID)
+	client := newGradesClient(nil)
+
+	// Grade both evaluations → 5.0×0.5 + 5.0×0.5 = 5.0 → passed.
+	for i := range evals {
+		resp, err := client.RecordGrade(ctx, withSID(connect.NewRequest(&gradesv1.RecordGradeRequest{
+			EvaluationId:        evals[i].GetId(),
+			SectionEnrollmentId: fix.SectionEnrollmentID,
+			Value:               "5.0",
+		}), teacherSID))
+		if err != nil {
+			t.Fatalf("RecordGrade eval[%d]: %v", i, err)
+		}
+		withGradeCleanup(t, resp.Msg.GetGrade().GetId())
+	}
+
+	// Student checks their own section enrollment → status = "passed".
+	seResp, err := newSectionEnrollmentClient(nil).GetOwnSectionEnrollment(ctx,
+		withSID(connect.NewRequest(&section_enrollmentv1.GetOwnSectionEnrollmentRequest{
+			Id: fix.SectionEnrollmentID,
+		}), fix.StudentSID),
+	)
+	if err != nil {
+		t.Fatalf("GetOwnSectionEnrollment: %v", err)
+	}
+	if seResp.Msg.GetStatus() != "passed" {
+		t.Errorf("SE status after all grades = %q, want passed", seResp.Msg.GetStatus())
 	}
 }
