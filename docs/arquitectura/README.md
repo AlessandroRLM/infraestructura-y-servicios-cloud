@@ -253,12 +253,16 @@ Los rangos de pods y services se definen como rangos secundarios de la subred de
 
 La autorización es de dos capas: **permiso** (qué operación, data-driven) y **pertenencia a nivel de recurso** (sobre qué datos). Los permisos se guardan en tablas (`permissions`, `role_permissions`) y se asignan vía `user_roles`. El control real es del backend; la UI solo oculta lo que el rol no puede usar.
 
+El sistema cuenta con **13 permisos** definidos como constantes tipadas en `internal/authz/permission.go` y validados por un test de paridad contra las migraciones seed.
+
 | Operación                                              | Administrador |      Docente       | Alumno |
 | ------------------------------------------------------ | :-----------: | :----------------: | :----: |
 | Gestionar usuarios, roles y permisos                   |      Sí       |         —          |   —    |
 | Gestionar catálogo (programas, asignaturas, secciones) |      Sí       |         —          |   —    |
 | Gestionar matrícula (anual)                            |      Sí       |         —          |   —    |
-| Inscribir / anular secciones                           |      Sí       |         —          |   —    |
+| Inscribir sección (auto-inscripción, ventana abierta)  |      Sí       |         —          |   Sí   |
+| Anular inscripción de sección                          |      Sí       |         —          |   —    |
+| Ver inscripciones de sección propias                   |      Sí       |         —          |   Sí   |
 | Ver perfil propio                                      |      Sí       |         Sí         |   Sí   |
 | Ver matrícula e inscripciones propias                  |      Sí       |         —          |   Sí   |
 | Registrar / editar notas                               |      Sí       | Solo sus secciones |   —    |
@@ -271,6 +275,7 @@ La autorización es de dos capas: **permiso** (qué operación, data-driven) y *
 
 - El **permiso** habilita la operación (el interceptor lo verifica contra los permisos del rol); la **pertenencia** decide sobre qué recursos. Un docente con permiso para cargar notas solo puede hacerlo en las secciones que dicta (`section_teachers`).
 - **Perfil propio:** todo usuario puede leer sus propios datos personales (operación habilitada por el permiso `profile.view_own`). La pertenencia restringe la lectura al registro cuyo `user_id` coincide con el del solicitante; un usuario nunca ve el perfil de otro por esta vía. La gestión de perfiles de terceros (alta/edición/lectura por id) es una operación administrativa aparte (`users.manage`).
+- **Auto-inscripción vs. administración:** el alumno puede inscribirse a secciones dentro de la ventana habilitada (`sections.enroll`) y consultar sus propias inscripciones (`section_enrollment.view_own`). La anulación de inscripciones es exclusivamente administrativa; no existe WithdrawOwnSection.
 - **Sin auto-acción:** nadie opera sobre sus propios registros académicos. Un docente que también es alumno no puede cargar ni editar la nota de una inscripción donde el alumno sea él mismo. Esta regla aplica a los registros académicos (notas, inscripciones), no a la lectura de los datos personales propios.
 - **Admin total, pero auditado:** el administrador puede todo —incluida la corrección de una nota—, pero cada acción queda registrada en `audit_logs`. El poder no exime del rastro.
 
@@ -280,8 +285,8 @@ Regla de autorización para cargar o editar una nota (sobre la inscripción `SE`
 permitir si:
   el rol incluye el permiso grades.write
     AND existe section_teachers(section = SE.section_id, teacher = user)  -- dicta la sección
-    AND SE.student != user                                               -- no te calificás a vos mismo
-  OR el rol incluye el permiso grades.override                           -- admin; queda auditado
+    AND SE.student_id != user                                             -- no califica su propio registro
+  OR el rol incluye el permiso grades.override                            -- admin; queda auditado
 ```
 
 ## 9. Ambientes
@@ -333,7 +338,9 @@ erDiagram
     enrollments ||--o{ section_enrollments : ""
     sections ||--o{ section_enrollments : ""
     section_enrollments ||--o{ grades : ""
-    teacher_profiles ||--o{ grades : "graded_by"
+    sections ||--o{ evaluations : ""
+    evaluations ||--o{ grades : ""
+    users ||--o{ grades : "graded_by"
     users ||--o{ audit_logs : ""
 
     users {
@@ -421,6 +428,8 @@ erDiagram
         int term
         date start_date
         date end_date
+        timestamptz enrollment_starts_at
+        timestamptz enrollment_ends_at
     }
     sections {
         uuid id PK
@@ -446,12 +455,21 @@ erDiagram
         uuid section_id FK
         string status "in_progress | passed | failed | withdrawn"
         timestamp registered_at
+        timestamptz deleted_at
+    }
+    evaluations {
+        uuid id PK
+        uuid section_id FK
+        string name
+        numeric weight
     }
     grades {
         uuid id PK
         uuid section_enrollment_id FK
+        uuid evaluation_id FK
         uuid graded_by FK
-        numeric value
+        numeric value "NUMERIC(3,1) CHECK 1.0..7.0"
+        int version
         timestamp evaluated_at
     }
     audit_logs {
@@ -472,8 +490,10 @@ Notas del modelo:
 - **Identidad, roles y permisos:** `users` es solo identidad/auth. El acceso es data-driven: `roles` y `permissions` se relacionan vía `role_permissions` (M:N) y se asignan a usuarios vía `user_roles` (M:N) — una persona puede ser docente **y** alumno a la vez, y los permisos de cada rol se cambian sin tocar código.
 - **Datos personales:** los datos personales comunes a cualquier persona (nombre, identificador legal, contacto, domicilio) viven en `user_profiles` (1:1 con `users`), no en `users` —que se mantiene magro para autenticación— ni duplicados en `student_profiles`/`teacher_profiles`. Los perfiles de rol (`student_profiles`, `teacher_profiles`) guardan solo atributos específicos del rol. `national_id` es único. Cada usuario puede leer su propio `user_profiles` vía `profile.view_own` (ver §8.5).
 - **Jerarquía académica:** `programs` ↔ `courses` es **M:N** (`program_courses`): una asignatura como "Inglés I" puede compartirse entre varias carreras. Cada `course` se dicta en `sections` (una sección = asignatura + `academic_period` + uno o varios docentes vía `section_teachers`, co-docencia).
-- **Períodos lectivos:** `academic_periods` usa `term ∈ {1, 2}` (dos semestres por año), con `UNIQUE(year, term)`. `program_quotas` lleva metadata de auditoría y soft-delete (es una entidad mutable sensible, no append-only) y tiene `UNIQUE(program_id, year)`.
-- **Matrícula vs inscripción:** `enrollments` es la matrícula anual por carrera (`program_id` + `year`), con `UNIQUE(student_id, program_id, year)`. `section_enrollments` son las inscripciones a secciones, con `UNIQUE(enrollment_id, section_id)`, y solo existen si hay matrícula vigente. Las notas (`grades`) cuelgan de la inscripción a la sección.
+- **Períodos lectivos:** `academic_periods` usa `term ∈ {1, 2}` (dos semestres por año), con `UNIQUE(year, term)`. Las columnas `enrollment_starts_at` / `enrollment_ends_at` definen la ventana institucional de auto-inscripción evaluada con el reloj del servidor de base de datos; `NULL` equivale a ventana no configurada (fail-closed). `program_quotas` lleva metadata de auditoría y soft-delete (es una entidad mutable sensible, no append-only) y tiene `UNIQUE(program_id, year)`.
+- **Matrícula vs inscripción:** `enrollments` es la matrícula anual por carrera (`program_id` + `year`), con `UNIQUE(student_id, program_id, year)`. `section_enrollments` son las inscripciones a secciones, con unicidad por índice parcial `UNIQUE(enrollment_id, section_id) WHERE deleted_at IS NULL` (filas soft-deleted no bloquean una re-inscripción), y solo existen si hay matrícula vigente. Las notas (`grades`) cuelgan de la inscripción a la sección a través de la evaluación.
+- **Máquina de estados de `section_enrollments`:** `in_progress → withdrawn` (admin); `in_progress → passed | failed` (slice de notas vía `SetSectionEnrollmentOutcome`). `passed` y `failed` son estados terminales; no existe WithdrawOwnSection.
+- **Modelo de notas:** `evaluations` define los instrumentos de evaluación por sección con sus pesos (`weight`). `grades` registra una nota por instrumento por inscripción (`UNIQUE(evaluation_id, section_enrollment_id)`) en escala 1.0–7.0 (`NUMERIC(3,1)`). La nota final es la suma ponderada de las notas parciales; si es computable, ≥ 4.0 → `passed`, < 4.0 → `failed`, aplicado de forma inmediata al registrar o corregir una nota vía `SetSectionEnrollmentOutcome`. Las notas registradas son visibles al alumno de inmediato mediante `grades.view_own`; no existe paso de publicación. `graded_by` referencia `users(id)` —no `teacher_profiles`— para auditar cualquier actor autorizado (docente vía `section_teachers` o admin vía `grades.override`) sin requerir filas fantasma en `teacher_profiles`.
 - **Cupos:** `program_quotas` fija el cupo de admisión por `(carrera, año)` (ej. 40 matrículas); `sections.capacity`, el cupo de cada sección. Ambos se controlan con bloqueo de fila para evitar sobreventa en el pico de inscripción (ver §12).
 - **Pertenencia:** `section_teachers` define qué docentes dictan cada sección. Es la base de la autorización por pertenencia (ver §8.5).
 - `audit_logs` da soporte a la trazabilidad (RF-5). Los reportes (RF-3) se generan por consulta y se cachean en Redis; no requieren tabla propia.
@@ -482,13 +502,13 @@ Notas del modelo:
 
 Para no repetir columnas en el diagrama, estas se aplican por convención:
 
-| Campo                       | Qué                            | Dónde                                                                                                                                   |
-| --------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `created_at` / `updated_at` | Cuándo se creó / modificó      | Entidades mutables (users, perfiles, programs, courses, academic_periods, sections, program_quotas, enrollments, section_enrollments, grades).          |
-| `created_by` / `updated_by` | Quién (FK a users)             | Cambios humanos sensibles: users, perfiles, programs, courses, sections, program_quotas, grades, enrollments.                                           |
-| `deleted_at`                | Soft-delete (`NULL` = vivo)    | Registros que no se borran físicamente: users, programs, courses, academic_periods, sections, program_quotas, enrollments, section_enrollments, grades. |
-| `version`                   | Optimistic locking             | `grades` (edición concurrente, evita pisar cambios).                                                                                    |
-| `status`                    | Estado de negocio multi-estado | `enrollments` y `section_enrollments` (ya en el diagrama).                                                                              |
+| Campo                       | Qué                            | Dónde                                                                                                                                                    |
+| --------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `created_at` / `updated_at` | Cuándo se creó / modificó      | Entidades mutables (users, perfiles, programs, courses, academic_periods, sections, program_quotas, enrollments, section_enrollments, evaluations, grades). |
+| `created_by` / `updated_by` | Quién (FK a users)             | Cambios humanos sensibles: users, perfiles, programs, courses, sections, program_quotas, grades, enrollments. `section_enrollments` excluida (no está en la lista de cambios sensibles).    |
+| `deleted_at`                | Soft-delete (`NULL` = vivo)    | Registros que no se borran físicamente: users, programs, courses, academic_periods, sections, program_quotas, enrollments, section_enrollments, evaluations, grades. |
+| `version`                   | Optimistic locking             | `grades` (edición concurrente, evita pisar cambios).                                                                                                     |
+| `status`                    | Estado de negocio multi-estado | `enrollments` y `section_enrollments` (ya en el diagrama).                                                                                               |
 
 Las tablas **append-only** (`audit_logs`, `user_roles`, `role_permissions`, `program_courses`, `section_teachers`) solo llevan `created_at`: no se editan, se insertan o se borran.
 
@@ -519,22 +539,34 @@ sequenceDiagram
 
 ### 11.2 Inscripción de sección (con matrícula vigente)
 
+El camino de inscripción distingue dos actores con reglas distintas. El alumno requiere ventana de inscripción abierta; el admin no está restringido por la ventana y puede revivir inscripciones anuladas.
+
 ```mermaid
 sequenceDiagram
     participant U as Alumno / Admin
-    participant A as API (Connect)
+    participant A as API (Connect interceptor)
     participant R as Redis
     participant P as PostgreSQL
 
-    U->>A: inscribir sección + cookie
+    U->>A: EnrollOwnSection / EnrollSection + cookie
+    A->>A: semáforo de admisión (cap = floor(pool*0.6))<br/>saturado → ResourceExhausted (sin abrir conexión DB)
     A->>R: validar sesión y permiso
-    A->>P: BEGIN ¿matrícula vigente del alumno?
-    A->>P: SELECT capacity FROM sections WHERE id=? FOR UPDATE
-    A->>P: contar inscriptos de la sección
-    alt sin matrícula o sección llena
-        A-->>U: rechazado
+    A->>P: COUNT activos (pre-check sin lock; sección llena → rechazado)
+    A->>P: BEGIN; SET LOCAL lock_timeout='2500ms'
+    A->>P: SELECT … FROM sections FOR UPDATE<br/>(obtiene capacity, course_id, ventana DB-clock)
+    alt alumno y ventana cerrada o NULL
+        A-->>U: FailedPrecondition (window closed)
+    end
+    A->>P: verificar enrollment status=paid, año y curso en programa
+    alt no cumple gate
+        A-->>U: FailedPrecondition
+    end
+    A->>P: COUNT activos bajo el lock (check autoritativo)
+    alt sección llena
+        A-->>U: FailedPrecondition (section full)
     else hay cupo
-        A->>P: insertar section_enrollment COMMIT
+        A->>P: INSERT section_enrollment (o UPDATE revival admin)
+        A->>P: COMMIT
         A-->>U: inscripción creada
     end
 ```
@@ -543,20 +575,24 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant T as Docente
+    participant T as Docente / Admin
     participant A as API (Connect)
     participant R as Redis
     participant P as PostgreSQL
 
-    T->>A: cargar nota + cookie
-    A->>R: validar sesión y permiso (grades.write)
-    A->>P: ¿el docente dicta la sección? (section_teachers)
-    A->>P: ¿el alumno de la inscripción no es el docente?
+    T->>A: registrar nota (evaluation_id, section_enrollment_id, value) + cookie
+    A->>R: validar sesión y permiso (grades.write o grades.override)
+    A->>P: ¿el actor dicta la sección? (section_teachers)<br/>o ¿tiene grades.override? (admin auditado)
+    A->>P: ¿el alumno de la inscripción no es el actor?
     alt no autorizado
         A-->>T: rechazado
     else autorizado
-        A->>P: insertar grade
-        A-->>T: nota registrada
+        A->>P: insertar/actualizar grade (optimistic lock via version)
+        A->>P: recalcular nota final ponderada
+        alt nota final computable
+            A->>P: SetSectionEnrollmentOutcome (passed/failed)
+        end
+        A-->>T: nota registrada (visible al alumno via grades.view_own)
     end
 ```
 
@@ -599,9 +635,20 @@ SELECT count(*) FROM enrollments
 COMMIT;
 ```
 
-El bloqueo de fila serializa los intentos sobre un mismo cupo, mientras que cupos distintos no se bloquean entre sí, lo que preserva el rendimiento. Las restricciones `UNIQUE(student_id, program_id, year)` y `UNIQUE(enrollment_id, section_id)` aportan idempotencia: un reintento o un envío duplicado no genera registros repetidos ni ocupa un cupo adicional.
+El bloqueo de fila serializa los intentos sobre un mismo cupo, mientras que cupos distintos no se bloquean entre sí, lo que preserva el rendimiento. La restricción `UNIQUE(student_id, program_id, year)` en `enrollments` y el índice parcial `UNIQUE(enrollment_id, section_id) WHERE deleted_at IS NULL` en `section_enrollments` aportan idempotencia: un reintento o un envío duplicado no genera registros repetidos ni ocupa un cupo adicional.
 
-### 12.2 Carga durante el período de inscripción
+### 12.2 Hot path de inscripción de sección
+
+El diseño del hot path en `section_enrollment` combina cuatro mecanismos en capas:
+
+1. **Pre-check sin lock:** conteo de asientos activos sin abrir transacción. Rechaza secciones claramente llenas antes de competir por el lock. Solo orientativo (stale-tolerant); el check autoritativo es bajo lock.
+2. **`SET LOCAL lock_timeout = '2500ms'`:** si el proceso espera demasiado por el lock de la fila de sección (código PG `55P03`), la transacción aborta y el cliente recibe `CodeUnavailable` (reintentable). Acota el tail latency bajo stampedes.
+3. **`SELECT … FOR UPDATE` en la fila de sección:** serializa la admisión por sección. Trae `capacity`, `course_id` y el estado de la ventana evaluado con el reloj del servidor DB (sin desvío de reloj Go).
+4. **Semáforo de admisión (interceptor Connect):** capacidad `floor(pool_size × 0.6)`, scoped a los dos procedimientos de inscripción (`EnrollOwnSection`, `EnrollSection`). Rechaza con `CodeResourceExhausted` sin abrir conexión DB cuando el sistema está saturado; garantiza al menos el 40% del pool para operaciones de lectura y login.
+
+Logs estructurados (`slog`) en las cuatro señales de rechazo. Contadores Prometheus/OTel diferidos hasta que `internal/platform/` tenga pipeline de métricas.
+
+### 12.3 Carga durante el período de inscripción
 
 Escalar la API con HPA sin limitar las conexiones a PostgreSQL agrava el problema: más réplicas implican más conexiones, hasta agotar `max_connections` y dejar el servicio indisponible. Medidas:
 
@@ -668,3 +715,7 @@ sequenceDiagram
 | Observabilidad       | Cloud Monitoring         | Prometheus + Grafana             | Nativo, no consume recursos del cluster y trae alertas de costo.                                    |
 | Ambientes            | Namespaces en un cluster | Clusters o proyectos separados   | Aislamiento suficiente al menor costo.                                                              |
 | IaC                  | Terraform                | Scripts gcloud/aws               | Reproducible; permite destruir y recrear para ahorrar.                                              |
+| Modelo de notas      | Evaluaciones parciales ponderadas (`evaluations` + `grades`) | Nota final plana por sección | Permite instrumentos heterogéneos por sección (controles, exámenes, prácticas) con pesos independientes sin cambiar el esquema; la suma ponderada es la nota final. |
+| Auditor de nota      | `graded_by` → `users(id)` | `graded_by` → `teacher_profiles(user_id)` | El admin puede sobrescribir cualquier nota (`grades.override`) sin ser docente; una FK a `teacher_profiles` requeriría una fila fantasma o una unión polimorfa. La referencia a `users` cubre todos los actores autorizados sin excepción. |
+| Aplicación del resultado | Inmediata al registrar o corregir la nota (`SetSectionEnrollmentOutcome`) | Paso explícito de cierre de sección | Eliminar el paso de cierre reduce la superficie operativa y evita el estado intermedio "notas cargadas pero resultado no aplicado". Las correcciones recalculan automáticamente. |
+| Visibilidad de notas | Inmediata (`grades.view_own`) | Publicación explícita por el docente | El alumno accede a cada nota en cuanto se registra; no existe estado draft. Reduce la fricción docente y simplifica el modelo de datos al eliminar un campo de estado adicional. |
