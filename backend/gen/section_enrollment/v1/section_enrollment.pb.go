@@ -36,7 +36,8 @@ type SectionEnrollment struct {
 	UpdatedAt    string  `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	DeletedAt    *string `protobuf:"bytes,8,opt,name=deleted_at,json=deletedAt,proto3,oneof" json:"deleted_at,omitempty"`
 	// final_grade is the computed weighted average set by the grades slice when status
-	// transitions to passed or failed. Empty string when not yet computed.
+	// transitions to passed or failed. Empty string when the grade has not yet been computed
+	// (status is in_progress or withdrawn).
 	FinalGrade    string `protobuf:"bytes,9,opt,name=final_grade,json=finalGrade,proto3" json:"final_grade,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -557,45 +558,56 @@ func (x *ListSectionEnrollmentsResponse) GetSectionEnrollments() []*SectionEnrol
 var File_section_enrollment_v1_section_enrollment_proto protoreflect.FileDescriptor
 
 const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
-	"\n.section_enrollment/v1/section_enrollment.proto\x12\x15section_enrol" +
-	"lment.v1\"\xb6\x02\n\x11SectionEnrollment\x12\x0e\n\x02id\x18\x01 \x01" +
-	"(\tR\x02id\x12#\n\x0denrollment_id\x18\x02 \x01(\tR\x0cenrollmentId" +
-	"\x12\x1d\n\nsection_id\x18\x03 \x01(\tR\tsectionId\x12\x16\n\x06status" +
-	"\x18\x04 \x01(\tR\x06status\x12#\n\x0dregistered_at\x18\x05 \x01(\tR" +
-	"\x0cregisteredAt\x12\x1d\n\ncreated_at\x18\x06 \x01(\tR\tcreatedAt\x12" +
-	"\x1d\n\nupdated_at\x18\x07 \x01(\tR\tupdatedAt\x12\"\n\ndeleted_at\x18" +
-	"\x08 \x01(\tH\x00R\tdeletedAt\x88\x01\x01\x12\x1f\n\x0bfinal_grade\x18" +
-	"\t \x01(\tR\nfinalGradeB\x0d\n\x0b_deleted_at\"W\n\x17EnrollOwnSection" +
-	"Request\x12\x1d\n\nsection_id\x18\x01 \x01(\tR\tsectionId\x12\x1d\n\np" +
-	"rogram_id\x18\x02 \x01(\tR\tprogramId\"\"\n ListOwnSectionEnrollmentsR" +
-	"equest\"0\n\x1eGetOwnSectionEnrollmentRequest\x12\x0e\n\x02id\x18\x01 " +
-	"\x01(\tR\x02id\"Z\n\x14EnrollSectionRequest\x12#\n\x0denrollment_id" +
-	"\x18\x01 \x01(\tR\x0cenrollmentId\x12\x1d\n\nsection_id\x18\x02 \x01(" +
-	"\tR\tsectionId\"(\n\x16WithdrawSectionRequest\x12\x0e\n\x02id\x18\x01 " +
-	"\x01(\tR\x02id\"\x19\n\x17WithdrawSectionResponse\"-\n\x1bGetSectionEn" +
-	"rollmentRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\"{\n\x1dListSec" +
-	"tionEnrollmentsRequest\x12\x1d\n\nsection_id\x18\x01 \x01(\tR\tsection" +
-	"Id\x12#\n\x0denrollment_id\x18\x02 \x01(\tR\x0cenrollmentId\x12\x16\n" +
-	"\x06status\x18\x03 \x01(\tR\x06status\"{\n\x1eListSectionEnrollmentsRe" +
-	"sponse\x12Y\n\x13section_enrollments\x18\x01 \x03(\x0b2(.section_enrol" +
-	"lment.v1.SectionEnrollmentR\x12sectionEnrollments2\x86\x07\n\x18Sectio" +
-	"nEnrollmentService\x12p\n\x10EnrollOwnSection\x12..section_enrollment." +
-	"v1.EnrollOwnSectionRequest\x1a(.section_enrollment.v1.SectionEnrollmen" +
-	"t(\x000\x00\x12\x8f\x01\n\x19ListOwnSectionEnrollments\x127.section_en" +
-	"rollment.v1.ListOwnSectionEnrollmentsRequest\x1a5.section_enrollment.v" +
-	"1.ListSectionEnrollmentsResponse(\x000\x00\x12~\n\x17GetOwnSectionEnro" +
-	"llment\x125.section_enrollment.v1.GetOwnSectionEnrollmentRequest\x1a(." +
-	"section_enrollment.v1.SectionEnrollment(\x000\x00\x12j\n\x0dEnrollSect" +
-	"ion\x12+.section_enrollment.v1.EnrollSectionRequest\x1a(.section_enrol" +
-	"lment.v1.SectionEnrollment(\x000\x00\x12t\n\x0fWithdrawSection\x12-.se" +
-	"ction_enrollment.v1.WithdrawSectionRequest\x1a..section_enrollment.v1." +
-	"WithdrawSectionResponse(\x000\x00\x12x\n\x14GetSectionEnrollment\x122." +
-	"section_enrollment.v1.GetSectionEnrollmentRequest\x1a(.section_enrollm" +
-	"ent.v1.SectionEnrollment(\x000\x00\x12\x89\x01\n\x16ListSectionEnrollm" +
-	"ents\x124.section_enrollment.v1.ListSectionEnrollmentsRequest\x1a5.sec" +
-	"tion_enrollment.v1.ListSectionEnrollmentsResponse(\x000\x00BsZqgithub." +
-	"com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/sectio" +
-	"n_enrollment/v1;section_enrollmentv1b\x06proto3"
+	"\n" +
+	".section_enrollment/v1/section_enrollment.proto\x12\x15section_enrollment.v1\"\xb6\x02\n" +
+	"\x11SectionEnrollment\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
+	"\renrollment_id\x18\x02 \x01(\tR\fenrollmentId\x12\x1d\n" +
+	"\n" +
+	"section_id\x18\x03 \x01(\tR\tsectionId\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12#\n" +
+	"\rregistered_at\x18\x05 \x01(\tR\fregisteredAt\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\"\n" +
+	"\n" +
+	"deleted_at\x18\b \x01(\tH\x00R\tdeletedAt\x88\x01\x01\x12\x1f\n" +
+	"\vfinal_grade\x18\t \x01(\tR\n" +
+	"finalGradeB\r\n" +
+	"\v_deleted_at\"W\n" +
+	"\x17EnrollOwnSectionRequest\x12\x1d\n" +
+	"\n" +
+	"section_id\x18\x01 \x01(\tR\tsectionId\x12\x1d\n" +
+	"\n" +
+	"program_id\x18\x02 \x01(\tR\tprogramId\"\"\n" +
+	" ListOwnSectionEnrollmentsRequest\"0\n" +
+	"\x1eGetOwnSectionEnrollmentRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"Z\n" +
+	"\x14EnrollSectionRequest\x12#\n" +
+	"\renrollment_id\x18\x01 \x01(\tR\fenrollmentId\x12\x1d\n" +
+	"\n" +
+	"section_id\x18\x02 \x01(\tR\tsectionId\"(\n" +
+	"\x16WithdrawSectionRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x19\n" +
+	"\x17WithdrawSectionResponse\"-\n" +
+	"\x1bGetSectionEnrollmentRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"{\n" +
+	"\x1dListSectionEnrollmentsRequest\x12\x1d\n" +
+	"\n" +
+	"section_id\x18\x01 \x01(\tR\tsectionId\x12#\n" +
+	"\renrollment_id\x18\x02 \x01(\tR\fenrollmentId\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\"{\n" +
+	"\x1eListSectionEnrollmentsResponse\x12Y\n" +
+	"\x13section_enrollments\x18\x01 \x03(\v2(.section_enrollment.v1.SectionEnrollmentR\x12sectionEnrollments2\xea\x06\n" +
+	"\x18SectionEnrollmentService\x12l\n" +
+	"\x10EnrollOwnSection\x12..section_enrollment.v1.EnrollOwnSectionRequest\x1a(.section_enrollment.v1.SectionEnrollment\x12\x8b\x01\n" +
+	"\x19ListOwnSectionEnrollments\x127.section_enrollment.v1.ListOwnSectionEnrollmentsRequest\x1a5.section_enrollment.v1.ListSectionEnrollmentsResponse\x12z\n" +
+	"\x17GetOwnSectionEnrollment\x125.section_enrollment.v1.GetOwnSectionEnrollmentRequest\x1a(.section_enrollment.v1.SectionEnrollment\x12f\n" +
+	"\rEnrollSection\x12+.section_enrollment.v1.EnrollSectionRequest\x1a(.section_enrollment.v1.SectionEnrollment\x12p\n" +
+	"\x0fWithdrawSection\x12-.section_enrollment.v1.WithdrawSectionRequest\x1a..section_enrollment.v1.WithdrawSectionResponse\x12t\n" +
+	"\x14GetSectionEnrollment\x122.section_enrollment.v1.GetSectionEnrollmentRequest\x1a(.section_enrollment.v1.SectionEnrollment\x12\x85\x01\n" +
+	"\x16ListSectionEnrollments\x124.section_enrollment.v1.ListSectionEnrollmentsRequest\x1a5.section_enrollment.v1.ListSectionEnrollmentsResponseBsZqgithub.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1;section_enrollmentv1b\x06proto3"
 
 var (
 	file_section_enrollment_v1_section_enrollment_proto_rawDescOnce sync.Once
