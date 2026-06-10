@@ -115,6 +115,10 @@ SELECT EXISTS(
     WHERE section_id = $1 AND teacher_id = $2
 ) AS exists;
 
+-- name: GetEvaluationByID :one
+-- Fetches an evaluation by primary key (any state, for existence checks).
+SELECT * FROM evaluations WHERE id = $1;
+
 -- name: InsertAuditLog :exec
 -- Records an audit event for a grade value change (old value → new value).
 -- actor_id may be NULL for system-initiated changes.

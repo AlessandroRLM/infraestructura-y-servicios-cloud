@@ -16,6 +16,8 @@ type Querier interface {
 	CountGradesForEvaluations(ctx context.Context, courseID pgtype.UUID) (int64, error)
 	// Counts live evaluations for a course. Used to check scheme completeness.
 	CountLiveEvaluationsForCourse(ctx context.Context, courseID pgtype.UUID) (int64, error)
+	// Fetches an evaluation by primary key (any state, for existence checks).
+	GetEvaluationByID(ctx context.Context, id pgtype.UUID) (Evaluation, error)
 	// Fetches a grade by primary key.
 	GetGradeByID(ctx context.Context, id pgtype.UUID) (Grade, error)
 	// Fetches a grade by its unique business key (used to read current version on conflict).

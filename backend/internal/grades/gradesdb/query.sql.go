@@ -39,6 +39,26 @@ func (q *Queries) CountLiveEvaluationsForCourse(ctx context.Context, courseID pg
 	return count, err
 }
 
+const getEvaluationByID = `-- name: GetEvaluationByID :one
+SELECT id, course_id, weight, position, created_at, updated_at, deleted_at FROM evaluations WHERE id = $1
+`
+
+// Fetches an evaluation by primary key (any state, for existence checks).
+func (q *Queries) GetEvaluationByID(ctx context.Context, id pgtype.UUID) (Evaluation, error) {
+	row := q.db.QueryRow(ctx, getEvaluationByID, id)
+	var i Evaluation
+	err := row.Scan(
+		&i.ID,
+		&i.CourseID,
+		&i.Weight,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const getGradeByID = `-- name: GetGradeByID :one
 SELECT id, evaluation_id, section_enrollment_id, graded_by, value, evaluated_at, version, created_at, updated_at, created_by, updated_by, deleted_at FROM grades
 WHERE id = $1 AND deleted_at IS NULL
