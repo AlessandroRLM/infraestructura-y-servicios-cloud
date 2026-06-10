@@ -61,6 +61,8 @@ func TestReports_Content_GetSectionGradeReport_WithEnrollment(t *testing.T) {
 
 	studentID, _ := seedUserWithSession(t, "reports-content-acta-student@reports.test", "student")
 	seedStudentProfile(t, studentID, periodYear)
+	// user_profiles is required by the acta query (INNER JOIN user_profiles).
+	seedUserProfile(t, studentID, "Ana")
 
 	enrollmentID, enrollCleanup := seedPaidEnrollment(t, studentID.String(), programID, periodYear)
 	t.Cleanup(enrollCleanup)
@@ -144,6 +146,8 @@ func TestReports_Content_OccupancyReport_ActiveSeatCount(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		studentID, _ := seedUserWithSession(t, fmt.Sprintf("reports-occupancy-s%d@reports.test", i), "student")
 		seedStudentProfile(t, studentID, periodYear)
+		// user_profiles not required by occupancy query but seed for consistency.
+		seedUserProfile(t, studentID, fmt.Sprintf("Stu%d", i))
 		enrollmentID, enrollCleanup := seedPaidEnrollment(t, studentID.String(), programID, periodYear)
 		t.Cleanup(enrollCleanup)
 		seClient := newSectionEnrollmentClient(nil)
@@ -239,6 +243,8 @@ func TestReports_Content_StudentRecordReport_WithHistory(t *testing.T) {
 
 	studentID, _ := seedUserWithSession(t, "reports-content-ficha-student@reports.test", "student")
 	seedStudentProfile(t, studentID, periodYear)
+	// user_profiles not strictly required by FichaForStudent but good practice.
+	seedUserProfile(t, studentID, "Maria")
 
 	enrollmentID, enrollCleanup := seedPaidEnrollment(t, studentID.String(), programID, periodYear)
 	t.Cleanup(enrollCleanup)
