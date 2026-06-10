@@ -19,6 +19,16 @@ ORDER BY position;
 SELECT COUNT(*) FROM evaluations
 WHERE course_id = $1 AND deleted_at IS NULL;
 
+-- name: LockEvaluationsForCourse :many
+-- Acquires FOR UPDATE row locks on all live evaluation rows for a course.
+-- Must run before CountGradesForEvaluations inside RecreateEvaluationSchemeTx so that
+-- a concurrent RecordGradeTx (which holds FOR KEY SHARE on the evaluation via the FK)
+-- either blocks this recreate until it commits (and is then counted) or is blocked by
+-- this lock until the recreate commits — preventing a TOCTOU race under READ COMMITTED.
+SELECT id FROM evaluations
+WHERE course_id = $1 AND deleted_at IS NULL
+FOR UPDATE;
+
 -- name: SoftDeleteEvaluationsForCourse :exec
 -- Soft-deletes all live evaluations for a course (RecreateEvaluationScheme path).
 UPDATE evaluations

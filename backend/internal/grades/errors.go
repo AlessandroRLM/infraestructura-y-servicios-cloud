@@ -5,13 +5,14 @@
 package grades
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 
+	"connectrpc.com/connect"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"connectrpc.com/connect"
 )
 
 // Domain error sentinels.
@@ -90,7 +91,7 @@ func TranslatePgError(err error) error {
 // MapError converts domain error sentinels to Connect RPC error codes.
 // Internal errors are logged once with slog and returned with a generic message
 // to prevent leaking implementation details to callers.
-func MapError(ctx interface{ Value(any) any }, err error) error {
+func MapError(ctx context.Context, err error) error {
 	switch {
 	case errors.Is(err, ErrInvalidInput), errors.Is(err, ErrSchemeIncomplete), errors.Is(err, ErrCourseMismatch):
 		return connect.NewError(connect.CodeInvalidArgument, err)
@@ -105,7 +106,7 @@ func MapError(ctx interface{ Value(any) any }, err error) error {
 	case errors.Is(err, ErrConflict):
 		return connect.NewError(connect.CodeAborted, err)
 	default:
-		slog.Error("grades: internal error", "err", err)
+		slog.ErrorContext(ctx, "grades: internal error", "err", err)
 		return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 	}
 }

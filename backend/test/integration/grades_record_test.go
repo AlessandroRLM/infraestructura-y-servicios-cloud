@@ -86,11 +86,9 @@ func TestGradesRecord_Correction(t *testing.T) {
 	if g.GetVersion() != 2 {
 		t.Errorf("version after correction = %d, want 2", g.GetVersion())
 	}
-	if g.GetValue() != "5" {
-		// DB returns "5" for NUMERIC(3,1) stored as 5.0 — allow "5" or "5.0".
-		if g.GetValue() != "5.0" {
-			t.Errorf("value after correction = %q, want 5 or 5.0", g.GetValue())
-		}
+	// numericToString preserves the DB column scale (NUMERIC(3,1) → always one decimal digit).
+	if g.GetValue() != "5.0" {
+		t.Errorf("value after correction = %q, want \"5.0\"", g.GetValue())
 	}
 	if g.GetGradedBy() != teacherIDStr {
 		t.Errorf("graded_by after correction = %q, want %q", g.GetGradedBy(), teacherIDStr)

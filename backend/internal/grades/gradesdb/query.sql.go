@@ -538,6 +538,37 @@ func (q *Queries) ListOwnGrades(ctx context.Context, studentID pgtype.UUID) ([]G
 	return items, nil
 }
 
+const lockEvaluationsForCourse = `-- name: LockEvaluationsForCourse :many
+SELECT id FROM evaluations
+WHERE course_id = $1 AND deleted_at IS NULL
+FOR UPDATE
+`
+
+// Acquires FOR UPDATE row locks on all live evaluation rows for a course.
+// Must run before CountGradesForEvaluations inside RecreateEvaluationSchemeTx so that
+// a concurrent RecordGradeTx (which holds FOR KEY SHARE on the evaluation via the FK)
+// either blocks this recreate until it commits (and is then counted) or is blocked by
+// this lock until the recreate commits — preventing a TOCTOU race under READ COMMITTED.
+func (q *Queries) LockEvaluationsForCourse(ctx context.Context, courseID pgtype.UUID) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, lockEvaluationsForCourse, courseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const softDeleteEvaluationsForCourse = `-- name: SoftDeleteEvaluationsForCourse :exec
 UPDATE evaluations
 SET deleted_at = now(), updated_at = now()

@@ -165,6 +165,15 @@ func (r *postgresRepository) RecreateEvaluationSchemeTx(ctx context.Context, p C
 
 	q := gradesdb.New(tx)
 
+	// Lock all live evaluation rows FOR UPDATE before counting grades.
+	// A concurrent RecordGradeTx holds FOR KEY SHARE on the evaluation row via the FK check;
+	// FOR UPDATE conflicts with FOR KEY SHARE, so the two transactions serialize:
+	// either this recreate waits for the pending grade (and then counts it, rejecting),
+	// or new grade inserts block until this recreate commits — closing the TOCTOU window.
+	if _, err := q.LockEvaluationsForCourse(ctx, pgtype.UUID{Bytes: p.CourseID, Valid: true}); err != nil {
+		return nil, TranslatePgError(err)
+	}
+
 	// Gate: reject if any grade references a live evaluation for the course.
 	gradeCount, err := q.CountGradesForEvaluations(ctx, pgtype.UUID{Bytes: p.CourseID, Valid: true})
 	if err != nil {
@@ -257,8 +266,7 @@ func (r *postgresRepository) RecordGradeTx(ctx context.Context, p RecordGradePar
 		}
 
 		// (c) section_teachers membership check.
-		isTx := gradesdb.New(tx)
-		isTeacher, err := isTx.IsTeacherForSection(ctx, gradesdb.IsTeacherForSectionParams{
+		isTeacher, err := q.IsTeacherForSection(ctx, gradesdb.IsTeacherForSectionParams{
 			SectionID: seRow.SectionID,
 			TeacherID: actorPGUUID,
 		})
@@ -309,16 +317,15 @@ func (r *postgresRepository) RecordGradeTx(ctx context.Context, p RecordGradePar
 		CreatedBy:           actorUUID,
 		UpdatedBy:           actorUUID,
 	})
-	// ON CONFLICT DO NOTHING returns pgx.ErrNoRows (0 rows from RETURNING *).
-	// This is NOT a fatal error — it means the grade already exists (conflict path).
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return gradesdb.Grade{}, RecordOutcome{}, TranslatePgError(err)
-	}
-
-	if err == nil && inserted.ID.Valid {
+	// InsertGrade uses ON CONFLICT DO NOTHING … RETURNING *.
+	// Exactly one of three outcomes is possible:
+	//   - err == nil          → successful first insert; use the returned row.
+	//   - err == ErrNoRows    → conflict path: a grade already exists for this key.
+	//   - err == other        → real database error; propagate immediately.
+	if err == nil {
 		// Successful insert (first write).
 		resultGrade = inserted
-	} else {
+	} else if errors.Is(err, pgx.ErrNoRows) {
 		// Conflict: grade already exists (ON CONFLICT DO NOTHING returned 0 rows).
 		// Require expected_version.
 		existing, err := q.GetGradeByKey(ctx, gradesdb.GetGradeByKeyParams{
@@ -343,11 +350,15 @@ func (r *postgresRepository) RecordGradeTx(ctx context.Context, p RecordGradePar
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				// Version mismatch — re-read the current version for the detail.
-				cur, _ := r.q.GetGradeByKey(ctx, gradesdb.GetGradeByKeyParams{
+				// Version mismatch — re-read the current version inside the same tx
+				// so the read is consistent and errors are properly propagated.
+				cur, rerr := q.GetGradeByKey(ctx, gradesdb.GetGradeByKeyParams{
 					EvaluationID:        pgtype.UUID{Bytes: p.EvaluationID, Valid: true},
 					SectionEnrollmentID: pgtype.UUID{Bytes: p.SectionEnrollmentID, Valid: true},
 				})
+				if rerr != nil {
+					return gradesdb.Grade{}, RecordOutcome{}, TranslatePgError(rerr)
+				}
 				return gradesdb.Grade{}, RecordOutcome{}, fmt.Errorf("%w: current version is %d", ErrConflict, cur.Version)
 			}
 			return gradesdb.Grade{}, RecordOutcome{}, TranslatePgError(err)
@@ -355,6 +366,9 @@ func (r *postgresRepository) RecordGradeTx(ctx context.Context, p RecordGradePar
 		oldValue = numericToString(existing.Value)
 		resultGrade = updated
 		isUpdate = true
+	} else {
+		// Real database error — propagate immediately.
+		return gradesdb.Grade{}, RecordOutcome{}, TranslatePgError(err)
 	}
 
 	// 7. Audit log on value change (update path only).
@@ -534,33 +548,71 @@ func numericToRat(n pgtype.Numeric) (*big.Rat, error) {
 	return r, nil
 }
 
-// numericToString returns the decimal string representation of a pgtype.Numeric.
+// numericToString returns the canonical fixed-point decimal string of a pgtype.Numeric,
+// preserving the scale stored in Exp so that values round-trip without float64 drift.
+//
+// pgtype.Numeric stores the value as coefficient Int × 10^Exp.
+//   - Exp == 0  → integer, no decimal point (e.g. "5")
+//   - Exp < 0   → |Exp| decimal digits (e.g. Int=55, Exp=-1 → "5.5"; Int=50, Exp=-1 → "5.0")
+//   - Exp > 0   → trailing zeros shifted left (scaled integer, no decimal point)
+//
+// The function uses pure *big.Int arithmetic — float64 is never involved.
 func numericToString(n pgtype.Numeric) string {
 	if !n.Valid {
 		return ""
 	}
-	// pgtype.Numeric stores as Int (big.Int) with Exp (scale).
-	// Build the string as Int × 10^Exp.
 	if n.Int == nil {
-		return "0"
-	}
-	rat := new(big.Rat).SetInt(n.Int)
-	if n.Exp != 0 {
-		exp := new(big.Rat).SetFloat64(1)
-		ten := big.NewInt(10)
-		if n.Exp > 0 {
-			e := new(big.Int).Exp(ten, big.NewInt(int64(n.Exp)), nil)
-			exp.SetInt(e)
-			rat.Mul(rat, exp)
-		} else {
-			e := new(big.Int).Exp(ten, big.NewInt(int64(-n.Exp)), nil)
-			exp.SetInt(e)
-			rat.Quo(rat, exp)
+		// Zero value with a given scale: produce "0" or "0.000…" depending on Exp.
+		if n.Exp >= 0 {
+			return "0"
 		}
+		scale := int(-n.Exp)
+		return "0." + repeatZero(scale)
 	}
-	// Format as decimal string with sufficient precision.
-	f, _ := rat.Float64()
-	return fmt.Sprintf("%g", f)
+
+	coeff := new(big.Int).Set(n.Int) // coefficient (may be negative)
+
+	switch {
+	case n.Exp == 0:
+		// Integer representation; no decimal point.
+		return coeff.String()
+
+	case n.Exp > 0:
+		// Multiply coefficient by 10^Exp — result is an integer.
+		mul := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n.Exp)), nil)
+		coeff.Mul(coeff, mul)
+		return coeff.String()
+
+	default: // n.Exp < 0
+		// Fixed-point: |Exp| digits after the decimal point.
+		scale := int(-n.Exp)
+		ten := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(scale)), nil)
+
+		// Work with the absolute value; track sign separately.
+		neg := coeff.Sign() < 0
+		abs := new(big.Int).Abs(coeff)
+
+		intPart := new(big.Int).Quo(abs, ten)
+		fracPart := new(big.Int).Mod(abs, ten)
+
+		// Left-pad the fractional part with zeros to exactly `scale` digits.
+		fracStr := fmt.Sprintf("%0*s", scale, fracPart.String())
+
+		sign := ""
+		if neg {
+			sign = "-"
+		}
+		return fmt.Sprintf("%s%s.%s", sign, intPart.String(), fracStr)
+	}
+}
+
+// repeatZero returns a string of n '0' characters (used for zero-valued fixed-point).
+func repeatZero(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = '0'
+	}
+	return string(b)
 }
 
 // stringToNumeric converts a formatted decimal string (e.g. "4.9") to pgtype.Numeric.

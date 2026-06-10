@@ -53,6 +53,12 @@ type Querier interface {
 	ListGradesForSectionByTeacher(ctx context.Context, arg ListGradesForSectionByTeacherParams) ([]Grade, error)
 	// Lists all grades for a student by joining through enrollments.
 	ListOwnGrades(ctx context.Context, studentID pgtype.UUID) ([]Grade, error)
+	// Acquires FOR UPDATE row locks on all live evaluation rows for a course.
+	// Must run before CountGradesForEvaluations inside RecreateEvaluationSchemeTx so that
+	// a concurrent RecordGradeTx (which holds FOR KEY SHARE on the evaluation via the FK)
+	// either blocks this recreate until it commits (and is then counted) or is blocked by
+	// this lock until the recreate commits — preventing a TOCTOU race under READ COMMITTED.
+	LockEvaluationsForCourse(ctx context.Context, courseID pgtype.UUID) ([]pgtype.UUID, error)
 	// Soft-deletes all live evaluations for a course (RecreateEvaluationScheme path).
 	SoftDeleteEvaluationsForCourse(ctx context.Context, courseID pgtype.UUID) error
 	// Applies an optimistic-lock update: increments version and sets updated fields.

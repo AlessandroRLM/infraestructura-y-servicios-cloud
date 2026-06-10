@@ -361,6 +361,13 @@ func (r *postgresRepository) ListOwnSectionEnrollments(ctx context.Context, stud
 // Zero rows returned → ErrInvalidTransition (withdrawn source or invalid target).
 func (r *postgresRepository) SetSectionEnrollmentOutcomeTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (section_enrollmentdb.SectionEnrollment, error) {
 	q := section_enrollmentdb.New(tx)
+	return setOutcomeWithQuerier(ctx, q, id, outcome, finalGrade)
+}
+
+// setOutcomeWithQuerier is the querier-level implementation of the outcome transition.
+// Separated from SetSectionEnrollmentOutcomeTx so that it can be unit-tested with a fake querier
+// without requiring a real pgx.Tx.
+func setOutcomeWithQuerier(ctx context.Context, q section_enrollmentdb.Querier, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (section_enrollmentdb.SectionEnrollment, error) {
 	row, err := q.SetSectionEnrollmentOutcome(ctx, section_enrollmentdb.SetSectionEnrollmentOutcomeParams{
 		ID:         pgtype.UUID{Bytes: id, Valid: true},
 		Status:     outcome,
@@ -368,6 +375,7 @@ func (r *postgresRepository) SetSectionEnrollmentOutcomeTx(ctx context.Context, 
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			// Zero rows: source is withdrawn, or target is not passed/failed.
 			return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: invalid transition to %q or source is withdrawn", ErrInvalidTransition, outcome)
 		}
 		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
