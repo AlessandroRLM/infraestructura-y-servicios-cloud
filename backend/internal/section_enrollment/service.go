@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment/section_enrollmentdb"
@@ -135,6 +137,14 @@ func (s *Service) GetSectionEnrollment(ctx context.Context, idStr string) (secti
 // ListSectionEnrollments returns live inscriptions with optional filters (admin path).
 func (s *Service) ListSectionEnrollments(ctx context.Context, f ListSectionEnrollmentsFilter) ([]section_enrollmentdb.SectionEnrollment, error) {
 	return s.repo.ListSectionEnrollments(ctx, f)
+}
+
+// SetSectionEnrollmentOutcomeTx transitions a section_enrollment to passed or failed
+// within a caller-owned transaction, and persists the rounded final grade alongside.
+// Delegates to the repository so the grades slice can compose this within RecordGradeTx.
+// Accepts only "passed" or "failed" as outcome. withdrawn source → ErrInvalidTransition.
+func (s *Service) SetSectionEnrollmentOutcomeTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (section_enrollmentdb.SectionEnrollment, error) {
+	return s.repo.SetSectionEnrollmentOutcomeTx(ctx, tx, id, outcome, finalGrade)
 }
 
 // --- Helpers ---

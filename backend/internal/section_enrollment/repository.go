@@ -23,6 +23,13 @@ type Repository interface {
 	// enables revival of withdrawn inscriptions.
 	EnrollSectionTx(ctx context.Context, p EnrollSectionParams, isAdmin bool) (section_enrollmentdb.SectionEnrollment, error)
 
+	// SetSectionEnrollmentOutcomeTx transitions a section_enrollment to passed or failed
+	// and writes the rounded final grade, executing within a caller-owned transaction.
+	// Valid source states: in_progress, passed, failed (allows passed<->failed corrections).
+	// withdrawn source is rejected → ErrInvalidTransition. target must be passed or failed.
+	// finalGrade is the rounded NUMERIC(3,1) value to persist alongside the outcome.
+	SetSectionEnrollmentOutcomeTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (section_enrollmentdb.SectionEnrollment, error)
+
 	// WithdrawSection transitions an in_progress inscription to withdrawn.
 	// Returns ErrNotFound when the inscription is absent or not in_progress.
 	WithdrawSection(ctx context.Context, id uuid.UUID) (section_enrollmentdb.SectionEnrollment, error)
@@ -346,6 +353,26 @@ func (r *postgresRepository) ListOwnSectionEnrollments(ctx context.Context, stud
 		return nil, TranslatePgError(err)
 	}
 	return rows, nil
+}
+
+// SetSectionEnrollmentOutcomeTx transitions a section_enrollment to passed or failed within
+// the caller-owned transaction tx. It executes the owned SetSectionEnrollmentOutcome query
+// over the given tx using the WithTx pattern, preserving the single-tx atomicity boundary.
+// Zero rows returned → ErrInvalidTransition (withdrawn source or invalid target).
+func (r *postgresRepository) SetSectionEnrollmentOutcomeTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (section_enrollmentdb.SectionEnrollment, error) {
+	q := section_enrollmentdb.New(tx)
+	row, err := q.SetSectionEnrollmentOutcome(ctx, section_enrollmentdb.SetSectionEnrollmentOutcomeParams{
+		ID:         pgtype.UUID{Bytes: id, Valid: true},
+		Status:     outcome,
+		FinalGrade: finalGrade,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: invalid transition to %q or source is withdrawn", ErrInvalidTransition, outcome)
+		}
+		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+	}
+	return row, nil
 }
 
 // newFakeRepository constructs a repository backed by the given Querier without a

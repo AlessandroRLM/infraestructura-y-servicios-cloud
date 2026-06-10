@@ -63,3 +63,12 @@ sql:
         out: "internal/section_enrollment/section_enrollmentdb"
         sql_package: "pgx/v5"
         emit_interface: true
+  - engine: "postgresql"
+    queries: "internal/grades/query.sql"
+    schema: "migrations/"
+    gen:
+      go:
+        package: "gradesdb"
+        out: "internal/grades/gradesdb"
+        sql_package: "pgx/v5"
+        emit_interface: true

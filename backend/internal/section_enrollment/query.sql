@@ -128,3 +128,19 @@ JOIN enrollments e ON e.id = se.enrollment_id
 WHERE e.student_id = $1
   AND se.deleted_at IS NULL
 ORDER BY se.created_at;
+
+-- name: SetSectionEnrollmentOutcome :one
+-- Transitions a section_enrollment status to passed or failed and writes the
+-- computed final grade, within a caller-owned transaction.
+-- Source states in_progress/passed/failed are all valid (allows passed<->failed flips).
+-- withdrawn source is rejected (0 rows returned — treated as ErrInvalidTransition).
+-- Target must be passed or failed; in_progress is not a valid target.
+UPDATE section_enrollments
+SET status      = $2,
+    final_grade = $3,
+    updated_at  = now()
+WHERE id = $1
+  AND deleted_at IS NULL
+  AND status IN ('in_progress', 'passed', 'failed')
+  AND $2 IN ('passed', 'failed')
+RETURNING *;
