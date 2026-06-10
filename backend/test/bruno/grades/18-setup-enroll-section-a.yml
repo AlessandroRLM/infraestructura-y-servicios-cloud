@@ -1,0 +1,51 @@
+info:
+  name: 18 Setup Admin Enroll Student A In Section
+  type: http
+  seq: 18
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/EnrollSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "enrollmentId": "{{grades_enroll_a_id}}",
+        "sectionId": "{{grades_section_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("grades_se_a_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.status
+      operator: eq
+      value: "in_progress"
+    - expression: (res.body.finalGrade ?? '') === ''
+      operator: eq
+      value: "true"
+
+docs: |
+  Grades setup — admin enrolls student A into the test section.
+  Result status must be in_progress; final_grade must be absent at this point
+  (protojson omits empty scalar fields, so the key is missing, not "").
+  Captures grades_se_a_id (the section_enrollment id for all subsequent grade RPCs).

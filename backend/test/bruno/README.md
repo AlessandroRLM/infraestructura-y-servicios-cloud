@@ -117,7 +117,13 @@ bru run health/ --env local
 │   ├── 43-45-self-scope-*.yml
 │   └── 46-57-denials-*.yml
 └── grades/
-    └── README.md               placeholder (grades slice not yet merged)
+    ├── 01..18-setup-*.yml      admin auth chain, catalog entities, teacher + student
+    │                           profiles (FK prerequisites), enrollment, student A login
+    ├── 19-happy-path-list-evaluations.yml
+    ├── 20..22-happy-path-override-grade-*.yml   3 OverrideGrade calls (eval 1/2/3)
+    ├── 23..25-happy-path-get-list-*.yml         GetGrade, ListGradesForSection, ListOwnGrades
+    ├── 26-happy-path-get-section-enrollment-passed.yml  final_grade=4.3 assertion
+    └── 27..32-denial-*.yml     6 negative cases (permission, validation, conflict, etc.)
 ```
 
 ## Notes on seeded variables

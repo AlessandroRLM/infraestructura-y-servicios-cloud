@@ -1,0 +1,41 @@
+info:
+  name: 25 Happy Path List Own Grades Student A
+  type: http
+  seq: 25
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/ListOwnGrades"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{grades_student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.grades[0].sectionEnrollmentId
+      operator: eq
+      value: "{{grades_se_a_id}}"
+    - expression: res.body.grades[0].value
+      operator: neq
+      value: ""
+
+docs: |
+  Happy path: student A reads their own grades via ListOwnGrades.
+  The OwnGrade message intentionally omits gradedBy (privacy).
+  Asserts grades are returned for grades_se_a_id and that value is non-empty.
+  Requires grades.view_own permission.

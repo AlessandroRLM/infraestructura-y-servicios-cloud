@@ -1,0 +1,45 @@
+info:
+  name: 23 Happy Path Get Grade
+  type: http
+  seq: 23
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/GetGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{grade_1_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.grade.id
+      operator: eq
+      value: "{{grade_1_id}}"
+    - expression: res.body.grade.value === '5.0'
+      operator: eq
+      value: "true"
+    - expression: res.body.grade.gradedBy
+      operator: neq
+      value: ""
+
+docs: |
+  Happy path: admin fetches grade_1 by id.
+  Asserts the admin-facing Grade message (includes gradedBy field).
+  Requires grades.read permission.

@@ -1,0 +1,48 @@
+info:
+  name: 08 Setup Create Section
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "courseId": "{{grades_course_id}}",
+        "academicPeriodId": "{{open_period_id}}",
+        "seatCapacity": 5
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("grades_section_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+
+docs: |
+  Grades setup — creates the test section against the open-window period.
+  Captures grades_section_id.
+  open_period_id must be provided via seed.sh (psql-inserted enrollment window).

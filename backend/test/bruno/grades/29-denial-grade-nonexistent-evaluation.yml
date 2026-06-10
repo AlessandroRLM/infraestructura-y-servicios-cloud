@@ -1,0 +1,39 @@
+info:
+  name: 29 Denial Grade For Nonexistent Evaluation
+  type: http
+  seq: 29
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/OverrideGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "00000000-0000-0000-0000-000000000000",
+        "sectionEnrollmentId": "{{grades_se_a_id}}",
+        "value": "5.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "not_found"
+
+docs: |
+  Denial: admin attempts to grade against a nil/non-existent evaluation UUID.
+  The repository's FOR KEY SHARE lock on the evaluation row will find no rows;
+  pgx.ErrNoRows is translated to ErrNotFound → CodeNotFound.
+  Expected error: not_found.
