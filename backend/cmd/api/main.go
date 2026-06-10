@@ -15,6 +15,7 @@ import (
 	enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1/enrollmentv1connect"
 	gradesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1/gradesv1connect"
 	profilesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1/profilesv1connect"
+	reportsv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/reports/v1/reportsv1connect"
 	section_enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
@@ -27,6 +28,8 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades"
 	gradesdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/health"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports"
+	reportsdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports/reportsdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
@@ -176,6 +179,12 @@ func main() {
 		gradesv1connect.GradesServiceGetGradeProcedure:             authz.RequirePermission(authz.PermGradesRead),
 		// Grades student self-view — require grades.view_own.
 		gradesv1connect.GradesServiceListOwnGradesProcedure: authz.RequirePermission(authz.PermGradesViewOwn),
+
+		// Reports procedures — all require reports.read.
+		reportsv1connect.ReportsServiceGetSectionGradeReportProcedure:     authz.RequirePermission(authz.PermReportsRead),
+		reportsv1connect.ReportsServiceGetSectionOccupancyReportProcedure: authz.RequirePermission(authz.PermReportsRead),
+		reportsv1connect.ReportsServiceGetProgramSummaryReportProcedure:   authz.RequirePermission(authz.PermReportsRead),
+		reportsv1connect.ReportsServiceGetStudentRecordReportProcedure:    authz.RequirePermission(authz.PermReportsRead),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
@@ -258,6 +267,18 @@ func main() {
 		grades.Register(mux, gradesHandler, authOpts...)
 	}
 
+	// Reports handler (reportsdb.Querier → repository → service → Connect handler).
+	// Reuses the existing redisClient (no new Redis connection).
+	reportsQueries := reportsdb.New(pool)
+	reportsRepo := reports.NewPostgresRepository(reportsQueries)
+	reportsCache := reports.NewRedisCache(redisClient)
+	reportsSvc := reports.NewService(reportsRepo, reportsCache, cfg.ReportsCacheTTL)
+	reportsHandler := reports.NewHandler(reportsSvc)
+
+	reportsReg := func(mux *http.ServeMux) {
+		reports.Register(mux, reportsHandler, authOpts...)
+	}
+
 	// Redis pinger for the readyz handler.
 	redisPinger, err := platformredis.NewPinger(cfg.RedisURL)
 	if err != nil {
@@ -273,6 +294,7 @@ func main() {
 		enrollmentReg,
 		sectionEnrollmentReg,
 		gradesReg,
+		reportsReg,
 	)
 	srv.Addr = cfg.HTTPAddr
 
