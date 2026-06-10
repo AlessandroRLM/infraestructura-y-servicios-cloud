@@ -1,0 +1,38 @@
+info:
+  name: 28 Denial Invalid Grade Value Out Of Range
+  type: http
+  seq: 28
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/OverrideGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{eval_1_id}}",
+        "sectionEnrollmentId": "{{grades_se_a_id}}",
+        "value": "8.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "invalid_argument"
+
+docs: |
+  Denial: admin submits a grade value of 8.0 (outside the [1.0, 7.0] Chilean scale range).
+  Service-layer parseGradeValue returns ErrInvalidInput; MapError maps to CodeInvalidArgument.
+  Expected error: invalid_argument.

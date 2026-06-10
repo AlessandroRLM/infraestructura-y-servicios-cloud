@@ -1,0 +1,62 @@
+info:
+  name: 20 Happy Path Override Grade Eval 1
+  type: http
+  seq: 20
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/OverrideGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{eval_1_id}}",
+        "sectionEnrollmentId": "{{grades_se_a_id}}",
+        "value": "5.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.grade && body.grade.id) {
+          bru.setVar("grade_1_id", body.grade.id);
+          bru.setVar("grade_1_version", String(body.grade.version));
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.grade.id
+      operator: neq
+      value: ""
+    - expression: res.body.grade.value === '5.0'
+      operator: eq
+      value: "true"
+    - expression: res.body.grade.evaluationId
+      operator: eq
+      value: "{{eval_1_id}}"
+    - expression: res.body.grade.sectionEnrollmentId
+      operator: eq
+      value: "{{grades_se_a_id}}"
+    - expression: res.body.grade.version
+      operator: eq
+      value: "1"
+
+docs: |
+  Happy path: admin records grade 5.0 for eval_1 (weight=0.4) via OverrideGrade.
+  OverrideGrade bypasses section_teachers check — requires grades.override only.
+  Captures grade_1_id and grade_1_version for GetGrade and optimistic-locking tests.
+  Scheme not yet complete (eval_2 and eval_3 ungraded): no outcome transition yet.

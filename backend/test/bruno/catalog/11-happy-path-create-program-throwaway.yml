@@ -1,0 +1,46 @@
+info:
+  name: 11 Happy Path Create Program Throwaway
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "{{cat_prog2_code}}",
+        "name": "Catalog Throwaway Program"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("cat_prog2_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+
+docs: |
+  Happy path: CreateProgram (throwaway) — creates a second program to be deleted in the
+  next request, keeping cat_prog_id available for dependent entity tests.

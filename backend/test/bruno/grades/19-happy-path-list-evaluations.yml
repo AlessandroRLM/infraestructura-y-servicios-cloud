@@ -1,0 +1,45 @@
+info:
+  name: 19 Happy Path List Evaluations
+  type: http
+  seq: 19
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/ListEvaluations"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "courseId": "{{grades_course_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.evaluations[0].position
+      operator: eq
+      value: "1"
+    - expression: res.body.evaluations[1].position
+      operator: eq
+      value: "2"
+    - expression: res.body.evaluations[2].position
+      operator: eq
+      value: "3"
+
+docs: |
+  Happy path: admin reads the 3-evaluation scheme for the test course.
+  Asserts position ordering and that all 3 evaluations are returned.
+  Requires grades.read permission.

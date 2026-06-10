@@ -1,0 +1,39 @@
+info:
+  name: 22 Happy Path List Academic Periods
+  type: http
+  seq: 22
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/ListAcademicPeriods"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.academicPeriods
+      operator: isArray
+      value: ""
+    - expression: res.body.academicPeriods.some(p => p.id === bru.getVar("cat_period_id"))
+      operator: eq
+      value: "true"
+
+docs: |
+  Happy path: ListAcademicPeriods — verifies the created period appears in the list.
+  Response field is academicPeriods (lowerCamelCase protojson for repeated AcademicPeriod).

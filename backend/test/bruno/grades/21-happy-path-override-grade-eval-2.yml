@@ -1,0 +1,54 @@
+info:
+  name: 21 Happy Path Override Grade Eval 2
+  type: http
+  seq: 21
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/OverrideGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{eval_2_id}}",
+        "sectionEnrollmentId": "{{grades_se_a_id}}",
+        "value": "4.5"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.grade && body.grade.id) {
+          bru.setVar("grade_2_id", body.grade.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.grade.id
+      operator: neq
+      value: ""
+    - expression: res.body.grade.value === '4.5'
+      operator: eq
+      value: "true"
+    - expression: res.body.grade.version
+      operator: eq
+      value: "1"
+
+docs: |
+  Happy path: admin records grade 4.5 for eval_2 (weight=0.3) via OverrideGrade.
+  Scheme still not complete (eval_3 ungraded): no outcome transition yet.
+  Captures grade_2_id.

@@ -1,0 +1,57 @@
+info:
+  name: 22 Happy Path Override Grade Eval 3 Completes Scheme
+  type: http
+  seq: 22
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/OverrideGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{eval_3_id}}",
+        "sectionEnrollmentId": "{{grades_se_a_id}}",
+        "value": "3.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.grade && body.grade.id) {
+          bru.setVar("grade_3_id", body.grade.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.grade.id
+      operator: neq
+      value: ""
+    - expression: res.body.grade.value === '3.0'
+      operator: eq
+      value: "true"
+    - expression: res.body.grade.version
+      operator: eq
+      value: "1"
+
+docs: |
+  Happy path: admin records grade 3.0 for eval_3 (weight=0.3) via OverrideGrade.
+  This is the final grade — all 3 evaluations are now graded.
+  Expected weighted final: 5.0*0.4 + 4.5*0.3 + 3.0*0.3 = 2.0 + 1.35 + 0.9 = 4.25
+  Rounded HALF-UP to 1 decimal: 4.3 (>= 4.0 → passed).
+  The repository triggers SetSectionEnrollmentOutcomeTx atomically.
+  Captures grade_3_id.

@@ -1,0 +1,38 @@
+info:
+  name: 27 Denial Student Record Grade Permission Denied
+  type: http
+  seq: 27
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/RecordGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{grades_student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{eval_1_id}}",
+        "sectionEnrollmentId": "{{grades_se_a_id}}",
+        "value": "5.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "permission_denied"
+
+docs: |
+  Denial: student A calls RecordGrade (requires grades.write).
+  Students hold grades.view_own only; the authz interceptor denies before the handler runs.
+  Expected error: permission_denied.

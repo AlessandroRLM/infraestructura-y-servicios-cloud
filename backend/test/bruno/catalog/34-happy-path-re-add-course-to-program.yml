@@ -1,0 +1,40 @@
+info:
+  name: 34 Happy Path Re-Add Course To Program
+  type: http
+  seq: 34
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/AddCourseToProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{cat_prog_id}}",
+        "courseId": "{{cat_course_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.programId
+      operator: eq
+      value: "{{cat_prog_id}}"
+
+docs: |
+  Happy path: AddCourseToProgram (re-add) — re-associates course after removal.
+  Required so that CreateSection (which may enforce program/course membership) works.
+  Also demonstrates that re-insertion after hard-delete is valid (no unique constraint fire).

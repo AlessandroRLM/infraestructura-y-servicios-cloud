@@ -30,11 +30,15 @@ type SectionEnrollment struct {
 	SectionId    string                 `protobuf:"bytes,3,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
 	// status is one of "in_progress", "passed", "failed", or "withdrawn".
 	// passed/failed are set only by the grades slice; this service only sets in_progress/withdrawn.
-	Status        string  `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
-	RegisteredAt  string  `protobuf:"bytes,5,opt,name=registered_at,json=registeredAt,proto3" json:"registered_at,omitempty"`
-	CreatedAt     string  `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     string  `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	DeletedAt     *string `protobuf:"bytes,8,opt,name=deleted_at,json=deletedAt,proto3,oneof" json:"deleted_at,omitempty"`
+	Status       string  `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	RegisteredAt string  `protobuf:"bytes,5,opt,name=registered_at,json=registeredAt,proto3" json:"registered_at,omitempty"`
+	CreatedAt    string  `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt    string  `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	DeletedAt    *string `protobuf:"bytes,8,opt,name=deleted_at,json=deletedAt,proto3,oneof" json:"deleted_at,omitempty"`
+	// final_grade is the computed weighted average set by the grades slice when status
+	// transitions to passed or failed. Empty string when the grade has not yet been computed
+	// (status is in_progress or withdrawn).
+	FinalGrade    string `protobuf:"bytes,9,opt,name=final_grade,json=finalGrade,proto3" json:"final_grade,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -121,6 +125,13 @@ func (x *SectionEnrollment) GetUpdatedAt() string {
 func (x *SectionEnrollment) GetDeletedAt() string {
 	if x != nil && x.DeletedAt != nil {
 		return *x.DeletedAt
+	}
+	return ""
+}
+
+func (x *SectionEnrollment) GetFinalGrade() string {
+	if x != nil {
+		return x.FinalGrade
 	}
 	return ""
 }
@@ -548,7 +559,7 @@ var File_section_enrollment_v1_section_enrollment_proto protoreflect.FileDescrip
 
 const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"\n" +
-	".section_enrollment/v1/section_enrollment.proto\x12\x15section_enrollment.v1\"\x95\x02\n" +
+	".section_enrollment/v1/section_enrollment.proto\x12\x15section_enrollment.v1\"\xb6\x02\n" +
 	"\x11SectionEnrollment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
 	"\renrollment_id\x18\x02 \x01(\tR\fenrollmentId\x12\x1d\n" +
@@ -561,7 +572,9 @@ const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\"\n" +
 	"\n" +
-	"deleted_at\x18\b \x01(\tH\x00R\tdeletedAt\x88\x01\x01B\r\n" +
+	"deleted_at\x18\b \x01(\tH\x00R\tdeletedAt\x88\x01\x01\x12\x1f\n" +
+	"\vfinal_grade\x18\t \x01(\tR\n" +
+	"finalGradeB\r\n" +
 	"\v_deleted_at\"W\n" +
 	"\x17EnrollOwnSectionRequest\x12\x1d\n" +
 	"\n" +

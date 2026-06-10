@@ -1,0 +1,49 @@
+info:
+  name: 01 Setup Admin Request Reset
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/RequestPasswordReset"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{admin_email}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Generate a run-scoped suffix so repeated runs against a persistent DB
+        // do not collide on unique code/email constraints.
+        const sfx = String(Date.now()).slice(-6);
+        bru.setVar("sfx", sfx);
+        bru.setVar("grades_prog_code", `GRPROG-${sfx}`);
+        bru.setVar("grades_course_code", `GRCRS-${sfx}`);
+        console.log(`[grades-setup] sfx=${sfx}`);
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.devToken) {
+          bru.setVar("admin_reset_token", body.devToken);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Grades setup — step 1: request password reset for admin.
+  Also seeds run-scoped variables (sfx, program/course codes).

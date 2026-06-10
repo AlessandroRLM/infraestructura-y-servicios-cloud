@@ -1,0 +1,47 @@
+info:
+  name: 26 Happy Path Get Section Enrollment Passed With Final Grade
+  type: http
+  seq: 26
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/GetSectionEnrollment"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{grades_se_a_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: eq
+      value: "{{grades_se_a_id}}"
+    - expression: res.body.status
+      operator: eq
+      value: "passed"
+    - expression: res.body.finalGrade === '4.3'
+      operator: eq
+      value: "true"
+
+docs: |
+  Happy path: fetch the section enrollment after all 3 grades are recorded.
+  Asserts status=passed and final_grade=4.3.
+  Weighted computation: 5.0*0.4 + 4.5*0.3 + 3.0*0.3 = 4.25, rounded HALF-UP to 4.3.
+  This is the key integration assertion for the final_grade exposure feature.
+  Requires enrollment.manage permission (admin).

@@ -1,0 +1,33 @@
+info:
+  name: 02 Setup Admin Confirm Reset
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/ConfirmPasswordReset"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "token": "{{admin_reset_token}}",
+        "newPassword": "{{admin_password}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Grades setup — step 2: confirm admin password reset.

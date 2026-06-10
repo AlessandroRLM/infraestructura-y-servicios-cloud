@@ -1,0 +1,35 @@
+info:
+  name: 14 Setup Mark Enrollment A Paid
+  type: http
+  seq: 14
+
+http:
+  method: POST
+  url: "{{host}}/enrollment.v1.EnrollmentService/MarkEnrollmentPaid"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{grades_enroll_a_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Grades setup — marks student A's annual enrollment as paid.
+  EnrollSection requires a paid enrollment.

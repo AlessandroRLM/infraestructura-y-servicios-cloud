@@ -1,0 +1,35 @@
+info:
+  name: 18 Happy Path Delete Course Throwaway
+  type: http
+  seq: 18
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/DeleteCourse"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_course2_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Happy path: DeleteCourse — soft-deletes the throwaway course.
+  cat_course_id (main course) is preserved for section and association tests.

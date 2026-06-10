@@ -452,7 +452,7 @@ func TestGradesRead_EndToEndFinalGrade(t *testing.T) {
 		withGradeCleanup(t, resp.Msg.GetGrade().GetId())
 	}
 
-	// Student checks their own section enrollment → status = "passed".
+	// Student checks their own section enrollment → status = "passed" AND final_grade = "5.0".
 	seResp, err := newSectionEnrollmentClient(nil).GetOwnSectionEnrollment(ctx,
 		withSID(connect.NewRequest(&section_enrollmentv1.GetOwnSectionEnrollmentRequest{
 			Id: fix.SectionEnrollmentID,
@@ -463,5 +463,8 @@ func TestGradesRead_EndToEndFinalGrade(t *testing.T) {
 	}
 	if seResp.Msg.GetStatus() != "passed" {
 		t.Errorf("SE status after all grades = %q, want passed", seResp.Msg.GetStatus())
+	}
+	if seResp.Msg.GetFinalGrade() != "5.0" {
+		t.Errorf("SE final_grade after all grades = %q, want 5.0", seResp.Msg.GetFinalGrade())
 	}
 }

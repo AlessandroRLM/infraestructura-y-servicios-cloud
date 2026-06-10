@@ -1,0 +1,36 @@
+info:
+  name: 42 Happy Path Remove Teacher From Section
+  type: http
+  seq: 42
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/RemoveTeacherFromSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{cat_section_id}}",
+        "teacherId": "a0000000-0000-0000-0000-000000000001"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Happy path: RemoveTeacherFromSection — hard-deletes the teacher assignment.
+  Returns empty RemoveTeacherFromSectionResponse; 200 = success.

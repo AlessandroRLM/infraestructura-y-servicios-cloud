@@ -50,6 +50,10 @@ message SectionEnrollment {
   string created_at = 6;
   string updated_at = 7;
   optional string deleted_at = 8;
+  // final_grade is the computed weighted average set by the grades slice when status
+  // transitions to passed or failed. Empty string when the grade has not yet been computed
+  // (status is in_progress or withdrawn).
+  string final_grade = 9;
 }
 
 // EnrollOwnSectionRequest carries section_id and program_id.

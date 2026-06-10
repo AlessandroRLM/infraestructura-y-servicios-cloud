@@ -1,0 +1,43 @@
+info:
+  name: 24 Happy Path List Grades For Section
+  type: http
+  seq: 24
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/ListGradesForSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{grades_section_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.grades[0].sectionEnrollmentId
+      operator: eq
+      value: "{{grades_se_a_id}}"
+    - expression: res.body.grades[0].gradedBy
+      operator: neq
+      value: ""
+
+docs: |
+  Happy path: admin lists all grades for the test section.
+  Asserts at least 1 grade is returned for grades_se_a_id.
+  Admin callers (grades.override) receive unscoped results (all section enrollments).
+  Requires grades.read permission.

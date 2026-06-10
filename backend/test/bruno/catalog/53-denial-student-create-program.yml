@@ -1,0 +1,37 @@
+info:
+  name: 53 Denial Student Create Program Permission Denied
+  type: http
+  seq: 53
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{cat_student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "STUDENT-PROGRAM",
+        "name": "Student Attempt Program"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "permission_denied"
+
+docs: |
+  Denial: student A calls CreateProgram (requires catalog.manage permission).
+  Students hold grades.view_own only. The authz interceptor denies before the handler runs.
+  Expected: permission_denied.

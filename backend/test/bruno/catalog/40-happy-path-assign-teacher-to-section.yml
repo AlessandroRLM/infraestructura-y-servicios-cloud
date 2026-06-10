@@ -1,0 +1,42 @@
+info:
+  name: 40 Happy Path Assign Teacher To Section
+  type: http
+  seq: 40
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/AssignTeacherToSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{cat_section_id}}",
+        "teacherId": "a0000000-0000-0000-0000-000000000001"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.sectionId
+      operator: eq
+      value: "{{cat_section_id}}"
+    - expression: res.body.teacherId
+      operator: eq
+      value: "a0000000-0000-0000-0000-000000000001"
+
+docs: |
+  Happy path: AssignTeacherToSection — assigns the bootstrap admin as teacher.
+  Requires teacher_profiles row to exist (ensured by request 39).

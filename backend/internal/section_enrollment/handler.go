@@ -3,7 +3,9 @@ package section_enrollment
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"math/big"
 	"net/http"
 
 	"connectrpc.com/connect"
@@ -224,6 +226,7 @@ func sectionEnrollmentToProto(r section_enrollmentdb.SectionEnrollment) *section
 		RegisteredAt: r.RegisteredAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		CreatedAt:    r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:    r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		FinalGrade:   numericToString(r.FinalGrade),
 	}
 	if r.DeletedAt.Valid {
 		s := r.DeletedAt.Time.Format("2006-01-02T15:04:05Z07:00")
@@ -235,4 +238,62 @@ func sectionEnrollmentToProto(r section_enrollmentdb.SectionEnrollment) *section
 // uuidToString converts a pgtype.UUID to a standard hyphenated string.
 func uuidToString(id pgtype.UUID) string {
 	return uuid.UUID(id.Bytes).String()
+}
+
+// numericToString formats a pgtype.Numeric as an exact decimal string, preserving
+// the scale stored in the database (e.g. NUMERIC(3,1) "5.0" → "5.0", not "5").
+// Returns an empty string when the value is NULL (not valid).
+//
+// Canonical source: internal/grades/repository.go — kept in sync manually.
+// Uses pure *big.Int arithmetic; float64 is never involved.
+func numericToString(n pgtype.Numeric) string {
+	if !n.Valid {
+		return ""
+	}
+	if n.Int == nil {
+		if n.Exp >= 0 {
+			return "0"
+		}
+		scale := int(-n.Exp)
+		return "0." + seRepeatZero(scale)
+	}
+
+	coeff := new(big.Int).Set(n.Int)
+
+	switch {
+	case n.Exp == 0:
+		return coeff.String()
+
+	case n.Exp > 0:
+		mul := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n.Exp)), nil)
+		coeff.Mul(coeff, mul)
+		return coeff.String()
+
+	default: // n.Exp < 0
+		scale := int(-n.Exp)
+		ten := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(scale)), nil)
+
+		neg := coeff.Sign() < 0
+		abs := new(big.Int).Abs(coeff)
+
+		intPart := new(big.Int).Quo(abs, ten)
+		fracPart := new(big.Int).Mod(abs, ten)
+
+		fracStr := fmt.Sprintf("%0*s", scale, fracPart.String())
+
+		sign := ""
+		if neg {
+			sign = "-"
+		}
+		return fmt.Sprintf("%s%s.%s", sign, intPart.String(), fracStr)
+	}
+}
+
+// seRepeatZero returns a string of n '0' characters.
+func seRepeatZero(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = '0'
+	}
+	return string(b)
 }

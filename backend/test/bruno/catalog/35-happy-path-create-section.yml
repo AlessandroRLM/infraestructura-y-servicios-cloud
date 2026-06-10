@@ -1,0 +1,53 @@
+info:
+  name: 35 Happy Path Create Section
+  type: http
+  seq: 35
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "courseId": "{{cat_course_id}}",
+        "academicPeriodId": "{{cat_period_id}}",
+        "seatCapacity": 30
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("cat_section_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+    - expression: res.body.courseId
+      operator: eq
+      value: "{{cat_course_id}}"
+    - expression: res.body.seatCapacity
+      operator: eq
+      value: "30"
+
+docs: |
+  Happy path: CreateSection — creates the main test section.
+  Captures cat_section_id. Links to cat_course_id and cat_period_id.

@@ -29,9 +29,10 @@ BCRYPT_COST=10
 HTTP_ADDR=:8080
 ```
 
-## One-time seed
+## Seed
 
-Run `seed.sh` once per fresh database to insert:
+Run `seed.sh` before `bru run` (idempotent — repeated runs against the same
+database upsert academic periods instead of failing) to insert:
 - Student users A, B, C (with the `student` role) and a role-less noadmin user
 - Academic periods with the correct enrollment windows (open and closed)
   — the API's `CreateAcademicPeriod` does not accept `enrollment_starts_at` /
@@ -100,6 +101,25 @@ bru run health/ --env local
 │   ├── 02-admin-confirm-reset.yml
 │   ├── 03-admin-login.yml
 │   └── 04..11-login-table-cases-and-session-lifecycle.yml
+├── catalog/
+│   ├── 01..06-setup-*.yml      admin + student A auth chains, run-scoped unique codes
+│   ├── 07..12-happy-path-program-*.yml     CreateProgram, GetProgram, UpdateProgram,
+│   │                                        ListPrograms, throwaway Create+Delete
+│   ├── 13..18-happy-path-course-*.yml      CreateCourse, GetCourse, UpdateCourse,
+│   │                                        ListCourses, throwaway Create+Delete
+│   ├── 19..24-happy-path-academic-period-*.yml  CreateAcademicPeriod, Get, Update,
+│   │                                             ListAcademicPeriods, throwaway Create+Delete
+│   ├── 25..30-happy-path-quota-*.yml       CreateProgramQuota, Get, Update,
+│   │                                        ListProgramQuotas, throwaway Create+Delete
+│   ├── 31..34-happy-path-program-course-*.yml  AddCourseToProgram, ListProgramCourses,
+│   │                                            RemoveCourseFromProgram, re-add
+│   ├── 35..38-happy-path-section-*.yml     CreateSection, GetSection, UpdateSection,
+│   │                                        ListSections (filtered by courseId)
+│   ├── 39..44-happy-path-teacher-*.yml     UpsertTeacherProfile, AssignTeacherToSection,
+│   │                                        ListSectionTeachers, RemoveTeacherFromSection,
+│   │                                        throwaway section Create+Delete
+│   └── 45..54-denial-*.yml     10 negative cases (duplicate, not-found, malformed UUID,
+│                                 validation, dependent-block, permission, unauthenticated)
 ├── section_enrollment/
 │   ├── 01..27-setup-chain.yml  (admin login, catalog, enrollment, student logins)
 │   ├── 28-happy-path-*.yml
@@ -117,7 +137,13 @@ bru run health/ --env local
 │   ├── 43-45-self-scope-*.yml
 │   └── 46-57-denials-*.yml
 └── grades/
-    └── README.md               placeholder (grades slice not yet merged)
+    ├── 01..18-setup-*.yml      admin auth chain, catalog entities, teacher + student
+    │                           profiles (FK prerequisites), enrollment, student A login
+    ├── 19-happy-path-list-evaluations.yml
+    ├── 20..22-happy-path-override-grade-*.yml   3 OverrideGrade calls (eval 1/2/3)
+    ├── 23..25-happy-path-get-list-*.yml         GetGrade, ListGradesForSection, ListOwnGrades
+    ├── 26-happy-path-get-section-enrollment-passed.yml  final_grade=4.3 assertion
+    └── 27..32-denial-*.yml     6 negative cases (permission, validation, conflict, etc.)
 ```
 
 ## Notes on seeded variables

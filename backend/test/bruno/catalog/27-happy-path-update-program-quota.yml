@@ -1,0 +1,42 @@
+info:
+  name: 27 Happy Path Update Program Quota
+  type: http
+  seq: 27
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/UpdateProgramQuota"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{cat_quota_id}}",
+        "year": 2030,
+        "admissionQuota": 75
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.admissionQuota
+      operator: eq
+      value: "75"
+    - expression: res.body.id
+      operator: eq
+      value: "{{cat_quota_id}}"
+
+docs: |
+  Happy path: UpdateProgramQuota — updates admissionQuota from 50 to 75.
