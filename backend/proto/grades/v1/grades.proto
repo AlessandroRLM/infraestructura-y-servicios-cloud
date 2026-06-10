@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package grades.v1;
+
+option go_package = "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1;gradesv1";
+
+// GradesService manages evaluation schemes, grade recording, and student grade access.
+service GradesService {
+  // CreateEvaluationScheme defines a course's complete evaluation scheme in one atomic call.
+  // Requires grades.override (admin-only). Rejected if a scheme already exists for the course.
+  rpc CreateEvaluationScheme(CreateEvaluationSchemeRequest) returns (CreateEvaluationSchemeResponse);
+
+  // RecreateEvaluationScheme replaces a course's evaluation scheme atomically.
+  // Requires grades.override. Rejected if any grade references the current scheme.
+  rpc RecreateEvaluationScheme(RecreateEvaluationSchemeRequest) returns (RecreateEvaluationSchemeResponse);
+
+  // ListEvaluations returns all evaluations for a course's scheme.
+  // Requires grades.read.
+  rpc ListEvaluations(ListEvaluationsRequest) returns (ListEvaluationsResponse);
+
+  // RecordGrade records or corrects a student's grade for a specific evaluation.
+  // Requires grades.write. Caller must be in section_teachers for the section; anti-self-grading enforced.
+  rpc RecordGrade(RecordGradeRequest) returns (RecordGradeResponse);
+
+  // OverrideGrade allows an admin to record or correct any grade with full audit trail.
+  // Requires grades.override. No section_teachers check; graded_by is updated to the admin.
+  rpc OverrideGrade(OverrideGradeRequest) returns (OverrideGradeResponse);
+
+  // ListGradesForSection returns grades for all section_enrollments in a section.
+  // Requires grades.read. Teacher reads are scoped to their own sections.
+  rpc ListGradesForSection(ListGradesForSectionRequest) returns (ListGradesForSectionResponse);
+
+  // GetGrade returns a single grade by id.
+  // Requires grades.read. Out-of-scope requests return CodeNotFound, never CodePermissionDenied.
+  rpc GetGrade(GetGradeRequest) returns (GetGradeResponse);
+
+  // ListOwnGrades returns all grades for the authenticated student.
+  // Requires grades.view_own. Student identity derived from session context.
+  rpc ListOwnGrades(ListOwnGradesRequest) returns (ListOwnGradesResponse);
+}
+
+// EvaluationInput carries a single evaluation's weight for scheme creation.
+// Evaluations are identified by their server-assigned position (1..N from submission order).
+message EvaluationInput {
+  // weight is a decimal string in the range (0, 1.0]. All weights must sum to exactly 1.0.
+  string weight = 1;
+}
+
+// Evaluation is the wire representation of a single evaluation instrument.
+message Evaluation {
+  string id = 1;
+  string course_id = 2;
+  // weight is a decimal string (e.g. "0.400").
+  string weight = 3;
+  // position is the 1-based server-assigned order within the course scheme.
+  int32 position = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+// Grade is the full grade record for teacher/admin views. Includes graded_by.
+message Grade {
+  string id = 1;
+  string evaluation_id = 2;
+  string section_enrollment_id = 3;
+  string graded_by = 4;
+  // value is a decimal string (e.g. "5.5").
+  string value = 5;
+  int32 version = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+// OwnGrade is the student-facing grade record. graded_by is intentionally absent.
+message OwnGrade {
+  string id = 1;
+  string evaluation_id = 2;
+  string section_enrollment_id = 3;
+  // value is a decimal string (e.g. "5.5").
+  string value = 4;
+  int32 version = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+message CreateEvaluationSchemeRequest {
+  string course_id = 1;
+  repeated EvaluationInput evaluations = 2;
+}
+
+message CreateEvaluationSchemeResponse {
+  repeated Evaluation evaluations = 1;
+}
+
+message RecreateEvaluationSchemeRequest {
+  string course_id = 1;
+  repeated EvaluationInput evaluations = 2;
+}
+
+message RecreateEvaluationSchemeResponse {
+  repeated Evaluation evaluations = 1;
+}
+
+message ListEvaluationsRequest {
+  string course_id = 1;
+}
+
+message ListEvaluationsResponse {
+  repeated Evaluation evaluations = 1;
+}
+
+message RecordGradeRequest {
+  string evaluation_id = 1;
+  string section_enrollment_id = 2;
+  // value is a decimal string in [1.0, 7.0] (Chilean scale).
+  string value = 3;
+  // expected_version must be provided when correcting an existing grade.
+  // Absent on first insert (grade will be created). Absent on correction → CodeAborted.
+  optional int32 expected_version = 4;
+}
+
+message RecordGradeResponse {
+  Grade grade = 1;
+}
+
+message OverrideGradeRequest {
+  string evaluation_id = 1;
+  string section_enrollment_id = 2;
+  // value is a decimal string in [1.0, 7.0].
+  string value = 3;
+  // expected_version must be provided when overriding an existing grade.
+  optional int32 expected_version = 4;
+}
+
+message OverrideGradeResponse {
+  Grade grade = 1;
+}
+
+message ListGradesForSectionRequest {
+  string section_id = 1;
+}
+
+message ListGradesForSectionResponse {
+  repeated Grade grades = 1;
+}
+
+message GetGradeRequest {
+  string id = 1;
+}
+
+message GetGradeResponse {
+  Grade grade = 1;
+}
+
+message ListOwnGradesRequest {}
+
+message ListOwnGradesResponse {
+  repeated OwnGrade grades = 1;
+}
