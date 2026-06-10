@@ -1,0 +1,54 @@
+info:
+  name: 34 Record Grade Eval1 SE-A Initial 5.0
+  type: http
+  seq: 34
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/RecordGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{teacher_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{gr_eval1_id}}",
+        "sectionEnrollmentId": "{{gr_se_a_id}}",
+        "value": "5.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.grade) {
+          bru.setVar("gr_grade1_id", body.grade.id);
+          bru.setVar("gr_grade1_version", body.grade.version);
+        }
+    - type: tests
+      code: |-
+        test("grade value is the exact decimal string", function() {
+          expect(res.body.grade.value).to.equal("5.0");
+        });
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.grade.version
+      operator: eq
+      value: "1"
+
+docs: |
+  Recording block — teacher records eval1 for SE-A: value=5.0, first insert → version=1.
+  Captures gr_grade1_id for subsequent correction.
+  Mirrors: TestGradesRecord_InsertHappyPath (AS-5).

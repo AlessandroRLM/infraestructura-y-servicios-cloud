@@ -1,0 +1,37 @@
+info:
+  name: 37 Record Grade Out Of Range Invalid Argument
+  type: http
+  seq: 37
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/RecordGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{teacher_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{gr_eval2_id}}",
+        "sectionEnrollmentId": "{{gr_se_a_id}}",
+        "value": "7.5"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "invalid_argument"
+
+docs: |
+  Recording block — value 7.5 exceeds Chilean scale upper bound [1.0, 7.0] → invalid_argument.
+  Mirrors: TestGradesRecord_ValueOutOfRange (AS-8).

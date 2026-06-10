@@ -1,0 +1,45 @@
+info:
+  name: 49 Teacher ListGradesForSection Section2 Empty
+  type: http
+  seq: 49
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/ListGradesForSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{teacher_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{gr_section2_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const body = res.body;
+        const grades = body && body.grades ? body.grades : [];
+        if (grades.length !== 0) {
+          throw new Error(`Expected 0 grades for out-of-scope section2, got ${grades.length}`);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Denial block (scoped) — teacher lists grades for section2 (teacher NOT assigned there).
+  Returns 200 with empty grades list, not an error. Section-scope filtering silently
+  returns empty for unassigned teachers (no existence disclosure).
+  Mirrors: TestGradesRead_TeacherListOutOfScopeSection.

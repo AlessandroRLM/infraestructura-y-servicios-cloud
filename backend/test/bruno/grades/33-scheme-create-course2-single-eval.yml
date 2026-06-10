@@ -1,0 +1,49 @@
+info:
+  name: 33 Scheme CreateEvaluationScheme Course2 Single Eval
+  type: http
+  seq: 33
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/CreateEvaluationScheme"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "courseId": "{{gr_course2_id}}",
+        "evaluations": [
+          {"weight": "1.000"}
+        ]
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.evaluations && body.evaluations.length === 1) {
+          bru.setVar("gr_c2_eval1_id", body.evaluations[0].id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.evaluations.length
+      operator: eq
+      value: "1"
+
+docs: |
+  Scheme block — single-evaluation scheme for course2 (weight=1.0) → valid.
+  Captures gr_c2_eval1_id. Used later for RecreateEvaluationScheme (no-grades path).
+  Mirrors: TestGradesScheme_CreateSingleEvaluation.

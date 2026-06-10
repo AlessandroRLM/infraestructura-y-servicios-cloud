@@ -1,0 +1,37 @@
+info:
+  name: 13 Setup Assign Teacher To Section1
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/AssignTeacherToSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{gr_section1_id}}",
+        "teacherId": "{{teacher_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Grades setup — assigns the smoke teacher to section1.
+  The teacher is NOT assigned to section2, enabling the out-of-scope denial test.
+  Mirrors: gradesAssignTeacherDirect / gradesSeedTeacherWithSession in integration tests.

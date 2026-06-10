@@ -1,0 +1,40 @@
+info:
+  name: 53 Recreate Course1 Scheme Blocked By Grades
+  type: http
+  seq: 53
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/RecreateEvaluationScheme"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "courseId": "{{gr_course1_id}}",
+        "evaluations": [
+          {"weight": "0.500"},
+          {"weight": "0.500"}
+        ]
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "failed_precondition"
+
+docs: |
+  Recreate block — attempt to recreate course1's scheme while grades exist → failed_precondition.
+  Grades were recorded in the recording block and have not been removed.
+  Mirrors: TestGradesScheme_RecreateBlockedByGrades.

@@ -1,0 +1,35 @@
+info:
+  name: 52 Denial Unauthenticated RecordGrade
+  type: http
+  seq: 52
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/RecordGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{gr_eval1_id}}",
+        "sectionEnrollmentId": "{{gr_se_a_id}}",
+        "value": "5.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "unauthenticated"
+
+docs: |
+  Denial block — no session cookie → unauthenticated on RecordGrade.
+  Mirrors: TestGradesScheme_UnauthenticatedDenied (AS-22) / unauthenticated gate tests.

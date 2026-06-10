@@ -1,0 +1,41 @@
+info:
+  name: 40 Outcome SE-A GetOwnSectionEnrollment Passed
+  type: http
+  seq: 40
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/GetOwnSectionEnrollment"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{gr_student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{gr_se_a_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.status
+      operator: eq
+      value: "passed"
+
+docs: |
+  Outcome check — after all 3 evaluations graded (5.5/4.5/5.0 with weights 0.4/0.3/0.3),
+  student A's SE must be "passed".
+  Computed final: 5.5×0.4 + 4.5×0.3 + 5.0×0.3 = 5.05 → rounds to 5.1 ≥ 4.0 → passed.
+  Note: final_grade is not exposed in the SectionEnrollment proto; only status is asserted here.
+  Mirrors: TestGradesRead_EndToEndFinalGrade + TestGradesOutcome_AllGradedPassed.

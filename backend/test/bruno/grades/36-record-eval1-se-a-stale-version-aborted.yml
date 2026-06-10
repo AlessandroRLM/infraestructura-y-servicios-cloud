@@ -1,0 +1,39 @@
+info:
+  name: 36 Record Grade Eval1 SE-A Stale Version Aborted
+  type: http
+  seq: 36
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/RecordGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{teacher_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{gr_eval1_id}}",
+        "sectionEnrollmentId": "{{gr_se_a_id}}",
+        "value": "6.0",
+        "expectedVersion": 1
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "aborted"
+
+docs: |
+  Recording block — resend expectedVersion=1 after it was already bumped to 2 → aborted
+  (optimistic lock conflict).
+  Mirrors: TestGradesRecord_OptimisticLockConflict (AS-7).

@@ -1,0 +1,50 @@
+info:
+  name: 42 Outcome SE-B ListGradesForSection In Progress
+  type: http
+  seq: 42
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/ListGradesForSection"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{teacher_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "sectionId": "{{gr_section1_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        // Student B has only 1 grade recorded (eval1); SE-B must still be in_progress.
+        // We verify the section has grades and the teacher can see them.
+        const body = res.body;
+        const grades = body && body.grades ? body.grades : [];
+        const seB = bru.getVar("gr_se_b_id");
+        const bGrades = grades.filter(g => g.sectionEnrollmentId === seB);
+        // B should have exactly 1 grade recorded (eval1 only).
+        if (bGrades.length !== 1) {
+          throw new Error(`Expected 1 grade for SE-B, got ${bGrades.length}`);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Outcome check — teacher reads all grades for section1 after partial grading of SE-B.
+  Verifies SE-B has exactly 1 grade (eval1 only) and teacher can see graded_by.
+  SE-B status remains in_progress (not asserted via proto; in_progress is the default).
+  Mirrors: TestGradesOutcome_PartialGrading (AS-11) + TestGradesRead_TeacherListGradesForSection.

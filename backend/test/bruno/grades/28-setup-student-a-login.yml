@@ -1,0 +1,40 @@
+info:
+  name: 28 Setup Student A Login
+  type: http
+  seq: 28
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/Login"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{student_a_email}}",
+        "password": "StudentAGRSmoke123!"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const sc = res.headers["set-cookie"];
+        const raw = Array.isArray(sc) ? sc.join(";") : String(sc || "");
+        const m = raw.match(/sid=([^;]+)/);
+        if (m) { bru.setVar("gr_student_a_sid", m[1]); }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Student A login_with_reset — step 3: login, captures gr_student_a_sid.

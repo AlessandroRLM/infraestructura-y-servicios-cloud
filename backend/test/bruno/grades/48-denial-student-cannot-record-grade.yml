@@ -1,0 +1,38 @@
+info:
+  name: 48 Denial Student Cannot Record Grade
+  type: http
+  seq: 48
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/RecordGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{gr_student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{gr_eval1_id}}",
+        "sectionEnrollmentId": "{{gr_se_a_id}}",
+        "value": "7.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "permission_denied"
+
+docs: |
+  Denial block — student A attempts to record a grade → permission_denied.
+  Students have grades.view_own only, not grades.write.
+  Mirrors: TestGradesRecord_StudentCannotRecord (AS-20).

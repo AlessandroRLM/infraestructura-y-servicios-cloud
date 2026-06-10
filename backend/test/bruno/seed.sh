@@ -34,14 +34,16 @@ STUDENT_A_EMAIL="student.a.${SFX}@se.smoke"
 STUDENT_B_EMAIL="student.b.${SFX}@se.smoke"
 STUDENT_C_EMAIL="student.c.${SFX}@se.smoke"
 NOADMIN_EMAIL="noadmin@se.smoke"
+TEACHER_EMAIL="teacher.${SFX}@gr.smoke"
 
-echo "▶ seeding users (students A/B/C + role-less noadmin)"
+echo "▶ seeding users (students A/B/C + role-less noadmin + grades teacher)"
 $PSQL_CMD -q -c "
   INSERT INTO users (id, email, password_hash) VALUES
     (uuidv7(), '${STUDENT_A_EMAIL}', 'placeholder'),
     (uuidv7(), '${STUDENT_B_EMAIL}', 'placeholder'),
     (uuidv7(), '${STUDENT_C_EMAIL}', 'placeholder'),
-    (uuidv7(), '${NOADMIN_EMAIL}',   'placeholder')
+    (uuidv7(), '${NOADMIN_EMAIL}',   'placeholder'),
+    (uuidv7(), '${TEACHER_EMAIL}',   'placeholder')
   ON CONFLICT (email) DO NOTHING;
 
   INSERT INTO user_roles (user_id, role_id)
@@ -50,35 +52,54 @@ $PSQL_CMD -q -c "
     WHERE u.email IN ('${STUDENT_A_EMAIL}', '${STUDENT_B_EMAIL}', '${STUDENT_C_EMAIL}')
       AND r.name = 'student'
   ON CONFLICT DO NOTHING;
+
+  INSERT INTO user_roles (user_id, role_id)
+    SELECT u.id, r.id
+    FROM users u, roles r
+    WHERE u.email = '${TEACHER_EMAIL}'
+      AND r.name = 'teacher'
+  ON CONFLICT DO NOTHING;
 "
 
 echo "▶ fetching seeded user IDs"
 STUDENT_A_ID="$($PSQL_CMD -tAq -c "SELECT id FROM users WHERE email='${STUDENT_A_EMAIL}';")"
 STUDENT_B_ID="$($PSQL_CMD -tAq -c "SELECT id FROM users WHERE email='${STUDENT_B_EMAIL}';")"
 STUDENT_C_ID="$($PSQL_CMD -tAq -c "SELECT id FROM users WHERE email='${STUDENT_C_EMAIL}';")"
+TEACHER_ID="$($PSQL_CMD -tAq -c "SELECT id FROM users WHERE email='${TEACHER_EMAIL}';")"
 
 [ -n "$STUDENT_A_ID" ] && [ -n "$STUDENT_B_ID" ] && [ -n "$STUDENT_C_ID" ] || \
   { echo "FATAL: could not fetch student IDs" >&2; exit 2; }
+[ -n "$TEACHER_ID" ] || \
+  { echo "FATAL: could not fetch teacher ID" >&2; exit 2; }
 
 echo "▶ seeding academic_periods with enrollment windows"
+# academic_periods has UNIQUE(year, term) and the SFX-derived terms can collide
+# across runs. seed_period retries with a bumped term until the insert lands.
+seed_period() {
+  local term="$1" start_date="$2" end_date="$3" win_start="$4" win_end="$5"
+  local id="" attempt=0
+  while [ -z "$id" ] && [ "$attempt" -lt 20 ]; do
+    id="$($PSQL_CMD -tAq -c "
+      INSERT INTO academic_periods (id, year, term, start_date, end_date, enrollment_starts_at, enrollment_ends_at)
+      VALUES (uuidv7(), ${ENROLL_YEAR}, $((term + attempt)),
+              '${start_date}', '${end_date}', ${win_start}, ${win_end})
+      ON CONFLICT (year, term) DO NOTHING
+      RETURNING id;" 2>/dev/null)"
+    attempt=$((attempt + 1))
+  done
+  echo "$id"
+}
+
 # Open window: started 1 hour ago, ends 1 hour from now.
-OPEN_PERIOD_ID="$($PSQL_CMD -tAq -c "
-  INSERT INTO academic_periods (id, year, term, start_date, end_date, enrollment_starts_at, enrollment_ends_at)
-  VALUES (uuidv7(), ${ENROLL_YEAR}, ${OPEN_TERM},
-          '${ENROLL_YEAR}-03-01', '${ENROLL_YEAR}-07-15',
-          now() - interval '1 hour', now() + interval '1 hour')
-  RETURNING id;")"
+OPEN_PERIOD_ID="$(seed_period "${OPEN_TERM}" "${ENROLL_YEAR}-03-01" "${ENROLL_YEAR}-07-15" \
+  "now() - interval '1 hour'" "now() + interval '1 hour'")"
 
 # Closed window: starts 24 hours in the future — never open right now.
-CLOSED_PERIOD_ID="$($PSQL_CMD -tAq -c "
-  INSERT INTO academic_periods (id, year, term, start_date, end_date, enrollment_starts_at, enrollment_ends_at)
-  VALUES (uuidv7(), ${ENROLL_YEAR}, ${CLOSED_TERM},
-          '${ENROLL_YEAR}-08-01', '${ENROLL_YEAR}-12-15',
-          now() + interval '24 hours', now() + interval '48 hours')
-  RETURNING id;")"
+CLOSED_PERIOD_ID="$(seed_period "${CLOSED_TERM}" "${ENROLL_YEAR}-08-01" "${ENROLL_YEAR}-12-15" \
+  "now() + interval '24 hours'" "now() + interval '48 hours'")"
 
 [ -n "$OPEN_PERIOD_ID" ] && [ -n "$CLOSED_PERIOD_ID" ] || \
-  { echo "FATAL: could not create academic periods" >&2; exit 2; }
+  { echo "FATAL: could not create academic periods after retries" >&2; exit 2; }
 
 echo "▶ done — exporting variables for bru run"
 echo ""
@@ -94,11 +115,14 @@ echo "export BRUNO_CLOSED_TERM='${CLOSED_TERM}'"
 echo "export BRUNO_STUDENT_A_EMAIL='${STUDENT_A_EMAIL}'"
 echo "export BRUNO_STUDENT_B_EMAIL='${STUDENT_B_EMAIL}'"
 echo "export BRUNO_STUDENT_C_EMAIL='${STUDENT_C_EMAIL}'"
+echo "export BRUNO_TEACHER_ID='${TEACHER_ID}'"
+echo "export BRUNO_TEACHER_EMAIL='${TEACHER_EMAIL}'"
 echo ""
 echo "  SFX=${SFX}"
 echo "  student_a_id=${STUDENT_A_ID}"
 echo "  student_b_id=${STUDENT_B_ID}"
 echo "  student_c_id=${STUDENT_C_ID}"
+echo "  teacher_id=${TEACHER_ID}"
 echo "  open_period_id=${OPEN_PERIOD_ID}"
 echo "  closed_period_id=${CLOSED_PERIOD_ID}"
 echo "  open_term=${OPEN_TERM} / closed_term=${CLOSED_TERM}"

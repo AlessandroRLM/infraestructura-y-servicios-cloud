@@ -1,0 +1,39 @@
+info:
+  name: 32 Scheme Bad Weights Invalid Argument
+  type: http
+  seq: 32
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/CreateEvaluationScheme"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "courseId": "{{gr_course2_id}}",
+        "evaluations": [
+          {"weight": "0.500"},
+          {"weight": "0.400"}
+        ]
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "invalid_argument"
+
+docs: |
+  Scheme block — weights 0.5 + 0.4 = 0.9 (not 1.0) → invalid_argument.
+  Mirrors: TestGradesScheme_WeightsDontSumTo1 (AS-2).

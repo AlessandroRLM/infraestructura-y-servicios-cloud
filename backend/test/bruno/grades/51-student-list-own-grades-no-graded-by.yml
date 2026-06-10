@@ -1,0 +1,48 @@
+info:
+  name: 51 Student ListOwnGrades No GradedBy Field
+  type: http
+  seq: 51
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/ListOwnGrades"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{gr_student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const body = res.body;
+        const grades = body && body.grades ? body.grades : [];
+        if (grades.length === 0) {
+          throw new Error("Expected at least 1 grade in ListOwnGrades, got 0");
+        }
+        // OwnGrade proto does not expose gradedBy — verify no key leaks through JSON.
+        for (const g of grades) {
+          if ("gradedBy" in g) {
+            throw new Error(`gradedBy must NOT appear in OwnGrade, found: ${JSON.stringify(g)}`);
+          }
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Student ListOwnGrades — student A receives their grades; OwnGrade must NOT contain
+  a gradedBy key (the field is intentionally absent from the OwnGrade proto message).
+  Mirrors: TestGradesRead_GradedByHiddenFromStudent + TestGradesRead_StudentListOwnGrades (AS-14).

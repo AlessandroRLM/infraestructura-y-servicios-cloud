@@ -1,0 +1,38 @@
+info:
+  name: 47 Denial Teacher Records Out-Of-Scope Section
+  type: http
+  seq: 47
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/RecordGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{teacher_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{gr_eval1_id}}",
+        "sectionEnrollmentId": "{{gr_se_a2_id}}",
+        "value": "5.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "permission_denied"
+
+docs: |
+  Denial block — teacher attempts to record a grade for gr_se_a2_id (section2, where the
+  teacher is NOT in section_teachers) → permission_denied.
+  Mirrors: TestGradesRecord_NotSectionTeacher (AS-18).

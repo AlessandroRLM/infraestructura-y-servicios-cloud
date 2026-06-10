@@ -1,0 +1,33 @@
+info:
+  name: 27 Setup Student A Confirm Reset
+  type: http
+  seq: 27
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/ConfirmPasswordReset"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "token": "{{gr_student_a_reset_token}}",
+        "newPassword": "StudentAGRSmoke123!"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Student A login_with_reset — step 2: confirm password reset.

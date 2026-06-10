@@ -1,0 +1,39 @@
+info:
+  name: 46 Outcome SE-A GetOwnSectionEnrollment Failed
+  type: http
+  seq: 46
+
+http:
+  method: POST
+  url: "{{host}}/section_enrollment.v1.SectionEnrollmentService/GetOwnSectionEnrollment"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{gr_student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "id": "{{gr_se_a_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.status
+      operator: eq
+      value: "failed"
+
+docs: |
+  Outcome check — after correcting eval3 to 1.0, final = 2.8 → SE-A must be "failed".
+  Computed: 5.5×0.4 + 1.0×0.3 + 1.0×0.3 = 2.8 < 4.0.
+  Mirrors: TestGradesOutcome_CorrectionFlipsPassedToFailed (AS-12b).

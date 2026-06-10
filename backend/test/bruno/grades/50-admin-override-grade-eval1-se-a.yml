@@ -1,0 +1,51 @@
+info:
+  name: 50 Admin Override Grade Eval1 SE-A
+  type: http
+  seq: 50
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/OverrideGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{gr_eval1_id}}",
+        "sectionEnrollmentId": "{{gr_se_a_id}}",
+        "value": "6.0",
+        "expectedVersion": 2
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("grade value is the exact decimal string", function() {
+          expect(res.body.grade.value).to.equal("6.0");
+        });
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.grade.version
+      operator: eq
+      value: "3"
+    - expression: res.body.grade.gradedBy
+      operator: neq
+      value: ""
+
+docs: |
+  Denial block (admin override) — admin overrides eval1/SE-A from 5.5 to 6.0.
+  expectedVersion=2 (current after teacher correction). graded_by updates to admin's id.
+  Mirrors: TestGradesRead_AdminOverrideGrade (AS-19).

@@ -1,0 +1,52 @@
+info:
+  name: 01 Setup Admin Request Reset
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/RequestPasswordReset"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{admin_email}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Seed unique suffix for this run to avoid collisions on repeated executions.
+        const sfx = String(Date.now()).slice(-6);
+        bru.setVar("sfx", sfx);
+        bru.setVar("enroll_year", 2026);
+        // Deterministic codes scoped to this run.
+        bru.setVar("gr_prog_code",    `GRPROG-${sfx}`);
+        bru.setVar("gr_course_code",  `GRCRS1-${sfx}`);
+        bru.setVar("gr_course2_code", `GRCRS2-${sfx}`);
+        // teacher email/id come from seed.sh via env vars (BRUNO_TEACHER_EMAIL, BRUNO_TEACHER_ID).
+        console.log(`[grades setup] sfx=${sfx}`);
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.devToken) {
+          bru.setVar("admin_reset_token", body.devToken);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Grades setup — step 1: request admin password reset; seeds run-scoped variables.
+  Mirrors: section_enrollment/01-setup-admin-request-reset.yml pattern.

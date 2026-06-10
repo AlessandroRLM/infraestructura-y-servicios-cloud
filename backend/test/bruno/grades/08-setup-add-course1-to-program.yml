@@ -1,0 +1,35 @@
+info:
+  name: 08 Setup Add Course1 To Program
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/AddCourseToProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{gr_prog_id}}",
+        "courseId": "{{gr_course1_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Grades setup — links course1 to the program so student enrollments are valid.
