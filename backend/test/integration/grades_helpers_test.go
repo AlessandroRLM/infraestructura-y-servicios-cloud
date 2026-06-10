@@ -4,11 +4,9 @@ import (
 	"context"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
-	catalogv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1"
 	gradesv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1/gradesv1connect"
 	"connectrpc.com/connect"
@@ -17,39 +15,6 @@ import (
 // newGradesClient returns a Connect GradesService client targeting the shared test server.
 func newGradesClient(jar http.CookieJar) gradesv1connect.GradesServiceClient {
 	return gradesv1connect.NewGradesServiceClient(&http.Client{Jar: jar}, baseURL)
-}
-
-// gradesAdminSession seeds an admin user and returns (userID, sessionID).
-func gradesAdminSession(t *testing.T, email string) (uuid.UUID, string) {
-	t.Helper()
-	return seedUserWithSession(t, email, "admin")
-}
-
-// gradesTeacherSession seeds a teacher user with a teacher_profile and assigns them
-// to the given section. Returns (teacherID, sessionID).
-func gradesTeacherSession(t *testing.T, email, sectionID string) (uuid.UUID, string) {
-	t.Helper()
-	adminSID := catalogSeedAdminSession(t, "grades-teacher-admin-"+email)
-	teacherIDStr, teacherSID := seedTeacherProfile(t, email)
-
-	teacherID, err := uuid.Parse(teacherIDStr)
-	if err != nil {
-		t.Fatalf("gradesTeacherSession: parse teacher id: %v", err)
-	}
-
-	// Assign teacher to section.
-	client := newCatalogClient(nil)
-	ctx := context.Background()
-	_, err = client.AssignTeacherToSection(ctx, withSID(connect.NewRequest(&catalogv1.AssignTeacherToSectionRequest{
-		SectionId: sectionID,
-		TeacherId: teacherIDStr,
-	}), adminSID))
-	if err != nil {
-		t.Fatalf("gradesTeacherSession: AssignTeacherToSection: %v", err)
-	}
-
-	// session cookie SID uses teacherSID
-	return teacherID, teacherSID
 }
 
 // seedGradesFixture creates a full hierarchy: course, academic period, section, program,
@@ -170,8 +135,7 @@ func seedGrade(t *testing.T, evaluationID, sectionEnrollmentID, value, actorSID 
 	return resp.Msg.GetGrade()
 }
 
-// seedGradesAdminSession creates an admin user and a Redis session.
-// Equivalent to gradesAdminSession but returns only the session string for brevity.
+// seedGradesAdminSID creates an admin user and returns (userID, sessionID).
 func seedGradesAdminSID(t *testing.T, tag string) (uuid.UUID, string) {
 	t.Helper()
 	return seedUserWithSession(t, "grades-admin-"+tag+"@grades.test", "admin")
@@ -194,16 +158,6 @@ func withAuditLogCleanup(t *testing.T, entity, entityID string) {
 			entity, entityID,
 		)
 	})
-}
-
-// gradesSeedStudent seeds a student user with a student_profile valid for the given year.
-// Returns (studentID, studentSID).
-func gradesSeedStudent(t *testing.T, tag string, year int32) (uuid.UUID, string) {
-	t.Helper()
-	email := "grades-stu-" + tag + "-" + uniqueSuffix(t) + "@grades.test"
-	id, sid := seedUserWithSession(t, email, "student")
-	seedStudentProfile(t, id, year)
-	return id, sid
 }
 
 // gradesAssignTeacherDirect inserts a section_teachers row directly via SQL.
@@ -276,24 +230,3 @@ func assertSEStatus(t *testing.T, seID, wantStatus string, wantFinalGrade *strin
 // ptr returns a pointer to the given string.
 func ptr(s string) *string { return &s }
 
-// seedTeacherSession creates a teacher session using catalogSeedAdminSession for the
-// profile upsert, but returns an independent teacher session.
-// Unlike gradesTeacherSession, does NOT assign teacher to a section.
-func seedTeacherSession(t *testing.T, tag string) (uuid.UUID, string) {
-	t.Helper()
-	email := "grades-bare-teacher-" + tag + "-" + uniqueSuffix(t) + "@grades.test"
-	_, teacherSID := seedTeacherProfile(t, email)
-
-	// Parse the teacher ID from the DB.
-	var teacherID uuid.UUID
-	err := pgxPool.QueryRow(context.Background(),
-		`SELECT id FROM users WHERE email = $1`, email,
-	).Scan(&teacherID)
-	if err != nil {
-		t.Fatalf("seedTeacherSession: resolve teacher id for %s: %v", email, err)
-
-	}
-	// Re-create session with 1h TTL (seedTeacherProfile already creates one internally)
-	teacherSID = seedSessionInRedis(t, teacherID, time.Hour)
-	return teacherID, teacherSID
-}

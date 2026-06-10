@@ -325,6 +325,45 @@ func TestGradesRecord_NoSchemeForCourse(t *testing.T) {
 	assertConnectCode(t, err, connect.CodeNotFound)
 }
 
+// TestGradesRecord_CrossCourseMismatch (record-9): evaluation belongs to course C1,
+// section_enrollment belongs to a section of course C2 → CodeInvalidArgument; no grade written.
+func TestGradesRecord_CrossCourseMismatch(t *testing.T) {
+	ctx := context.Background()
+	_, adminSID := seedGradesAdminSID(t, "cross-course-mismatch")
+
+	// Universe 1: course C1 with an evaluation scheme.
+	fix1 := seedGradesFixture(t, adminSID)
+	evalsC1 := seedEvaluationScheme(t, fix1.CourseID, []string{"1.0"}, adminSID)
+
+	// Universe 2: course C2 with its own section and a student section_enrollment.
+	fix2 := seedGradesFixture(t, adminSID)
+
+	// Teacher assigned to section2 (the section from C2's universe) — has grades.write.
+	_, teacherSID := gradesSeedTeacherWithSession(t, "cross-course-mismatch", fix2.SectionID)
+
+	client := newGradesClient(nil)
+
+	// Attempt: evaluation from C1 + section_enrollment from C2 → cross-course mismatch.
+	_, err := client.RecordGrade(ctx, withSID(connect.NewRequest(&gradesv1.RecordGradeRequest{
+		EvaluationId:        evalsC1[0].GetId(),
+		SectionEnrollmentId: fix2.SectionEnrollmentID,
+		Value:               "5.0",
+	}), teacherSID))
+	assertConnectCode(t, err, connect.CodeInvalidArgument)
+
+	// Verify no grade was written for fix2's section_enrollment.
+	var gradeCount int
+	if qErr := pgxPool.QueryRow(ctx,
+		`SELECT count(*) FROM grades WHERE section_enrollment_id = $1`,
+		fix2.SectionEnrollmentID,
+	).Scan(&gradeCount); qErr != nil {
+		t.Fatalf("count grades: %v", qErr)
+	}
+	if gradeCount != 0 {
+		t.Errorf("cross-course mismatch wrote %d grade(s), want 0", gradeCount)
+	}
+}
+
 // TestGradesRecord_ConcurrentDuplicate (TDD-6): two concurrent RecordGrade calls for
 // the same (evaluation, section_enrollment) → exactly one succeeds with version=1;
 // the other gets CodeAborted (no expected_version on conflict).
