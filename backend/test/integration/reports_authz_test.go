@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -98,39 +99,67 @@ func TestReports_Student_AllRPCs_CodePermissionDenied(t *testing.T) {
 }
 
 // TestReports_Teacher_AdminOnlyRPCs_CodePermissionDenied verifies that a teacher
-// calling occupancy, program, or student record RPCs receives CodePermissionDenied.
-// Teachers hold reports.read but NOT catalog.manage — admin guard fires before DB.
+// calling occupancy, program, or student record RPCs receives CodePermissionDenied
+// and that no cache entry is created (admin guard fires before cache — deny-then-no-cache contract).
 func TestReports_Teacher_AdminOnlyRPCs_CodePermissionDenied(t *testing.T) {
 	ctx := context.Background()
 	_, teacherSID := seedTeacherProfile(t, "reports-teacher-adminonly@reports.test")
 	client := newReportsClient(nil)
 
 	t.Run("GetSectionOccupancyReport", func(t *testing.T) {
+		periodID := "00000000-0000-0000-0000-000000000001"
+		cacheKey := "report:section_occupancy:" + periodID
+		testRedisClient.Del(ctx, cacheKey)
+
 		req := connect.NewRequest(&reportsv1.GetSectionOccupancyReportRequest{
-			AcademicPeriodId: "00000000-0000-0000-0000-000000000001",
+			AcademicPeriodId: periodID,
 		})
 		req.Header().Set("Cookie", "sid="+teacherSID)
 		_, err := client.GetSectionOccupancyReport(ctx, req)
 		assertConnectCode(t, err, connect.CodePermissionDenied)
+
+		// Denied request must not create a cache entry.
+		if testRedisClient.Exists(ctx, cacheKey).Val() != 0 {
+			t.Errorf("cache key %q must not exist after permission denial", cacheKey)
+		}
 	})
 
 	t.Run("GetProgramSummaryReport", func(t *testing.T) {
+		programID := "00000000-0000-0000-0000-000000000001"
+		year := 2025
+		cacheKey := fmt.Sprintf("report:program_enrollment:%s:%d", programID, year)
+		testRedisClient.Del(ctx, cacheKey)
+
 		req := connect.NewRequest(&reportsv1.GetProgramSummaryReportRequest{
-			ProgramId: "00000000-0000-0000-0000-000000000001",
-			Year:      2025,
+			ProgramId: programID,
+			Year:      int32(year),
 		})
 		req.Header().Set("Cookie", "sid="+teacherSID)
 		_, err := client.GetProgramSummaryReport(ctx, req)
 		assertConnectCode(t, err, connect.CodePermissionDenied)
+
+		// Denied request must not create a cache entry.
+		if testRedisClient.Exists(ctx, cacheKey).Val() != 0 {
+			t.Errorf("cache key %q must not exist after permission denial", cacheKey)
+		}
 	})
 
 	t.Run("GetStudentRecordReport", func(t *testing.T) {
+		studentID := "00000000-0000-0000-0000-000000000001"
+		cacheKey := "report:student_record:" + studentID
+		testRedisClient.Del(ctx, cacheKey)
+
 		req := connect.NewRequest(&reportsv1.GetStudentRecordReportRequest{
-			StudentId: "00000000-0000-0000-0000-000000000001",
+			StudentId: studentID,
 		})
 		req.Header().Set("Cookie", "sid="+teacherSID)
 		_, err := client.GetStudentRecordReport(ctx, req)
 		assertConnectCode(t, err, connect.CodePermissionDenied)
+
+		// Denied request must not create a cache entry.
+		if testRedisClient.Exists(ctx, cacheKey).Val() != 0 {
+			t.Errorf("cache key %q must not exist after permission denial", cacheKey)
+		}
 	})
 }
 

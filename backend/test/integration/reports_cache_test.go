@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 
 	reportsv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/reports/v1"
 )
@@ -70,7 +71,7 @@ func TestReports_Cache_SectionGradeReport_HitSkipsDB(t *testing.T) {
 	req1.Header().Set("Cookie", "sid="+adminSID)
 
 	// First request: cache miss → populates cache.
-	_, err := client.GetSectionGradeReport(ctx, req1)
+	resp1, err := client.GetSectionGradeReport(ctx, req1)
 	if err != nil {
 		t.Fatalf("first request unexpected error: %v", err)
 	}
@@ -80,7 +81,10 @@ func TestReports_Cache_SectionGradeReport_HitSkipsDB(t *testing.T) {
 		t.Fatalf("cache key not set after first request")
 	}
 
-	// Second request: must be served from cache.
+	// Mutate the DB so any second DB hit would differ (section capacity changed to detect cache skip).
+	_, _ = pgxPool.Exec(ctx, `UPDATE sections SET capacity = capacity + 999 WHERE id = $1::uuid`, sectionID)
+
+	// Second request: must be served from cache (DB mutation invisible).
 	req2 := connect.NewRequest(&reportsv1.GetSectionGradeReportRequest{SectionId: sectionID})
 	req2.Header().Set("Cookie", "sid="+adminSID)
 	resp2, err := client.GetSectionGradeReport(ctx, req2)
@@ -89,6 +93,14 @@ func TestReports_Cache_SectionGradeReport_HitSkipsDB(t *testing.T) {
 	}
 	if resp2.Msg.SectionId != sectionID {
 		t.Errorf("second response SectionId=%s, want %s", resp2.Msg.SectionId, sectionID)
+	}
+	// generated_at must be identical — cache hit returns the same frozen payload.
+	if resp2.Msg.GetGeneratedAt() != resp1.Msg.GetGeneratedAt() {
+		t.Errorf("cache hit: GeneratedAt changed: first=%q second=%q", resp1.Msg.GetGeneratedAt(), resp2.Msg.GetGeneratedAt())
+	}
+	// Full payload identity: proto.Equal catches any field divergence.
+	if !proto.Equal(resp1.Msg, resp2.Msg) {
+		t.Error("cache hit: proto.Equal(resp1, resp2) = false — cache did not return identical payload")
 	}
 }
 
