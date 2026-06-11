@@ -15,8 +15,8 @@ func TestMapError_InternalDoesNotLeakRawError(t *testing.T) {
 	rawMsg := "pq: relation \"sessions\" does not exist"
 	err := mapError(fmt.Errorf("auth: Login: %s", rawMsg))
 
-	var connectErr *connect.Error
-	if !errors.As(err, &connectErr) {
+	connectErr, ok := errors.AsType[*connect.Error](err)
+	if !ok {
 		t.Fatalf("expected *connect.Error, got %T", err)
 	}
 	if connectErr.Code() != connect.CodeInternal {

@@ -15,8 +15,8 @@ func TestMapError_InternalDoesNotLeakRawError(t *testing.T) {
 	rawMsg := "pq: relation \"users\" does not exist"
 	err := mapError(fmt.Errorf("profiles: GetUserProfile: %s", rawMsg))
 
-	var connectErr *connect.Error
-	if !errors.As(err, &connectErr) {
+	connectErr, ok := errors.AsType[*connect.Error](err)
+	if !ok {
 		t.Fatalf("expected *connect.Error, got %T", err)
 	}
 	if connectErr.Code() != connect.CodeInternal {
@@ -45,8 +45,8 @@ func TestMapError_KnownSentinels(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := mapError(tc.in)
-			var ce *connect.Error
-			if !errors.As(got, &ce) {
+			ce, ok := errors.AsType[*connect.Error](got)
+			if !ok {
 				t.Fatalf("expected *connect.Error, got %T", got)
 			}
 			if ce.Code() != tc.wantCode {

@@ -153,8 +153,7 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 	sectionRow, err := q.GetSectionForUpdateWithWindow(ctx, pgtype.UUID{Bytes: p.SectionID, Valid: true})
 	if err != nil {
 		// 55P03: lock wait exceeded the SET LOCAL lock_timeout budget.
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "55P03" {
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "55P03" {
 			slog.WarnContext(ctx, "section enrollment lock timeout",
 				"section_id", p.SectionID,
 			)

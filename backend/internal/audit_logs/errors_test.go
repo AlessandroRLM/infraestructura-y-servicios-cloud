@@ -46,8 +46,8 @@ func TestMapError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := MapError(context.Background(), tt.err)
-			var connectErr *connect.Error
-			if !errors.As(got, &connectErr) {
+			connectErr, ok := errors.AsType[*connect.Error](got)
+			if !ok {
 				t.Fatalf("expected *connect.Error, got %T: %v", got, got)
 			}
 			if connectErr.Code() != tt.wantCode {
@@ -63,8 +63,8 @@ func TestMapError_Internal_ReturnsGenericMessage(t *testing.T) {
 	t.Parallel()
 	secretErr := errors.New("secret internal detail")
 	got := MapError(context.Background(), secretErr)
-	var connectErr *connect.Error
-	if !errors.As(got, &connectErr) {
+	connectErr, ok := errors.AsType[*connect.Error](got)
+	if !ok {
 		t.Fatalf("expected *connect.Error, got %T", got)
 	}
 	for _, detail := range connectErr.Details() {

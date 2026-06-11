@@ -191,8 +191,7 @@ func TestHandler_ListAuditLogs_ServiceUnknownErr_MapsToCodeInternal(t *testing.T
 	_, err := h.ListAuditLogs(context.Background(), req)
 	assertConnectErr(t, err, connect.CodeInternal)
 
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
+	if connectErr, ok := errors.AsType[*connect.Error](err); ok {
 		if connectErr.Message() == secretMsg {
 			t.Error("handler must not leak the original error message for internal errors")
 		}
@@ -205,8 +204,8 @@ func assertConnectErr(t *testing.T, err error, wantCode connect.Code) {
 	if err == nil {
 		t.Fatalf("expected a connect error with code %v, got nil", wantCode)
 	}
-	var connectErr *connect.Error
-	if !errors.As(err, &connectErr) {
+	connectErr, ok := errors.AsType[*connect.Error](err)
+	if !ok {
 		t.Fatalf("expected *connect.Error, got %T: %v", err, err)
 	}
 	if connectErr.Code() != wantCode {

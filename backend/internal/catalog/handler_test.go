@@ -30,8 +30,8 @@ func TestMapError_Sentinels(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := catalog.MapError(tc.input)
-			var connectErr *connect.Error
-			if !errors.As(err, &connectErr) {
+			connectErr, ok := errors.AsType[*connect.Error](err)
+			if !ok {
 				t.Fatalf("MapError(%v): returned non-connect error: %v", tc.input, err)
 			}
 			if connectErr.Code() != tc.wantCode {

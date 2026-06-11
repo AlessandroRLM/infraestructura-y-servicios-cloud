@@ -126,8 +126,8 @@ func TestSessionInterceptor_StoreTouchFailure_DoesNotLeakInternalError(t *testin
 		t.Fatal("expected error, got nil")
 	}
 
-	var ce *connect.Error
-	if !errors.As(err, &ce) {
+	ce, ok := errors.AsType[*connect.Error](err)
+	if !ok {
 		t.Fatalf("expected *connect.Error, got %T: %v", err, err)
 	}
 	if ce.Code() != connect.CodeInternal {
@@ -155,8 +155,8 @@ func TestSessionInterceptor_LoaderFailure_DoesNotLeakInternalError(t *testing.T)
 		t.Fatal("expected error, got nil")
 	}
 
-	var ce *connect.Error
-	if !errors.As(err, &ce) {
+	ce, ok := errors.AsType[*connect.Error](err)
+	if !ok {
 		t.Fatalf("expected *connect.Error, got %T: %v", err, err)
 	}
 	if ce.Code() != connect.CodeInternal {
