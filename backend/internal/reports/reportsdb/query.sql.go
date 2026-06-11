@@ -430,7 +430,12 @@ func (q *Queries) ProgramSummary(ctx context.Context, arg ProgramSummaryParams) 
 	var items []ProgramSummaryRow
 	for rows.Next() {
 		var i ProgramSummaryRow
-		if err := rows.Scan(&i.QuotaID, &i.QuotaCapacity, &i.EnrolledCount, &i.ProgramName); err != nil {
+		if err := rows.Scan(
+			&i.QuotaID,
+			&i.QuotaCapacity,
+			&i.EnrolledCount,
+			&i.ProgramName,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
