@@ -18,7 +18,10 @@ runtime:
   scripts:
     - type: after-response
       code: |-
-        expect(res.status).to.equal(401);
+        test("missing token returns 401 without WWW-Authenticate", function () {
+          expect(res.status).to.equal(401);
+          expect(res.headers["www-authenticate"] ?? "").to.equal("");
+        });
 
 docs: |
   Denial: GET /metrics without the X-Metrics-Token header must return 401.

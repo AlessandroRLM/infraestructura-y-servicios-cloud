@@ -20,7 +20,10 @@ runtime:
   scripts:
     - type: after-response
       code: |-
-        expect(res.status).to.equal(401);
+        test("wrong token returns 401 and leaks no metrics", function () {
+          expect(res.status).to.equal(401);
+          expect(String(res.body ?? "")).to.not.include("academico_");
+        });
 
 docs: |
   Denial: GET /metrics with an incorrect X-Metrics-Token value must return 401.
