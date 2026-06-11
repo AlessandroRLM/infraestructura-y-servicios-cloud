@@ -25,8 +25,10 @@ runtime:
         const body = res.body;
         expect(res.status).to.equal(200);
         expect(res.headers['content-type']).to.include('text/plain');
-        expect(body).to.include('academico_section_full_total');
-        expect(body).to.include('academico_rpc_requests_total');
+        // Plain counters and runtime collectors are always present at zero.
+        // Vec metrics (rpc_requests, section_full) only appear after first observation.
+        expect(body).to.include('academico_section_lock_timeout_total');
+        expect(body).to.include('academico_admission_saturated_total');
         expect(body).to.include('go_goroutines');
 
 docs: |

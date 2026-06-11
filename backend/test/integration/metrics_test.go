@@ -62,16 +62,18 @@ func TestMetrics_ValidToken_200(t *testing.T) {
 	}
 
 	bodyStr := string(body)
-	expected := []string{
-		"academico_rpc_requests_total",
-		"academico_rpc_duration_seconds",
-		"academico_section_full_total",
-		"academico_admission_saturated_total",
+	// Plain (non-vec) counters and runtime collectors are always present in the
+	// exposition text — even at value zero — because they carry a single pre-determined
+	// label set. CounterVec / HistogramVec metrics (rpc_requests, rpc_duration,
+	// section_full) only appear after their first WithLabelValues call, so they are
+	// validated by tests that explicitly trigger RPCs or events.
+	alwaysPresent := []string{
 		"academico_section_lock_timeout_total",
+		"academico_admission_saturated_total",
 		"go_goroutines",
 		"process_open_fds",
 	}
-	for _, metric := range expected {
+	for _, metric := range alwaysPresent {
 		if !strings.Contains(bodyStr, metric) {
 			t.Errorf("body does not contain %q", metric)
 		}
