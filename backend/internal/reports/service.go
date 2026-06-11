@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	reportsv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/reports/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pgconv"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports/reportsdb"
 )
 
@@ -321,7 +321,7 @@ func buildSectionGradeResponse(sectionID uuid.UUID, rows []reportsdb.ActaForSect
 			Position:     r.Position.Int32,
 		}
 		if r.GradeValue.Valid {
-			partial.Value = numericToString(r.GradeValue)
+			partial.Value = pgconv.NumericToString(r.GradeValue)
 		}
 		entry.grades = append(entry.grades, partial)
 	}
@@ -341,7 +341,7 @@ func buildSectionGradeResponse(sectionID uuid.UUID, rows []reportsdb.ActaForSect
 			row.LastNameMaternal = r.LastNameMaternal.String
 		}
 		if r.FinalGrade.Valid {
-			row.FinalGrade = numericToString(r.FinalGrade)
+			row.FinalGrade = pgconv.NumericToString(r.FinalGrade)
 			row.Outcome = gradeOutcome(row.FinalGrade)
 		} else {
 			row.Outcome = "in_progress"
@@ -391,7 +391,7 @@ func buildSectionGradeResponseFromTeacher(sectionID uuid.UUID, rows []reportsdb.
 			Position:     r.Position.Int32,
 		}
 		if r.GradeValue.Valid {
-			partial.Value = numericToString(r.GradeValue)
+			partial.Value = pgconv.NumericToString(r.GradeValue)
 		}
 		entry.grades = append(entry.grades, partial)
 	}
@@ -411,7 +411,7 @@ func buildSectionGradeResponseFromTeacher(sectionID uuid.UUID, rows []reportsdb.
 			row.LastNameMaternal = r.LastNameMaternal.String
 		}
 		if r.FinalGrade.Valid {
-			row.FinalGrade = numericToString(r.FinalGrade)
+			row.FinalGrade = pgconv.NumericToString(r.FinalGrade)
 			row.Outcome = gradeOutcome(row.FinalGrade)
 		} else {
 			row.Outcome = "in_progress"
@@ -555,7 +555,7 @@ func buildStudentRecordResponse(studentID uuid.UUID, rows []reportsdb.FichaForSt
 		}
 
 		if r.FinalGrade.Valid {
-			row.FinalGrade = numericToString(r.FinalGrade)
+			row.FinalGrade = pgconv.NumericToString(r.FinalGrade)
 			row.Outcome = gradeOutcome(row.FinalGrade)
 		} else {
 			// Map outcome directly from the SE status column so that "withdrawn"
@@ -578,70 +578,6 @@ func buildStudentRecordResponse(studentID uuid.UUID, rows []reportsdb.FichaForSt
 }
 
 // --- Conversion helpers ---
-
-// numericToString converts a pgtype.Numeric to its canonical fixed-point decimal string,
-// preserving the scale stored in Exp so that values round-trip without float64 drift.
-//
-// pgtype.Numeric stores the value as coefficient Int × 10^Exp.
-//   - Exp == 0  → integer, no decimal point (e.g. "5")
-//   - Exp < 0   → |Exp| decimal digits (e.g. Int=55, Exp=-1 → "5.5"; Int=50, Exp=-1 → "5.0")
-//   - Exp > 0   → trailing zeros shifted left (scaled integer, no decimal point)
-//
-// Uses pure *big.Int arithmetic — float64 is never involved.
-// Canonical source: internal/grades/repository.go numericToString (duplicated here to
-// avoid a cross-domain import; NFR-3 forbids importing internal/grades from internal/reports).
-func numericToString(n pgtype.Numeric) string {
-	if !n.Valid {
-		return ""
-	}
-	if n.Int == nil {
-		// Zero value with a given scale: produce "0" or "0.000…" depending on Exp.
-		if n.Exp >= 0 {
-			return "0"
-		}
-		scale := int(-n.Exp)
-		return "0." + numericRepeatZero(scale)
-	}
-
-	coeff := new(big.Int).Set(n.Int) // coefficient (may be negative)
-
-	switch {
-	case n.Exp == 0:
-		return coeff.String()
-
-	case n.Exp > 0:
-		mul := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n.Exp)), nil)
-		coeff.Mul(coeff, mul)
-		return coeff.String()
-
-	default: // n.Exp < 0
-		scale := int(-n.Exp)
-		ten := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(scale)), nil)
-
-		neg := coeff.Sign() < 0
-		abs := new(big.Int).Abs(coeff)
-
-		intPart := new(big.Int).Quo(abs, ten)
-		fracPart := new(big.Int).Mod(abs, ten)
-
-		fracStr := fmt.Sprintf("%0*s", scale, fracPart.String())
-
-		sign := ""
-		if neg {
-			sign = "-"
-		}
-		return fmt.Sprintf("%s%s.%s", sign, intPart.String(), fracStr)
-	}
-}
-
-// numericRepeatZero returns a string of n '0' characters (used for zero-valued fixed-point).
-func numericRepeatZero(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = '0'
-	}
-	return string(b)
-}
 
 // gradeOutcome maps a grade string to "passed" / "failed" using the 4.0 threshold.
 // An unparseable grade is mapped to "failed" (safe default).

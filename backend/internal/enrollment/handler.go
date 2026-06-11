@@ -13,6 +13,7 @@ import (
 	enrollmentv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1/enrollmentv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/enrollment/enrollmentdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/connectutil"
 )
 
 // Handler implements enrollmentv1connect.EnrollmentServiceHandler.
@@ -58,15 +59,6 @@ func MapError(err error) error {
 	// map or log, not both — this is the only place that logs for unmapped failures.
 	slog.Error("enrollment: unhandled internal error", "err", err)
 	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
-}
-
-// parseUUID parses a string UUID and returns CodeInvalidArgument on failure.
-func parseUUID(s string) (uuid.UUID, error) {
-	id, err := uuid.Parse(s)
-	if err != nil {
-		return uuid.UUID{}, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid UUID"))
-	}
-	return id, nil
 }
 
 // --- Management RPCs ---
@@ -130,14 +122,14 @@ func (h *Handler) ListEnrollments(
 	f := ListEnrollmentsFilter{}
 
 	if s := req.Msg.GetStudentId(); s != "" {
-		id, err := parseUUID(s)
+		id, err := connectutil.ParseUUID(s)
 		if err != nil {
 			return nil, err
 		}
 		f.StudentID = &id
 	}
 	if s := req.Msg.GetProgramId(); s != "" {
-		id, err := parseUUID(s)
+		id, err := connectutil.ParseUUID(s)
 		if err != nil {
 			return nil, err
 		}

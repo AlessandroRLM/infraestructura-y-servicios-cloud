@@ -85,29 +85,3 @@ func TestMapError_WrappedSentinels(t *testing.T) {
 	}
 }
 
-// TestParseUUID_Invalid verifies that a non-UUID string returns CodeInvalidArgument.
-func TestParseUUID_Invalid(t *testing.T) {
-	t.Parallel()
-
-	_, err := parseUUID("not-a-valid-uuid")
-	ce, ok := err.(*connect.Error)
-	if !ok {
-		t.Fatalf("parseUUID(bad) returned %T; want *connect.Error", err)
-	}
-	if ce.Code() != connect.CodeInvalidArgument {
-		t.Errorf("code = %v, want CodeInvalidArgument", ce.Code())
-	}
-}
-
-// TestParseUUID_Valid verifies that a well-formed UUID parses without error.
-func TestParseUUID_Valid(t *testing.T) {
-	t.Parallel()
-
-	id, err := parseUUID("00000000-0000-0000-0000-000000000001")
-	if err != nil {
-		t.Fatalf("parseUUID(valid) returned error: %v", err)
-	}
-	if id.String() != "00000000-0000-0000-0000-000000000001" {
-		t.Errorf("id = %v, want 00000000-0000-0000-0000-000000000001", id)
-	}
-}
