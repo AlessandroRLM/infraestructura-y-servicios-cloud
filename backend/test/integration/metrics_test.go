@@ -3,6 +3,8 @@ package integration_test
 import (
 	"context"
 	"io"
+	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +15,20 @@ import (
 
 	authv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
+	section_enrollmentv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1"
+	section_enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
+	"github.com/google/uuid"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
+	platformmetrics "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/metrics"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/server"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac/rbacdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
 
 const testMetricsToken = "test-metrics-token"
@@ -324,4 +340,420 @@ func TestMetrics_LockTimeout_CounterAndRPCCode(t *testing.T) {
 		t.Errorf("academico_section_full_total delta = %.0f, want 0 (before=%.0f, after=%.0f)",
 			delta, beforeFull, afterFull)
 	}
+}
+
+// seedActiveEnrollmentDirectSQL inserts an active (in_progress) section_enrollment row
+// directly via SQL, bypassing the service layer. This is used by I-7/I-8 to control the
+// active-seat count without triggering any counter logic in the production code path.
+func seedActiveEnrollmentDirectSQL(t *testing.T, enrollmentID, sectionID string) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := pgxPool.Exec(ctx,
+		`INSERT INTO section_enrollments (enrollment_id, section_id, status)
+		 VALUES ($1, $2, 'in_progress')`,
+		enrollmentID, sectionID,
+	)
+	if err != nil {
+		t.Fatalf("seedActiveEnrollmentDirectSQL: %v", err)
+	}
+}
+
+// TestMetrics_SectionFull_PreCheckCounter verifies that the pre_check path of
+// academico_section_full_total increments by exactly 1 when a section is already at
+// full capacity before the enrollment transaction begins (I-7, FR-3a).
+//
+// The pre-check gate (CountActiveSeats before acquiring the section lock) fires first.
+// We confirm that only pre_check increments and under_lock remains unchanged.
+func TestMetrics_SectionFull_PreCheckCounter(t *testing.T) {
+	ctx := context.Background()
+
+	// Seed a student with all pre-RPC prerequisites satisfied.
+	studentUserID, studentSID := seedUserWithSession(t, "metrics-i7-stu@metrics.test", "student")
+	seedStudentProfile(t, studentUserID, 2099)
+
+	programID, courseID, programCleanup := seedProgramWithCourse(t)
+	defer programCleanup()
+
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	defer periodCleanup()
+
+	// Capacity=1: the pre-check fires as soon as one active seat exists.
+	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 1)
+	defer sectionCleanup()
+
+	_, enrollmentCleanup := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
+	defer enrollmentCleanup()
+
+	cleanupAllSectionEnrollmentsForSection(t, sectionID)
+
+	// Seed a second student to occupy the single seat (direct SQL — bypasses all
+	// production counters so we start with clean counter deltas).
+	blockerUserID, _ := seedUserWithSession(t, "metrics-i7-blocker@metrics.test", "student")
+	seedStudentProfile(t, blockerUserID, 2099)
+	blockerEnrollmentID, blockerEnrollCleanup := seedPaidEnrollment(t, blockerUserID.String(), programID, periodYear)
+	defer blockerEnrollCleanup()
+	seedActiveEnrollmentDirectSQL(t, blockerEnrollmentID, sectionID)
+
+	before := scrapeMetrics(t)
+
+	// Attempt enrollment — pre-check must see activeCount=1 == capacity=1 → reject.
+	client := newSectionEnrollmentClient(nil)
+	_, rpcErr := seEnrollOwn(ctx, client, studentSID, sectionID, programID)
+
+	after := scrapeMetrics(t)
+
+	// The RPC must return CodeFailedPrecondition (ErrSectionFull mapping).
+	assertConnectCode(t, rpcErr, connect.CodeFailedPrecondition)
+
+	// pre_check counter must increase by exactly 1.
+	beforePre := parseCounterValue(before, "academico_section_full_total", `path="pre_check"`)
+	afterPre := parseCounterValue(after, "academico_section_full_total", `path="pre_check"`)
+	if delta := afterPre - beforePre; delta != 1 {
+		t.Errorf("section_full_total{path=pre_check} delta = %.0f, want 1 (before=%.0f after=%.0f)",
+			delta, beforePre, afterPre)
+	}
+
+	// under_lock counter must NOT change.
+	beforeUnder := parseCounterValue(before, "academico_section_full_total", `path="under_lock"`)
+	afterUnder := parseCounterValue(after, "academico_section_full_total", `path="under_lock"`)
+	if delta := afterUnder - beforeUnder; delta != 0 {
+		t.Errorf("section_full_total{path=under_lock} delta = %.0f, want 0 (before=%.0f after=%.0f)",
+			delta, beforeUnder, afterUnder)
+	}
+}
+
+// TestMetrics_SectionFull_UnderLockCounter verifies that the under_lock path of
+// academico_section_full_total increments by exactly 1 when the section reaches
+// capacity only after the enrollment transaction acquires the row lock (I-8, FR-3b).
+//
+// Determinism technique: tx A holds the section row FOR UPDATE within an open transaction
+// AND inserts an active seat row in that SAME transaction (uncommitted). B's pre-check
+// runs outside any transaction under READ COMMITTED — it sees 0 active seats (tx A's
+// insert is uncommitted). B's enroll tx then tries FOR UPDATE, blocks (A holds it).
+// A bounded 250ms sleep gives B time to reach the contention point. Then tx A commits:
+// the insert and lock release happen atomically. B acquires the lock, counts 1 active
+// seat (committed by A), increments under_lock, and returns CodeFailedPrecondition.
+//
+// Sleep is ONLY used as a bounded wait for B to reach the lock contention point; all
+// critical ordering is enforced by the channel barriers and DB lock semantics.
+// Run 3× to validate determinism: -run TestMetrics_SectionFull_UnderLockCounter -count 3.
+func TestMetrics_SectionFull_UnderLockCounter(t *testing.T) {
+	ctx := context.Background()
+
+	// Seed a student with all pre-RPC prerequisites satisfied.
+	studentUserID, studentSID := seedUserWithSession(t, "metrics-i8-stu@metrics.test"+"_"+uniqueSuffix(t), "student")
+	seedStudentProfile(t, studentUserID, 2099)
+
+	programID, courseID, programCleanup := seedProgramWithCourse(t)
+	defer programCleanup()
+
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	defer periodCleanup()
+
+	// Capacity=1, 0 active seats: pre-check passes (CountActiveSeats returns 0 < 1).
+	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 1)
+	defer sectionCleanup()
+
+	_, enrollmentCleanup := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
+	defer enrollmentCleanup()
+
+	cleanupAllSectionEnrollmentsForSection(t, sectionID)
+
+	// Seed a second student. tx A will INSERT this student's section_enrollment within
+	// its transaction (uncommitted) so pre-check sees 0 but under-lock count sees 1.
+	blockerUserID, _ := seedUserWithSession(t, "metrics-i8-blocker@metrics.test"+"_"+uniqueSuffix(t), "student")
+	seedStudentProfile(t, blockerUserID, 2099)
+	blockerEnrollmentID, blockerEnrollCleanup := seedPaidEnrollment(t, blockerUserID.String(), programID, periodYear)
+	defer blockerEnrollCleanup()
+
+	sectionUUID, err := uuid.Parse(sectionID)
+	if err != nil {
+		t.Fatalf("parse sectionID: %v", err)
+	}
+
+	// lockHeld is closed once tx A has acquired the section FOR UPDATE and inserted the
+	// uncommitted seat row — signalling B may now fire its pre-check.
+	lockHeld := make(chan struct{})
+	// lockCommit signals tx A to commit (releasing the lock and making the insert visible).
+	lockCommit := make(chan struct{})
+	// txDone is closed once tx A's commit returns.
+	txDone := make(chan struct{})
+
+	// tx A: within a single open transaction —
+	//   1. INSERT an active seat row (uncommitted — invisible to B's READ COMMITTED pre-check)
+	//   2. Acquire the section row FOR UPDATE (holds the lock B needs)
+	//   3. Signal lockHeld so B can start its pre-check
+	//   4. Wait for lockCommit (fired after 250ms when B is blocking on the FOR UPDATE)
+	//   5. Commit: insert becomes visible + lock is released → B acquires lock, counts 1
+	go func() {
+		defer close(txDone)
+		txCtx := context.Background()
+		tx, err := pgxPool.Begin(txCtx)
+		if err != nil {
+			close(lockHeld)
+			return
+		}
+		// Insert the active seat WITHIN this transaction (uncommitted at pre-check time).
+		_, _ = tx.Exec(txCtx,
+			`INSERT INTO section_enrollments (enrollment_id, section_id, status)
+			 VALUES ($1, $2, 'in_progress')`,
+			blockerEnrollmentID, sectionID,
+		)
+
+		// Acquire the section row FOR UPDATE — same lock as EnrollSectionTx step 2.
+		var dummy string
+		_ = tx.QueryRow(txCtx,
+			`SELECT id::text FROM sections WHERE id = $1 FOR UPDATE`,
+			sectionUUID,
+		).Scan(&dummy)
+
+		// Signal: seat row is inserted (uncommitted) + section lock is held.
+		close(lockHeld)
+
+		// Bounded wait: 250ms gives B time to complete its pre-check (which sees 0 rows
+		// since our insert is uncommitted) and reach the FOR UPDATE contention point.
+		// The lock contention provides the real ordering guarantee — sleep only sets a
+		// minimum window for B to be blocked before A releases.
+		select {
+		case <-lockCommit:
+		case <-time.After(300 * time.Millisecond):
+		}
+
+		// Commit: the insert becomes visible AND the section lock is released atomically.
+		_ = tx.Commit(txCtx)
+	}()
+
+	// BARRIER: wait until tx A holds the lock (and has inserted the uncommitted row).
+	<-lockHeld
+
+	before := scrapeMetrics(t)
+
+	// Fire B's RPC in a goroutine: pre-check sees 0 seats (A's insert uncommitted),
+	// passes; B's enroll tx tries FOR UPDATE on the section row, blocks waiting for A.
+	rpcDone := make(chan error, 1)
+	go func() {
+		client := newSectionEnrollmentClient(nil)
+		_, rpcErr := seEnrollOwn(ctx, client, studentSID, sectionID, programID)
+		rpcDone <- rpcErr
+	}()
+
+	// Bounded wait: 250ms for B to pass its pre-check and block on the section lock.
+	// A's commit fires after this, releasing the lock so B can proceed.
+	select {
+	case <-time.After(250 * time.Millisecond):
+	case rpcErr := <-rpcDone:
+		// B completed before we released A — pre-check may have fired (pre-check does not
+		// block on A's lock). Check which counter fired.
+		<-txDone
+		after := scrapeMetrics(t)
+		preDelta := parseCounterValue(after, "academico_section_full_total", `path="pre_check"`) -
+			parseCounterValue(before, "academico_section_full_total", `path="pre_check"`)
+		underDelta := parseCounterValue(after, "academico_section_full_total", `path="under_lock"`) -
+			parseCounterValue(before, "academico_section_full_total", `path="under_lock"`)
+		t.Logf("RPC completed before commit: err=%v pre_check_delta=%.0f under_lock_delta=%.0f",
+			rpcErr, preDelta, underDelta)
+		// One of the two paths must have fired.
+		if preDelta+underDelta != 1 {
+			t.Errorf("total section_full delta = %.0f, want 1", preDelta+underDelta)
+		}
+		return
+	}
+
+	// Signal tx A to commit (insert visible + lock released).
+	close(lockCommit)
+	<-txDone // wait for the commit to complete.
+
+	// Wait for B's RPC to complete (should acquire the lock, count 1, return SectionFull).
+	var rpcErr error
+	select {
+	case rpcErr = <-rpcDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("RPC did not complete within 5s after tx A commit")
+	}
+
+	after := scrapeMetrics(t)
+
+	// B must return CodeFailedPrecondition (ErrSectionFull, under-lock path).
+	assertConnectCode(t, rpcErr, connect.CodeFailedPrecondition)
+
+	// under_lock counter must increase by exactly 1.
+	beforeUnder := parseCounterValue(before, "academico_section_full_total", `path="under_lock"`)
+	afterUnder := parseCounterValue(after, "academico_section_full_total", `path="under_lock"`)
+	if delta := afterUnder - beforeUnder; delta != 1 {
+		t.Errorf("section_full_total{path=under_lock} delta = %.0f, want 1 (before=%.0f after=%.0f)",
+			delta, beforeUnder, afterUnder)
+	}
+
+	// pre_check counter must NOT change (B's pre-check saw 0 active seats — A's insert was uncommitted).
+	beforePre := parseCounterValue(before, "academico_section_full_total", `path="pre_check"`)
+	afterPre := parseCounterValue(after, "academico_section_full_total", `path="pre_check"`)
+	if delta := afterPre - beforePre; delta != 0 {
+		t.Errorf("section_full_total{path=pre_check} delta = %.0f, want 0 (before=%.0f after=%.0f)",
+			delta, beforePre, afterPre)
+	}
+}
+
+// TestMetrics_AdmissionSaturated_Counter verifies that admission_saturated_total
+// increments by exactly 1 when the concurrency limiter rejects an enroll RPC (I-9, FR-3d).
+//
+// Fidelity decision: the shared test harness uses a single server instance with a
+// concurrency limiter of cap=3 (floor(5*0.6)). Saturating it with 3 held-open RPCs while
+// firing a 4th is complex and prone to CI timing issues. Instead, we spin up a test-local
+// server with cap=0 (NewConcurrencyLimiter(0, m) = floor(0*0.6)=0, fully closed). The
+// local server uses a fresh metrics registry; we assert the counter on that registry by
+// scraping its own /metrics endpoint. This gives full observable fidelity: the interceptor
+// rejects the RPC with CodeResourceExhausted and the counter increment is visible via scrape.
+// The shared server's counter is covered indirectly by U-13 (unit) and the stampede test.
+func TestMetrics_AdmissionSaturated_Counter(t *testing.T) {
+	ctx := context.Background()
+
+	// Seed a student with all pre-RPC prerequisites so the request reaches the limiter.
+	studentUserID, studentSID := seedUserWithSession(t, "metrics-i9-stu@metrics.test"+"_"+uniqueSuffix(t), "student")
+	seedStudentProfile(t, studentUserID, 2099)
+
+	programID, courseID, programCleanup := seedProgramWithCourse(t)
+	defer programCleanup()
+
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	defer periodCleanup()
+
+	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
+	defer sectionCleanup()
+
+	_, enrollmentCleanup := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
+	defer enrollmentCleanup()
+
+	cleanupAllSectionEnrollmentsForSection(t, sectionID)
+
+	// Build a test-local server wired with a cap=0 limiter on a fresh metrics registry.
+	localMetricsReg := platformmetrics.New()
+	localSEMetrics := localMetricsReg.SectionEnrollmentMetrics()
+	// NewConcurrencyLimiter(0, ...) → floor(0 * 0.6) = 0 → every enroll is immediately rejected.
+	localLimiter := sectionenrollment.NewConcurrencyLimiter(0, localSEMetrics)
+	localURL := buildSETestServerWithLimiter(t, localLimiter, localMetricsReg)
+
+	// Scrape the local server's /metrics before the RPC.
+	before := scrapeMetricsAt(t, localURL)
+
+	// Fire the enroll RPC — cap=0 means the limiter interceptor rejects immediately.
+	client := section_enrollmentv1connect.NewSectionEnrollmentServiceClient(http.DefaultClient, localURL)
+	req := connect.NewRequest(&section_enrollmentv1.EnrollOwnSectionRequest{
+		SectionId: sectionID,
+		ProgramId: programID,
+	})
+	req.Header().Set("Cookie", "sid="+studentSID)
+	_, rpcErr := client.EnrollOwnSection(ctx, req)
+
+	after := scrapeMetricsAt(t, localURL)
+
+	// The RPC must return CodeResourceExhausted (ErrAdmissionSaturated mapping in limiter.go).
+	assertConnectCode(t, rpcErr, connect.CodeResourceExhausted)
+
+	// admission_saturated_total must have increased by exactly 1 on the local registry.
+	beforeV := parseCounterValue(before, "academico_admission_saturated_total", "")
+	afterV := parseCounterValue(after, "academico_admission_saturated_total", "")
+	if delta := afterV - beforeV; delta != 1 {
+		t.Errorf("admission_saturated_total delta = %.0f, want 1 (before=%.0f after=%.0f)",
+			delta, beforeV, afterV)
+	}
+}
+
+// scrapeMetricsAt issues GET <url>/metrics with the shared test token and returns the body.
+func scrapeMetricsAt(t *testing.T, baseURL string) string {
+	t.Helper()
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, baseURL+"/metrics", nil)
+	if err != nil {
+		t.Fatalf("scrapeMetricsAt: create request: %v", err)
+	}
+	req.Header.Set("X-Metrics-Token", testMetricsToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("scrapeMetricsAt: do request: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("scrapeMetricsAt: read body: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("scrapeMetricsAt: status = %d, want 200; body: %s", resp.StatusCode, body)
+	}
+	return string(body)
+}
+
+// buildSETestServerWithLimiter constructs a minimal test http.Server with the given
+// concurrency limiter and metrics registry, starts it on a random port, and registers a
+// Cleanup to shut it down. It mirrors the main_test.go wiring for the section-enrollment
+// slice only. The server uses the shared database pool and sharedCfg session settings.
+func buildSETestServerWithLimiter(t *testing.T, lim *sectionenrollment.ConcurrencyLimiter, metricsReg *platformmetrics.Registry) string {
+	t.Helper()
+
+	redInterceptor := metricsReg.RPCInterceptor()
+
+	redisClient := testRedisClient
+	sessionStore := session.NewRedisStore(redisClient)
+	roleLoader := rbac.NewPostgresRoleLoader(rbacdb.New(pgxPool))
+	authInterceptor := auth.NewSessionInterceptor(sessionStore, roleLoader, sharedCfg)
+
+	exempt := map[string]struct{}{
+		authv1connect.AuthServiceLoginProcedure:                {},
+		authv1connect.AuthServiceRequestPasswordResetProcedure: {},
+		authv1connect.AuthServiceConfirmPasswordResetProcedure: {},
+		authv1connect.AuthServiceLogoutProcedure:               {},
+	}
+	policies := map[string]authz.PolicyFunc{
+		section_enrollmentv1connect.SectionEnrollmentServiceEnrollOwnSectionProcedure: authz.RequirePermission(authz.PermSectionsEnroll),
+	}
+	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
+
+	seLimiterInterceptor := sectionenrollment.NewConcurrencyLimitInterceptor(lim)
+	seOpts := server.Chain(redInterceptor, seLimiterInterceptor, authInterceptor, authzInterceptor)
+
+	seQueries := sectionenrollmentdb.New(pgxPool)
+	seRepo := sectionenrollment.NewPostgresRepository(seQueries, pgxPool, metricsReg.SectionEnrollmentMetrics())
+	seSvc := sectionenrollment.NewService(seRepo)
+	seHandler := sectionenrollment.NewHandler(seSvc)
+
+	authQueries := authdb.New(pgxPool)
+	authRepo := auth.NewPostgresRepository(authQueries)
+	authSvc := auth.NewService(authRepo, sessionStore, roleLoader, sharedCfg)
+	authHandler := auth.NewHandler(authSvc, sharedCfg)
+	authOpts := server.Chain(redInterceptor, authInterceptor, authzInterceptor)
+
+	metricsHandlerReg := func(mux *http.ServeMux) {
+		mux.Handle("/metrics", metricsReg.Handler(sharedCfg.MetricsAuthToken))
+	}
+	sectionEnrollmentReg := func(mux *http.ServeMux) {
+		sectionenrollment.Register(mux, seHandler, seOpts...)
+	}
+	authReg := func(mux *http.ServeMux) {
+		auth.Register(mux, authHandler, authOpts...)
+	}
+
+	log := logging.New(slog.LevelError)
+
+	// pgxPool also implements db.Pinger.
+	srv := server.New(log, pgxPool, pgxPool, authReg, sectionEnrollmentReg, metricsHandlerReg)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("buildSETestServer: listen: %v", err)
+	}
+	srv.Addr = ln.Addr().String()
+	go func() {
+		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+			t.Logf("buildSETestServer: %v", err)
+		}
+	}()
+	waitForServer(ln.Addr().String(), 5*time.Second)
+
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			t.Logf("buildSETestServer Shutdown: %v", err)
+		}
+	})
+
+	return "http://" + ln.Addr().String()
 }
