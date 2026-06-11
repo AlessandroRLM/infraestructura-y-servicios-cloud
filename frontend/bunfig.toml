@@ -1,0 +1,8 @@
+[install]
+
+# disabled lyfecycle scripts auto run
+trustedDependencies = []
+
+# set 3 days of minimum release for install packages versions
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["@types/bun", "typescript"]
