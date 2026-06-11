@@ -81,3 +81,12 @@ sql:
         out: "internal/reports/reportsdb"
         sql_package: "pgx/v5"
         emit_interface: true
+  - engine: "postgresql"
+    queries: "internal/audit_logs/query.sql"
+    schema: "migrations/"
+    gen:
+      go:
+        package: "auditlogsdb"
+        out: "internal/audit_logs/auditlogsdb"
+        sql_package: "pgx/v5"
+        emit_interface: true
