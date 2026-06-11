@@ -73,6 +73,12 @@ func TestService_ListAuditLogs_Delegates(t *testing.T) {
 	if len(resp.Logs) != 1 {
 		t.Errorf("expected 1 log row, got %d", len(resp.Logs))
 	}
+	if repo.gotParams.Entity != "grades" {
+		t.Errorf("repo received Entity = %q, want %q", repo.gotParams.Entity, "grades")
+	}
+	if repo.gotParams.EntityID != entityID {
+		t.Errorf("repo received EntityID = %v, want %v", repo.gotParams.EntityID, entityID)
+	}
 }
 
 // TestService_ListAuditLogs_PageSizeUnset_ClampsTo20 verifies that an unset (zero) page_size

@@ -49,29 +49,34 @@ func NewPostgresRepository(q auditlogsdb.Querier) *postgresRepository {
 	return &postgresRepository{q: q}
 }
 
+// toListAuditLogsParams translates ListParams into the sqlc-generated
+// auditlogsdb.ListAuditLogsParams. Optional pointer fields are mapped to
+// pgtype.UUID / pgtype.Timestamptz with Valid=false when absent.
+func toListAuditLogsParams(p ListParams) auditlogsdb.ListAuditLogsParams {
+	out := auditlogsdb.ListAuditLogsParams{
+		Entity:   p.Entity,
+		EntityID: pgtype.UUID{Bytes: p.EntityID, Valid: true},
+		RowLimit: p.RowLimit,
+	}
+	if p.ActorID != nil {
+		out.ActorID = pgtype.UUID{Bytes: *p.ActorID, Valid: true}
+	}
+	if p.CreatedFrom != nil {
+		out.CreatedFrom = pgtype.Timestamptz{Time: *p.CreatedFrom, Valid: true}
+	}
+	if p.CreatedTo != nil {
+		out.CreatedTo = pgtype.Timestamptz{Time: *p.CreatedTo, Valid: true}
+	}
+	if p.PageToken != nil {
+		out.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
+	}
+	return out
+}
+
 // ListAuditLogs translates ListParams to auditlogsdb.ListAuditLogsParams and executes
 // the keyset query. Errors are translated via TranslatePgError.
 func (r *postgresRepository) ListAuditLogs(ctx context.Context, params ListParams) ([]auditlogsdb.AuditLog, error) {
-	p := auditlogsdb.ListAuditLogsParams{
-		Entity:   params.Entity,
-		EntityID: pgtype.UUID{Bytes: params.EntityID, Valid: true},
-		RowLimit: params.RowLimit,
-	}
-
-	if params.ActorID != nil {
-		p.ActorID = pgtype.UUID{Bytes: *params.ActorID, Valid: true}
-	}
-	if params.CreatedFrom != nil {
-		p.CreatedFrom = pgtype.Timestamptz{Time: *params.CreatedFrom, Valid: true}
-	}
-	if params.CreatedTo != nil {
-		p.CreatedTo = pgtype.Timestamptz{Time: *params.CreatedTo, Valid: true}
-	}
-	if params.PageToken != nil {
-		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
-	}
-
-	rows, err := r.q.ListAuditLogs(ctx, p)
+	rows, err := r.q.ListAuditLogs(ctx, toListAuditLogsParams(params))
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}
