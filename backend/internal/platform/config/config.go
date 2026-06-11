@@ -36,6 +36,9 @@ type Config struct {
 	AppEnv string
 	// ReportsCacheTTL is the TTL for report cache entries in Redis. Required; must be > 0.
 	ReportsCacheTTL time.Duration
+	// MetricsAuthToken is the bearer token required in the X-Metrics-Token header to
+	// access the /metrics endpoint. Required; process fails at startup if absent or empty.
+	MetricsAuthToken string
 }
 
 const (
@@ -133,6 +136,12 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.ReportsCacheTTL = reportsCacheTTL
+
+	metricsToken := os.Getenv("METRICS_AUTH_TOKEN")
+	if metricsToken == "" {
+		return Config{}, fmt.Errorf("config: required env var METRICS_AUTH_TOKEN is not set")
+	}
+	cfg.MetricsAuthToken = metricsToken
 
 	return cfg, nil
 }
