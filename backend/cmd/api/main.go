@@ -11,6 +11,7 @@ import (
 	migrations "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/migrations"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
+	auditlogsv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/audit_logs/v1/auditlogsv1connect"
 	catalogv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
 	enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1/enrollmentv1connect"
 	gradesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1/gradesv1connect"
@@ -20,6 +21,8 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
+	audit_logs "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/audit_logs"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/audit_logs/auditlogsdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog/catalogdb"
@@ -185,6 +188,9 @@ func main() {
 		reportsv1connect.ReportsServiceGetSectionOccupancyReportProcedure: authz.RequirePermission(authz.PermReportsRead),
 		reportsv1connect.ReportsServiceGetProgramSummaryReportProcedure:   authz.RequirePermission(authz.PermReportsRead),
 		reportsv1connect.ReportsServiceGetStudentRecordReportProcedure:    authz.RequirePermission(authz.PermReportsRead),
+
+		// Audit logs procedure — requires audit.read.
+		auditlogsv1connect.AuditLogsServiceListAuditLogsProcedure: authz.RequirePermission(authz.PermAuditRead),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
@@ -279,6 +285,17 @@ func main() {
 		reports.Register(mux, reportsHandler, authOpts...)
 	}
 
+	// Audit logs handler (auditlogsdb.Querier → repository → service → Connect handler).
+	// No Redis cache — freshness over speed for admin-only low-volume reads.
+	auditQueries := auditlogsdb.New(pool)
+	auditRepo := audit_logs.NewPostgresRepository(auditQueries)
+	auditSvc := audit_logs.NewService(auditRepo)
+	auditHandler := audit_logs.NewHandler(auditSvc)
+
+	auditLogsReg := func(mux *http.ServeMux) {
+		audit_logs.Register(mux, auditHandler, authOpts...)
+	}
+
 	// Redis pinger for the readyz handler.
 	redisPinger, err := platformredis.NewPinger(cfg.RedisURL)
 	if err != nil {
@@ -295,6 +312,7 @@ func main() {
 		sectionEnrollmentReg,
 		gradesReg,
 		reportsReg,
+		auditLogsReg,
 	)
 	srv.Addr = cfg.HTTPAddr
 

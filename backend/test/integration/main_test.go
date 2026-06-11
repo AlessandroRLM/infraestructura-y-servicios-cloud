@@ -16,6 +16,7 @@ import (
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
+	auditlogsv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/audit_logs/v1/auditlogsv1connect"
 	catalogv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
 	enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1/enrollmentv1connect"
 	gradesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1/gradesv1connect"
@@ -25,6 +26,8 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
+	audit_logs "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/audit_logs"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/audit_logs/auditlogsdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog/catalogdb"
@@ -257,6 +260,9 @@ func TestMain(m *testing.M) {
 		reportsv1connect.ReportsServiceGetSectionOccupancyReportProcedure: authz.RequirePermission(authz.PermReportsRead),
 		reportsv1connect.ReportsServiceGetProgramSummaryReportProcedure:   authz.RequirePermission(authz.PermReportsRead),
 		reportsv1connect.ReportsServiceGetStudentRecordReportProcedure:    authz.RequirePermission(authz.PermReportsRead),
+
+		// Audit logs procedure — requires audit.read.
+		auditlogsv1connect.AuditLogsServiceListAuditLogsProcedure: authz.RequirePermission(authz.PermAuditRead),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
@@ -331,8 +337,17 @@ func TestMain(m *testing.M) {
 		reports.Register(mux, reportsHandler, authOpts...)
 	}
 
+	// Audit logs handler wiring — mirrors cmd/api/main.go exactly. No cache.
+	auditQueries := auditlogsdb.New(pool)
+	auditRepo := audit_logs.NewPostgresRepository(auditQueries)
+	auditSvc := audit_logs.NewService(auditRepo)
+	auditHandler := audit_logs.NewHandler(auditSvc)
+	auditLogsReg := func(mux *http.ServeMux) {
+		audit_logs.Register(mux, auditHandler, authOpts...)
+	}
+
 	log := logging.New(slog.LevelError) // suppress output in tests
-	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg, enrollmentReg, sectionEnrollmentReg, gradesReg, reportsReg)
+	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg, enrollmentReg, sectionEnrollmentReg, gradesReg, reportsReg, auditLogsReg)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
