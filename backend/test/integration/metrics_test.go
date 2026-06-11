@@ -4,8 +4,10 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -189,5 +191,137 @@ func TestMetrics_RED_UnauthenticatedRPC_CodeLabelPresent(t *testing.T) {
 	if !strings.Contains(after, "unauthenticated") {
 		t.Errorf("after unauthenticated RPC: expected code=unauthenticated label in %q; before: contains=%v",
 			"academico_rpc_requests_total", strings.Contains(before, "unauthenticated"))
+	}
+}
+
+// parseCounterValue scans the Prometheus text exposition body for a line matching
+// metricName followed by the given label substring and returns the float64 value.
+// Returns 0 when no matching line is found (counter not yet emitted / still at zero).
+// This is a best-effort line scan — adequate for counter diff assertions in tests.
+func parseCounterValue(body, metricName, labelSubstr string) float64 {
+	for _, line := range strings.Split(body, "\n") {
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+		if !strings.Contains(line, metricName) {
+			continue
+		}
+		if labelSubstr != "" && !strings.Contains(line, labelSubstr) {
+			continue
+		}
+		// Line format: metricName{labels} value
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+		v, err := strconv.ParseFloat(parts[len(parts)-1], 64)
+		if err != nil {
+			continue
+		}
+		return v
+	}
+	return 0
+}
+
+// TestMetrics_LockTimeout_CounterAndRPCCode exercises the 55P03 code path live against
+// the real database (test-plan item I-10, FR-3c, product-decisions obs #289).
+//
+// Determinism guarantee: a channel barrier ensures that tx A has acquired the
+// FOR UPDATE lock on the section row BEFORE the EnrollOwnSection RPC fires.
+// time.Sleep is used ONLY to hold the lock for a duration that comfortably exceeds
+// the 2500ms lock_timeout set by the repository; it is NOT used for synchronization.
+func TestMetrics_LockTimeout_CounterAndRPCCode(t *testing.T) {
+	ctx := context.Background()
+
+	// Seed a student with a paid enrollment and an open window so that all pre-RPC
+	// gates pass and the only failure point is the lock acquisition inside the tx.
+	studentUserID, studentSID := seedUserWithSession(t, "metrics-lt-stu@metrics.test", "student")
+	seedStudentProfile(t, studentUserID, 2099)
+
+	programID, courseID, programCleanup := seedProgramWithCourse(t)
+	defer programCleanup()
+
+	// Open enrollment window so the window gate passes.
+	periodID, periodYear, periodCleanup := seedAcademicPeriodWithWindow(t, true, false)
+	defer periodCleanup()
+
+	// capacity=10: section is not full, so the pre-check fast-fail does not fire.
+	sectionID, sectionCleanup := seedSection(t, courseID, periodID, 10)
+	defer sectionCleanup()
+
+	_, enrollmentCleanup := seedPaidEnrollment(t, studentUserID.String(), programID, periodYear)
+	defer enrollmentCleanup()
+
+	cleanupAllSectionEnrollmentsForSection(t, sectionID)
+
+	// lockHeld is closed by the goroutine AFTER the FOR UPDATE query returns,
+	// guaranteeing the lock is held before the RPC fires.
+	lockHeld := make(chan struct{})
+	// lockRelease is closed by the test after the RPC returns to release tx A promptly.
+	lockRelease := make(chan struct{})
+
+	// tx A: acquire the section row lock and hold it until the RPC completes.
+	go func() {
+		txCtx := context.Background()
+		tx, err := pgxPool.Begin(txCtx)
+		if err != nil {
+			// Can't signal; the test will hang and timeout — acceptable failure mode.
+			close(lockHeld)
+			return
+		}
+		defer tx.Rollback(txCtx) //nolint:errcheck
+
+		// Acquire the exact lock that EnrollSectionTx acquires (step 2 in the repository).
+		// This matches: SELECT ... FROM sections WHERE id=$1 FOR UPDATE
+		var dummy string
+		_ = tx.QueryRow(txCtx,
+			`SELECT id::text FROM sections WHERE id = $1 FOR UPDATE`,
+			sectionID,
+		).Scan(&dummy)
+
+		// Signal: lock is now held. The RPC may fire.
+		close(lockHeld)
+
+		// Hold the lock until the test signals release. The repository sets
+		// lock_timeout='2500ms', so we hold for 3500ms to ensure the RPC times out.
+		select {
+		case <-lockRelease:
+		case <-time.After(5 * time.Second): // safety valve
+		}
+		// tx.Rollback deferred above releases the lock.
+	}()
+
+	// BARRIER: wait for tx A to confirm the lock is held before scraping or calling RPC.
+	<-lockHeld
+
+	before := scrapeMetrics(t)
+
+	// tx B (inside the RPC): EnrollOwnSection tries to acquire the same lock, waits,
+	// hits the 2500ms lock_timeout, and returns 55P03 → ErrLockTimeout → CodeUnavailable.
+	client := newSectionEnrollmentClient(nil)
+	_, rpcErr := seEnrollOwn(ctx, client, studentSID, sectionID, programID)
+
+	// Release tx A promptly after RPC returns to keep the suite fast.
+	close(lockRelease)
+
+	after := scrapeMetrics(t)
+
+	// Assertion 1: the RPC must return CodeUnavailable (ErrLockTimeout sentinel).
+	assertConnectCode(t, rpcErr, connect.CodeUnavailable)
+
+	// Assertion 2: academico_section_lock_timeout_total incremented by exactly 1.
+	beforeLT := parseCounterValue(before, "academico_section_lock_timeout_total", "")
+	afterLT := parseCounterValue(after, "academico_section_lock_timeout_total", "")
+	if delta := afterLT - beforeLT; delta != 1 {
+		t.Errorf("academico_section_lock_timeout_total delta = %.0f, want 1 (before=%.0f, after=%.0f)",
+			delta, beforeLT, afterLT)
+	}
+
+	// Assertion 3: no section_full counter was touched (the timeout fires before capacity check).
+	beforeFull := parseCounterValue(before, "academico_section_full_total", "")
+	afterFull := parseCounterValue(after, "academico_section_full_total", "")
+	if delta := afterFull - beforeFull; delta != 0 {
+		t.Errorf("academico_section_full_total delta = %.0f, want 0 (before=%.0f, after=%.0f)",
+			delta, beforeFull, afterFull)
 	}
 }
