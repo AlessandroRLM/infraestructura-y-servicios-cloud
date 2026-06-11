@@ -607,43 +607,6 @@ func TestGetSectionGradeReport_StudentWithNoGrades_EmptyPartialGrades(t *testing
 	}
 }
 
-// --- numericToString exactness (FIX 3) ---
-
-func TestNumericToString_Exactness(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string // Scanned as pgtype.Numeric
-		want  string
-	}{
-		{"integer 5", "5", "5"},
-		{"5.0 preserves scale", "5.0", "5.0"},
-		{"5.5", "5.5", "5.5"},
-		{"4.9", "4.9", "4.9"},
-		{"0.0", "0.0", "0.0"},
-		{"7.00", "7.00", "7.00"},
-		{"negative", "-3.5", "-3.5"},
-		{"large", "100.00", "100.00"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			n := pgNum(tt.input)
-			got := numericToString(n)
-			if got != tt.want {
-				t.Errorf("numericToString(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-// TestNumericToString_InvalidReturnsEmpty verifies that an invalid Numeric returns "".
-func TestNumericToString_InvalidReturnsEmpty(t *testing.T) {
-	var n pgtype.Numeric // zero value: Valid=false
-	got := numericToString(n)
-	if got != "" {
-		t.Errorf("expected empty string for invalid Numeric, got %q", got)
-	}
-}
-
 // --- Year validation (FIX 5) ---
 
 func TestGetProgramSummaryReport_YearValidation_TooLow(t *testing.T) {

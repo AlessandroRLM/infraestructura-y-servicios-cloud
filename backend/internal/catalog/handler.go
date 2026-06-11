@@ -12,6 +12,7 @@ import (
 	catalogv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog/catalogdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/connectutil"
 )
 
 // Handler implements catalogv1connect.CatalogServiceHandler.
@@ -51,15 +52,6 @@ func MapError(err error) error {
 	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 }
 
-// parseUUID parses a string UUID and returns CodeInvalidArgument on failure.
-func parseUUID(s string) (uuid.UUID, error) {
-	id, err := uuid.Parse(s)
-	if err != nil {
-		return uuid.UUID{}, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid UUID"))
-	}
-	return id, nil
-}
-
 // --- Programs ---
 
 func (h *Handler) CreateProgram(
@@ -80,7 +72,7 @@ func (h *Handler) UpdateProgram(
 	ctx context.Context,
 	req *connect.Request[catalogv1.UpdateProgramRequest],
 ) (*connect.Response[catalogv1.Program], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +90,7 @@ func (h *Handler) GetProgram(
 	ctx context.Context,
 	req *connect.Request[catalogv1.GetProgramRequest],
 ) (*connect.Response[catalogv1.Program], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +120,7 @@ func (h *Handler) DeleteProgram(
 	ctx context.Context,
 	req *connect.Request[catalogv1.DeleteProgramRequest],
 ) (*connect.Response[catalogv1.DeleteProgramResponse], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +151,7 @@ func (h *Handler) UpdateCourse(
 	ctx context.Context,
 	req *connect.Request[catalogv1.UpdateCourseRequest],
 ) (*connect.Response[catalogv1.Course], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +170,7 @@ func (h *Handler) GetCourse(
 	ctx context.Context,
 	req *connect.Request[catalogv1.GetCourseRequest],
 ) (*connect.Response[catalogv1.Course], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +200,7 @@ func (h *Handler) DeleteCourse(
 	ctx context.Context,
 	req *connect.Request[catalogv1.DeleteCourseRequest],
 ) (*connect.Response[catalogv1.DeleteCourseResponse], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +232,7 @@ func (h *Handler) UpdateAcademicPeriod(
 	ctx context.Context,
 	req *connect.Request[catalogv1.UpdateAcademicPeriodRequest],
 ) (*connect.Response[catalogv1.AcademicPeriod], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +252,7 @@ func (h *Handler) GetAcademicPeriod(
 	ctx context.Context,
 	req *connect.Request[catalogv1.GetAcademicPeriodRequest],
 ) (*connect.Response[catalogv1.AcademicPeriod], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +282,7 @@ func (h *Handler) DeleteAcademicPeriod(
 	ctx context.Context,
 	req *connect.Request[catalogv1.DeleteAcademicPeriodRequest],
 ) (*connect.Response[catalogv1.DeleteAcademicPeriodResponse], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +313,7 @@ func (h *Handler) UpdateProgramQuota(
 	ctx context.Context,
 	req *connect.Request[catalogv1.UpdateProgramQuotaRequest],
 ) (*connect.Response[catalogv1.ProgramQuota], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +331,7 @@ func (h *Handler) GetProgramQuota(
 	ctx context.Context,
 	req *connect.Request[catalogv1.GetProgramQuotaRequest],
 ) (*connect.Response[catalogv1.ProgramQuota], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +346,7 @@ func (h *Handler) ListProgramQuotas(
 	ctx context.Context,
 	req *connect.Request[catalogv1.ListProgramQuotasRequest],
 ) (*connect.Response[catalogv1.ListProgramQuotasResponse], error) {
-	programID, err := parseUUID(req.Msg.GetProgramId())
+	programID, err := connectutil.ParseUUID(req.Msg.GetProgramId())
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +365,7 @@ func (h *Handler) DeleteProgramQuota(
 	ctx context.Context,
 	req *connect.Request[catalogv1.DeleteProgramQuotaRequest],
 ) (*connect.Response[catalogv1.DeleteProgramQuotaResponse], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -389,11 +381,11 @@ func (h *Handler) AddCourseToProgram(
 	ctx context.Context,
 	req *connect.Request[catalogv1.AddCourseToProgramRequest],
 ) (*connect.Response[catalogv1.ProgramCourse], error) {
-	programID, err := parseUUID(req.Msg.GetProgramId())
+	programID, err := connectutil.ParseUUID(req.Msg.GetProgramId())
 	if err != nil {
 		return nil, err
 	}
-	courseID, err := parseUUID(req.Msg.GetCourseId())
+	courseID, err := connectutil.ParseUUID(req.Msg.GetCourseId())
 	if err != nil {
 		return nil, err
 	}
@@ -408,11 +400,11 @@ func (h *Handler) RemoveCourseFromProgram(
 	ctx context.Context,
 	req *connect.Request[catalogv1.RemoveCourseFromProgramRequest],
 ) (*connect.Response[catalogv1.RemoveCourseFromProgramResponse], error) {
-	programID, err := parseUUID(req.Msg.GetProgramId())
+	programID, err := connectutil.ParseUUID(req.Msg.GetProgramId())
 	if err != nil {
 		return nil, err
 	}
-	courseID, err := parseUUID(req.Msg.GetCourseId())
+	courseID, err := connectutil.ParseUUID(req.Msg.GetCourseId())
 	if err != nil {
 		return nil, err
 	}
@@ -426,7 +418,7 @@ func (h *Handler) ListProgramCourses(
 	ctx context.Context,
 	req *connect.Request[catalogv1.ListProgramCoursesRequest],
 ) (*connect.Response[catalogv1.ListProgramCoursesResponse], error) {
-	programID, err := parseUUID(req.Msg.GetProgramId())
+	programID, err := connectutil.ParseUUID(req.Msg.GetProgramId())
 	if err != nil {
 		return nil, err
 	}
@@ -560,7 +552,7 @@ func (h *Handler) UpdateSection(
 	ctx context.Context,
 	req *connect.Request[catalogv1.UpdateSectionRequest],
 ) (*connect.Response[catalogv1.Section], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -577,7 +569,7 @@ func (h *Handler) GetSection(
 	ctx context.Context,
 	req *connect.Request[catalogv1.GetSectionRequest],
 ) (*connect.Response[catalogv1.Section], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -594,7 +586,7 @@ func (h *Handler) ListSections(
 ) (*connect.Response[catalogv1.ListSectionsResponse], error) {
 	var courseID *uuid.UUID
 	if s := req.Msg.GetCourseId(); s != "" {
-		id, err := parseUUID(s)
+		id, err := connectutil.ParseUUID(s)
 		if err != nil {
 			return nil, err
 		}
@@ -603,7 +595,7 @@ func (h *Handler) ListSections(
 
 	var academicPeriodID *uuid.UUID
 	if s := req.Msg.GetAcademicPeriodId(); s != "" {
-		id, err := parseUUID(s)
+		id, err := connectutil.ParseUUID(s)
 		if err != nil {
 			return nil, err
 		}
@@ -625,7 +617,7 @@ func (h *Handler) DeleteSection(
 	ctx context.Context,
 	req *connect.Request[catalogv1.DeleteSectionRequest],
 ) (*connect.Response[catalogv1.DeleteSectionResponse], error) {
-	id, err := parseUUID(req.Msg.GetId())
+	id, err := connectutil.ParseUUID(req.Msg.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -641,11 +633,11 @@ func (h *Handler) AssignTeacherToSection(
 	ctx context.Context,
 	req *connect.Request[catalogv1.AssignTeacherToSectionRequest],
 ) (*connect.Response[catalogv1.SectionTeacher], error) {
-	sectionID, err := parseUUID(req.Msg.GetSectionId())
+	sectionID, err := connectutil.ParseUUID(req.Msg.GetSectionId())
 	if err != nil {
 		return nil, err
 	}
-	teacherID, err := parseUUID(req.Msg.GetTeacherId())
+	teacherID, err := connectutil.ParseUUID(req.Msg.GetTeacherId())
 	if err != nil {
 		return nil, err
 	}
@@ -660,11 +652,11 @@ func (h *Handler) RemoveTeacherFromSection(
 	ctx context.Context,
 	req *connect.Request[catalogv1.RemoveTeacherFromSectionRequest],
 ) (*connect.Response[catalogv1.RemoveTeacherFromSectionResponse], error) {
-	sectionID, err := parseUUID(req.Msg.GetSectionId())
+	sectionID, err := connectutil.ParseUUID(req.Msg.GetSectionId())
 	if err != nil {
 		return nil, err
 	}
-	teacherID, err := parseUUID(req.Msg.GetTeacherId())
+	teacherID, err := connectutil.ParseUUID(req.Msg.GetTeacherId())
 	if err != nil {
 		return nil, err
 	}
@@ -678,7 +670,7 @@ func (h *Handler) ListSectionTeachers(
 	ctx context.Context,
 	req *connect.Request[catalogv1.ListSectionTeachersRequest],
 ) (*connect.Response[catalogv1.ListSectionTeachersResponse], error) {
-	sectionID, err := parseUUID(req.Msg.GetSectionId())
+	sectionID, err := connectutil.ParseUUID(req.Msg.GetSectionId())
 	if err != nil {
 		return nil, err
 	}

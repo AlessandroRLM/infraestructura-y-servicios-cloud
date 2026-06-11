@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
@@ -442,42 +441,3 @@ func TestService_OverrideGrade_Delegates(t *testing.T) {
 	}
 }
 
-// =====================================================================================
-// numericToString — canonical fixed-point output (FIX 1 unit coverage)
-// =====================================================================================
-
-func TestNumericToString(t *testing.T) {
-	t.Parallel()
-
-	makeNumeric := func(s string) pgtype.Numeric {
-		var n pgtype.Numeric
-		if err := n.Scan(s); err != nil {
-			t.Fatalf("Scan(%q): %v", s, err)
-		}
-		return n
-	}
-
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{"grade 5.5 NUMERIC(3,1) preserves one decimal", "5.5", "5.5"},
-		{"grade 5.0 NUMERIC(3,1) preserves trailing zero", "5.0", "5.0"},
-		{"grade 3.9 NUMERIC(3,1)", "3.9", "3.9"},
-		{"grade 4.0 NUMERIC(3,1)", "4.0", "4.0"},
-		{"weight 0.300 NUMERIC(4,3) preserves three decimals", "0.300", "0.300"},
-		{"weight 0.40 NUMERIC(4,2) preserves two decimals", "0.40", "0.40"},
-		{"integer 7 no decimal point", "7", "7"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			got := numericToString(makeNumeric(tt.input))
-			if got != tt.want {
-				t.Errorf("numericToString(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}

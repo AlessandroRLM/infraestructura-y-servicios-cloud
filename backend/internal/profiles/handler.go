@@ -34,7 +34,7 @@ func (h *Handler) UpsertUserProfile(
 	ctx context.Context,
 	req *connect.Request[profilesv1.UpsertUserProfileRequest],
 ) (*connect.Response[profilesv1.UserProfile], error) {
-	userID, err := parseUUID(req.Msg.GetUserId())
+	userID, err := uuid.Parse(req.Msg.GetUserId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid user_id"))
 	}
@@ -74,7 +74,7 @@ func (h *Handler) GetUserProfile(
 	ctx context.Context,
 	req *connect.Request[profilesv1.GetUserProfileRequest],
 ) (*connect.Response[profilesv1.UserProfile], error) {
-	userID, err := parseUUID(req.Msg.GetUserId())
+	userID, err := uuid.Parse(req.Msg.GetUserId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid user_id"))
 	}
@@ -106,7 +106,7 @@ func (h *Handler) UpsertStudentProfile(
 	ctx context.Context,
 	req *connect.Request[profilesv1.UpsertStudentProfileRequest],
 ) (*connect.Response[profilesv1.StudentProfile], error) {
-	userID, err := parseUUID(req.Msg.GetUserId())
+	userID, err := uuid.Parse(req.Msg.GetUserId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid user_id"))
 	}
@@ -129,7 +129,7 @@ func (h *Handler) GetStudentProfile(
 	ctx context.Context,
 	req *connect.Request[profilesv1.GetStudentProfileRequest],
 ) (*connect.Response[profilesv1.StudentProfile], error) {
-	userID, err := parseUUID(req.Msg.GetUserId())
+	userID, err := uuid.Parse(req.Msg.GetUserId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid user_id"))
 	}
@@ -147,7 +147,7 @@ func (h *Handler) UpsertTeacherProfile(
 	ctx context.Context,
 	req *connect.Request[profilesv1.UpsertTeacherProfileRequest],
 ) (*connect.Response[profilesv1.TeacherProfile], error) {
-	userID, err := parseUUID(req.Msg.GetUserId())
+	userID, err := uuid.Parse(req.Msg.GetUserId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid user_id"))
 	}
@@ -171,7 +171,7 @@ func (h *Handler) GetTeacherProfile(
 	ctx context.Context,
 	req *connect.Request[profilesv1.GetTeacherProfileRequest],
 ) (*connect.Response[profilesv1.TeacherProfile], error) {
-	userID, err := parseUUID(req.Msg.GetUserId())
+	userID, err := uuid.Parse(req.Msg.GetUserId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid user_id"))
 	}
@@ -189,7 +189,7 @@ func (h *Handler) AddTeacherQualification(
 	ctx context.Context,
 	req *connect.Request[profilesv1.AddTeacherQualificationRequest],
 ) (*connect.Response[profilesv1.TeacherQualification], error) {
-	teacherID, err := parseUUID(req.Msg.GetTeacherId())
+	teacherID, err := uuid.Parse(req.Msg.GetTeacherId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid teacher_id"))
 	}
@@ -213,7 +213,7 @@ func (h *Handler) ListTeacherQualifications(
 	ctx context.Context,
 	req *connect.Request[profilesv1.ListTeacherQualificationsRequest],
 ) (*connect.Response[profilesv1.ListTeacherQualificationsResponse], error) {
-	teacherID, err := parseUUID(req.Msg.GetTeacherId())
+	teacherID, err := uuid.Parse(req.Msg.GetTeacherId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid teacher_id"))
 	}
@@ -243,11 +243,6 @@ func mapError(err error) error {
 	}
 	// Do not forward the raw error chain to the client; internal details must not leak.
 	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
-}
-
-// parseUUID parses a string UUID.
-func parseUUID(s string) (uuid.UUID, error) {
-	return uuid.Parse(s)
 }
 
 // userProfileToProto converts a profilesdb.UserProfile to the proto message type.

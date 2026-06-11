@@ -11,6 +11,7 @@ import (
 	gradesv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1/gradesv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pgconv"
 )
 
 // Handler implements gradesv1connect.GradesServiceHandler.
@@ -175,7 +176,7 @@ func evaluationToProto(e gradesdb.Evaluation) *gradesv1.Evaluation {
 	return &gradesv1.Evaluation{
 		Id:        uuidToString(e.ID),
 		CourseId:  uuidToString(e.CourseID),
-		Weight:    numericToString(e.Weight),
+		Weight:    pgconv.NumericToString(e.Weight),
 		Position:  e.Position,
 		CreatedAt: e.CreatedAt.Time.UTC().Format("2006-01-02T15:04:05Z"),
 		UpdatedAt: e.UpdatedAt.Time.UTC().Format("2006-01-02T15:04:05Z"),
@@ -189,7 +190,7 @@ func gradeToProto(g gradesdb.Grade) *gradesv1.Grade {
 		EvaluationId:        uuidToString(g.EvaluationID),
 		SectionEnrollmentId: uuidToString(g.SectionEnrollmentID),
 		GradedBy:            uuidToString(g.GradedBy),
-		Value:               numericToString(g.Value),
+		Value:               pgconv.NumericToString(g.Value),
 		Version:             g.Version,
 		CreatedAt:           g.CreatedAt.Time.UTC().Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:           g.UpdatedAt.Time.UTC().Format("2006-01-02T15:04:05Z"),
@@ -202,7 +203,7 @@ func ownGradeToProto(g gradesdb.Grade) *gradesv1.OwnGrade {
 		Id:                  uuidToString(g.ID),
 		EvaluationId:        uuidToString(g.EvaluationID),
 		SectionEnrollmentId: uuidToString(g.SectionEnrollmentID),
-		Value:               numericToString(g.Value),
+		Value:               pgconv.NumericToString(g.Value),
 		Version:             g.Version,
 		CreatedAt:           g.CreatedAt.Time.UTC().Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:           g.UpdatedAt.Time.UTC().Format("2006-01-02T15:04:05Z"),

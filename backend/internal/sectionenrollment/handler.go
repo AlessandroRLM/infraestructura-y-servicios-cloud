@@ -3,9 +3,7 @@ package sectionenrollment
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
-	"math/big"
 	"net/http"
 
 	"connectrpc.com/connect"
@@ -14,6 +12,8 @@ import (
 
 	section_enrollmentv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/connectutil"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pgconv"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
 
@@ -77,15 +77,6 @@ func MapError(err error) error {
 	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 }
 
-// parseUUID parses a string UUID and returns CodeInvalidArgument on failure.
-func parseUUID(s string) (uuid.UUID, error) {
-	id, err := uuid.Parse(s)
-	if err != nil {
-		return uuid.UUID{}, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid UUID"))
-	}
-	return id, nil
-}
-
 // --- Student self-service RPCs ---
 
 // EnrollOwnSection creates a section inscription for the authenticated student.
@@ -98,7 +89,7 @@ func (h *Handler) EnrollOwnSection(
 	if req.Msg.GetProgramId() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("program_id is required"))
 	}
-	if _, err := parseUUID(req.Msg.GetProgramId()); err != nil {
+	if _, err := connectutil.ParseUUID(req.Msg.GetProgramId()); err != nil {
 		return nil, err
 	}
 	row, err := h.svc.EnrollOwnSection(ctx, req.Msg.GetSectionId(), req.Msg.GetProgramId())
@@ -184,14 +175,14 @@ func (h *Handler) ListSectionEnrollments(
 	f := ListSectionEnrollmentsFilter{}
 
 	if s := req.Msg.GetSectionId(); s != "" {
-		id, err := parseUUID(s)
+		id, err := connectutil.ParseUUID(s)
 		if err != nil {
 			return nil, err
 		}
 		f.SectionID = &id
 	}
 	if s := req.Msg.GetEnrollmentId(); s != "" {
-		id, err := parseUUID(s)
+		id, err := connectutil.ParseUUID(s)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +217,7 @@ func sectionEnrollmentToProto(r sectionenrollmentdb.SectionEnrollment) *section_
 		RegisteredAt: r.RegisteredAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		CreatedAt:    r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:    r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
-		FinalGrade:   numericToString(r.FinalGrade),
+		FinalGrade:   pgconv.NumericToString(r.FinalGrade),
 	}
 	if r.DeletedAt.Valid {
 		s := r.DeletedAt.Time.Format("2006-01-02T15:04:05Z07:00")
@@ -240,60 +231,3 @@ func uuidToString(id pgtype.UUID) string {
 	return uuid.UUID(id.Bytes).String()
 }
 
-// numericToString formats a pgtype.Numeric as an exact decimal string, preserving
-// the scale stored in the database (e.g. NUMERIC(3,1) "5.0" → "5.0", not "5").
-// Returns an empty string when the value is NULL (not valid).
-//
-// Canonical source: internal/grades/repository.go — kept in sync manually.
-// Uses pure *big.Int arithmetic; float64 is never involved.
-func numericToString(n pgtype.Numeric) string {
-	if !n.Valid {
-		return ""
-	}
-	if n.Int == nil {
-		if n.Exp >= 0 {
-			return "0"
-		}
-		scale := int(-n.Exp)
-		return "0." + seRepeatZero(scale)
-	}
-
-	coeff := new(big.Int).Set(n.Int)
-
-	switch {
-	case n.Exp == 0:
-		return coeff.String()
-
-	case n.Exp > 0:
-		mul := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n.Exp)), nil)
-		coeff.Mul(coeff, mul)
-		return coeff.String()
-
-	default: // n.Exp < 0
-		scale := int(-n.Exp)
-		ten := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(scale)), nil)
-
-		neg := coeff.Sign() < 0
-		abs := new(big.Int).Abs(coeff)
-
-		intPart := new(big.Int).Quo(abs, ten)
-		fracPart := new(big.Int).Mod(abs, ten)
-
-		fracStr := fmt.Sprintf("%0*s", scale, fracPart.String())
-
-		sign := ""
-		if neg {
-			sign = "-"
-		}
-		return fmt.Sprintf("%s%s.%s", sign, intPart.String(), fracStr)
-	}
-}
-
-// seRepeatZero returns a string of n '0' characters.
-func seRepeatZero(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = '0'
-	}
-	return string(b)
-}

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pgconv"
 	section_enrollmentdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
 
@@ -363,7 +364,7 @@ func (r *postgresRepository) RecordGradeTx(ctx context.Context, p RecordGradePar
 			}
 			return gradesdb.Grade{}, RecordOutcome{}, TranslatePgError(err)
 		}
-		oldValue = numericToString(existing.Value)
+		oldValue = pgconv.NumericToString(existing.Value)
 		resultGrade = updated
 		isUpdate = true
 	} else {
@@ -373,7 +374,7 @@ func (r *postgresRepository) RecordGradeTx(ctx context.Context, p RecordGradePar
 
 	// 7. Audit log on value change (update path only).
 	if isUpdate && oldValue != "" {
-		newValue := numericToString(resultGrade.Value)
+		newValue := pgconv.NumericToString(resultGrade.Value)
 		detail, _ := json.Marshal(map[string]string{"old_value": oldValue, "new_value": newValue})
 		if err := q.InsertAuditLog(ctx, gradesdb.InsertAuditLogParams{
 			ActorID:  actorUUID,
@@ -540,7 +541,7 @@ func numericToRat(n pgtype.Numeric) (*big.Rat, error) {
 	if !n.Valid {
 		return nil, fmt.Errorf("null numeric")
 	}
-	s := numericToString(n)
+	s := pgconv.NumericToString(n)
 	r, ok := new(big.Rat).SetString(s)
 	if !ok {
 		return nil, fmt.Errorf("cannot parse numeric %q as rational", s)
@@ -548,72 +549,6 @@ func numericToRat(n pgtype.Numeric) (*big.Rat, error) {
 	return r, nil
 }
 
-// numericToString returns the canonical fixed-point decimal string of a pgtype.Numeric,
-// preserving the scale stored in Exp so that values round-trip without float64 drift.
-//
-// pgtype.Numeric stores the value as coefficient Int × 10^Exp.
-//   - Exp == 0  → integer, no decimal point (e.g. "5")
-//   - Exp < 0   → |Exp| decimal digits (e.g. Int=55, Exp=-1 → "5.5"; Int=50, Exp=-1 → "5.0")
-//   - Exp > 0   → trailing zeros shifted left (scaled integer, no decimal point)
-//
-// The function uses pure *big.Int arithmetic — float64 is never involved.
-func numericToString(n pgtype.Numeric) string {
-	if !n.Valid {
-		return ""
-	}
-	if n.Int == nil {
-		// Zero value with a given scale: produce "0" or "0.000…" depending on Exp.
-		if n.Exp >= 0 {
-			return "0"
-		}
-		scale := int(-n.Exp)
-		return "0." + repeatZero(scale)
-	}
-
-	coeff := new(big.Int).Set(n.Int) // coefficient (may be negative)
-
-	switch {
-	case n.Exp == 0:
-		// Integer representation; no decimal point.
-		return coeff.String()
-
-	case n.Exp > 0:
-		// Multiply coefficient by 10^Exp — result is an integer.
-		mul := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n.Exp)), nil)
-		coeff.Mul(coeff, mul)
-		return coeff.String()
-
-	default: // n.Exp < 0
-		// Fixed-point: |Exp| digits after the decimal point.
-		scale := int(-n.Exp)
-		ten := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(scale)), nil)
-
-		// Work with the absolute value; track sign separately.
-		neg := coeff.Sign() < 0
-		abs := new(big.Int).Abs(coeff)
-
-		intPart := new(big.Int).Quo(abs, ten)
-		fracPart := new(big.Int).Mod(abs, ten)
-
-		// Left-pad the fractional part with zeros to exactly `scale` digits.
-		fracStr := fmt.Sprintf("%0*s", scale, fracPart.String())
-
-		sign := ""
-		if neg {
-			sign = "-"
-		}
-		return fmt.Sprintf("%s%s.%s", sign, intPart.String(), fracStr)
-	}
-}
-
-// repeatZero returns a string of n '0' characters (used for zero-valued fixed-point).
-func repeatZero(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = '0'
-	}
-	return string(b)
-}
 
 // stringToNumeric converts a formatted decimal string (e.g. "4.9") to pgtype.Numeric.
 func stringToNumeric(s string) pgtype.Numeric {
