@@ -1,0 +1,36 @@
+info:
+  name: 01 Get Metrics Valid Token
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{host}}/metrics"
+  headers:
+    - name: X-Metrics-Token
+      value: "{{metrics_token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 10000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        // /metrics returns text/plain Prometheus exposition, not JSON.
+        // Use string .includes() assertions — do NOT use property access on res.body.
+        const body = res.body;
+        expect(res.status).to.equal(200);
+        expect(res.headers['content-type']).to.include('text/plain');
+        expect(body).to.include('academico_section_full_total');
+        expect(body).to.include('academico_rpc_requests_total');
+        expect(body).to.include('go_goroutines');
+
+docs: |
+  Smoke: GET /metrics with a valid X-Metrics-Token.
+  Asserts status 200, text/plain Content-Type, and presence of key metric families.
+  The metrics_token variable must be set in the local environment (local.yml).
+  This is the first non-Connect, non-JSON endpoint in the Bruno collection.

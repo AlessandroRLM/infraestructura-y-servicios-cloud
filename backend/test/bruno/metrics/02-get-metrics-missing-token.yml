@@ -1,0 +1,25 @@
+info:
+  name: 02 Get Metrics Missing Token
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{host}}/metrics"
+  # No X-Metrics-Token header — request must be denied.
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        expect(res.status).to.equal(401);
+
+docs: |
+  Denial: GET /metrics without the X-Metrics-Token header must return 401.
+  Verifies that the endpoint is inaccessible without authentication.
