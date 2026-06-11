@@ -190,11 +190,11 @@ func TestRBACMigration_TablesAndSeed(t *testing.T) {
 		}
 		defer rows.Close()
 		want := map[string]struct{}{
-			"enrollment.view_own":             {},
-			"grades.view_own":                 {},
-			"profile.view_own":                {},
-			"section_enrollment.view_own":     {},
-			"sections.enroll":                 {},
+			"enrollment.view_own":         {},
+			"grades.view_own":             {},
+			"profile.view_own":            {},
+			"section_enrollment.view_own": {},
+			"sections.enroll":             {},
 		}
 		got := map[string]struct{}{}
 		for rows.Next() {

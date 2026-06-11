@@ -88,8 +88,8 @@ func TestConfirmPasswordReset_InvalidToken(t *testing.T) {
 // TestMapError_InvalidToken verifies ErrInvalidToken maps to CodeInvalidArgument.
 func TestMapError_InvalidToken(t *testing.T) {
 	err := mapError(ErrInvalidToken)
-	var connectErr *connect.Error
-	if !errors.As(err, &connectErr) {
+	connectErr, ok := errors.AsType[*connect.Error](err)
+	if !ok {
 		t.Fatalf("expected *connect.Error, got %T", err)
 	}
 	if connectErr.Code() != connect.CodeInvalidArgument {
@@ -100,8 +100,8 @@ func TestMapError_InvalidToken(t *testing.T) {
 // TestMapError_InvalidCredentials verifies Login errors still map to CodeUnauthenticated.
 func TestMapError_InvalidCredentials(t *testing.T) {
 	err := mapError(ErrInvalidCredentials)
-	var connectErr *connect.Error
-	if !errors.As(err, &connectErr) {
+	connectErr, ok := errors.AsType[*connect.Error](err)
+	if !ok {
 		t.Fatalf("expected *connect.Error, got %T", err)
 	}
 	if connectErr.Code() != connect.CodeUnauthenticated {

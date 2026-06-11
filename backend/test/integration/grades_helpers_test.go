@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"connectrpc.com/connect"
 	gradesv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1/gradesv1connect"
-	"connectrpc.com/connect"
 )
 
 // newGradesClient returns a Connect GradesService client targeting the shared test server.
@@ -229,4 +229,3 @@ func assertSEStatus(t *testing.T, seID, wantStatus string, wantFinalGrade *strin
 
 // ptr returns a pointer to the given string.
 func ptr(s string) *string { return &s }
-

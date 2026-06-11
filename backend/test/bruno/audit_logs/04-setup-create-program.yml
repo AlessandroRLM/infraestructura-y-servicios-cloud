@@ -1,0 +1,46 @@
+info:
+  name: 04 Setup Create Program
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{audit_admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "code": "{{audit_prog_code}}",
+        "name": "Audit Logs Test Program"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.id) {
+          bru.setVar("audit_prog_id", body.id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.id
+      operator: neq
+      value: ""
+
+docs: |
+  Audit logs setup — creates the test program.
+  Captures audit_prog_id.

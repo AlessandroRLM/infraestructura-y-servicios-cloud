@@ -1,0 +1,43 @@
+info:
+  name: 22 Happy Path Pagination Contract Last Page
+  type: http
+  seq: 22
+
+http:
+  method: POST
+  url: "{{host}}/audit_logs.v1.AuditLogsService/ListAuditLogs"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{audit_admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "entity": "grades",
+        "entityId": "{{audit_grade_id}}",
+        "pageSize": 20,
+        "pageToken": "{{audit_page_token}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: (res.body.nextPageToken ?? '') === ''
+      operator: eq
+      value: "true"
+
+docs: |
+  Happy path: pagination contract — with only 1 correction row and page_size=20,
+  the only page is the last page. Asserts HTTP 200 and that next_page_token is absent
+  or empty (protojson omits empty scalar fields; the field will be absent).
+  The guard '(res.body.nextPageToken ?? '') === ""' handles both absent and empty-string cases.

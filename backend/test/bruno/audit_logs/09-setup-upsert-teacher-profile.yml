@@ -1,0 +1,38 @@
+info:
+  name: 09 Setup Upsert Teacher Profile Admin
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{host}}/profiles.v1.ProfileService/UpsertTeacherProfile"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{audit_admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "userId": "a0000000-0000-0000-0000-000000000001",
+        "department": "Audit Smoke Test Department"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Audit logs setup — upsert teacher profile for the bootstrap admin.
+  Required before AssignTeacherToSection: sections.teacher_id has a foreign
+  key to teacher_profiles(user_id), so a fresh database has no valid teacher
+  until this runs. Idempotent (upsert), safe across repeated runs.

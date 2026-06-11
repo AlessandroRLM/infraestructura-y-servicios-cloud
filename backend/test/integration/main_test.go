@@ -15,6 +15,7 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 
+	auditlogsv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/audit_logs/v1/auditlogsv1connect"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/auth/v1/authv1connect"
 	catalogv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
 	enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1/enrollmentv1connect"
@@ -22,6 +23,8 @@ import (
 	profilesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1/profilesv1connect"
 	reportsv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/reports/v1/reportsv1connect"
 	section_enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auditlogs"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auditlogs/auditlogsdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/authdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
@@ -33,8 +36,6 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades"
 	gradesdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/health"
-	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports"
-	reportsdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports/reportsdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
@@ -44,8 +45,10 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/profiles/profilesdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/rbac/rbacdb"
-	section_enrollment "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment"
-	section_enrollmentdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment/section_enrollmentdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports"
+	reportsdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/reports/reportsdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 	migrations "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/migrations"
 )
 
@@ -187,26 +190,26 @@ func TestMain(m *testing.M) {
 		profilesv1connect.ProfileServiceGetOwnProfileProcedure:             authz.RequirePermission(authz.PermProfileViewOwn),
 
 		// Catalog procedures — all require catalog.manage.
-		catalogv1connect.CatalogServiceCreateProgramProcedure:           authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceUpdateProgramProcedure:           authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceGetProgramProcedure:              authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceListProgramsProcedure:            authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceDeleteProgramProcedure:           authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceCreateCourseProcedure:            authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceUpdateCourseProcedure:            authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceGetCourseProcedure:               authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceListCoursesProcedure:             authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceDeleteCourseProcedure:            authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceCreateAcademicPeriodProcedure:    authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceUpdateAcademicPeriodProcedure:    authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceGetAcademicPeriodProcedure:       authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceListAcademicPeriodsProcedure:     authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceDeleteAcademicPeriodProcedure:    authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceCreateProgramQuotaProcedure:      authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceUpdateProgramQuotaProcedure:      authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceGetProgramQuotaProcedure:         authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceListProgramQuotasProcedure:       authz.RequirePermission(authz.PermCatalogManage),
-		catalogv1connect.CatalogServiceDeleteProgramQuotaProcedure:      authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceCreateProgramProcedure:            authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceUpdateProgramProcedure:            authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceGetProgramProcedure:               authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListProgramsProcedure:             authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceDeleteProgramProcedure:            authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceCreateCourseProcedure:             authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceUpdateCourseProcedure:             authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceGetCourseProcedure:                authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListCoursesProcedure:              authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceDeleteCourseProcedure:             authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceCreateAcademicPeriodProcedure:     authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceUpdateAcademicPeriodProcedure:     authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceGetAcademicPeriodProcedure:        authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListAcademicPeriodsProcedure:      authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceDeleteAcademicPeriodProcedure:     authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceCreateProgramQuotaProcedure:       authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceUpdateProgramQuotaProcedure:       authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceGetProgramQuotaProcedure:          authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceListProgramQuotasProcedure:        authz.RequirePermission(authz.PermCatalogManage),
+		catalogv1connect.CatalogServiceDeleteProgramQuotaProcedure:       authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceAddCourseToProgramProcedure:       authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceRemoveCourseFromProgramProcedure:  authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceListProgramCoursesProcedure:       authz.RequirePermission(authz.PermCatalogManage),
@@ -234,9 +237,9 @@ func TestMain(m *testing.M) {
 		section_enrollmentv1connect.SectionEnrollmentServiceListOwnSectionEnrollmentsProcedure: authz.RequirePermission(authz.PermSectionEnrollmentViewOwn),
 		section_enrollmentv1connect.SectionEnrollmentServiceGetOwnSectionEnrollmentProcedure:   authz.RequirePermission(authz.PermSectionEnrollmentViewOwn),
 		// Section enrollment admin procedures — require enrollment.manage.
-		section_enrollmentv1connect.SectionEnrollmentServiceEnrollSectionProcedure:         authz.RequirePermission(authz.PermEnrollmentManage),
-		section_enrollmentv1connect.SectionEnrollmentServiceWithdrawSectionProcedure:       authz.RequirePermission(authz.PermEnrollmentManage),
-		section_enrollmentv1connect.SectionEnrollmentServiceGetSectionEnrollmentProcedure:  authz.RequirePermission(authz.PermEnrollmentManage),
+		section_enrollmentv1connect.SectionEnrollmentServiceEnrollSectionProcedure:          authz.RequirePermission(authz.PermEnrollmentManage),
+		section_enrollmentv1connect.SectionEnrollmentServiceWithdrawSectionProcedure:        authz.RequirePermission(authz.PermEnrollmentManage),
+		section_enrollmentv1connect.SectionEnrollmentServiceGetSectionEnrollmentProcedure:   authz.RequirePermission(authz.PermEnrollmentManage),
 		section_enrollmentv1connect.SectionEnrollmentServiceListSectionEnrollmentsProcedure: authz.RequirePermission(authz.PermEnrollmentManage),
 
 		// Grades admin procedures — require grades.override.
@@ -246,7 +249,7 @@ func TestMain(m *testing.M) {
 		// Grades teacher write procedure — require grades.write.
 		gradesv1connect.GradesServiceRecordGradeProcedure: authz.RequirePermission(authz.PermGradesWrite),
 		// Grades read procedures — require grades.read.
-		gradesv1connect.GradesServiceListEvaluationsProcedure:     authz.RequirePermission(authz.PermGradesRead),
+		gradesv1connect.GradesServiceListEvaluationsProcedure:      authz.RequirePermission(authz.PermGradesRead),
 		gradesv1connect.GradesServiceListGradesForSectionProcedure: authz.RequirePermission(authz.PermGradesRead),
 		gradesv1connect.GradesServiceGetGradeProcedure:             authz.RequirePermission(authz.PermGradesRead),
 		// Grades student self-view — require grades.view_own.
@@ -257,14 +260,17 @@ func TestMain(m *testing.M) {
 		reportsv1connect.ReportsServiceGetSectionOccupancyReportProcedure: authz.RequirePermission(authz.PermReportsRead),
 		reportsv1connect.ReportsServiceGetProgramSummaryReportProcedure:   authz.RequirePermission(authz.PermReportsRead),
 		reportsv1connect.ReportsServiceGetStudentRecordReportProcedure:    authz.RequirePermission(authz.PermReportsRead),
+
+		// Audit logs procedure — requires audit.read.
+		auditlogsv1connect.AuditLogsServiceListAuditLogsProcedure: authz.RequirePermission(authz.PermAuditRead),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
 
 	// Admission limiter for the section_enrollment enroll procedures.
 	// DB_MAX_CONNS is set to "5" in the test environment → cap = floor(5*0.6) = 3.
-	seLimiter := section_enrollment.NewConcurrencyLimiter(5)
-	seLimiterInterceptor := section_enrollment.NewConcurrencyLimitInterceptor(seLimiter)
+	seLimiter := sectionenrollment.NewConcurrencyLimiter(5)
+	seLimiterInterceptor := sectionenrollment.NewConcurrencyLimitInterceptor(seLimiter)
 
 	queries := authdb.New(pool)
 	repo := auth.NewPostgresRepository(queries)
@@ -304,12 +310,12 @@ func TestMain(m *testing.M) {
 	}
 
 	// Section enrollment handler wiring — mirrors cmd/api/main.go exactly.
-	seQueries := section_enrollmentdb.New(pool)
-	seRepo := section_enrollment.NewPostgresRepository(seQueries, pool)
-	seSvc := section_enrollment.NewService(seRepo)
-	seHandler := section_enrollment.NewHandler(seSvc)
+	seQueries := sectionenrollmentdb.New(pool)
+	seRepo := sectionenrollment.NewPostgresRepository(seQueries, pool)
+	seSvc := sectionenrollment.NewService(seRepo)
+	seHandler := sectionenrollment.NewHandler(seSvc)
 	sectionEnrollmentReg := func(mux *http.ServeMux) {
-		section_enrollment.Register(mux, seHandler, seOpts...)
+		sectionenrollment.Register(mux, seHandler, seOpts...)
 	}
 
 	// Grades handler wiring — mirrors cmd/api/main.go exactly.
@@ -331,8 +337,17 @@ func TestMain(m *testing.M) {
 		reports.Register(mux, reportsHandler, authOpts...)
 	}
 
+	// Audit logs handler wiring — mirrors cmd/api/main.go exactly. No cache.
+	auditQueries := auditlogsdb.New(pool)
+	auditRepo := auditlogs.NewPostgresRepository(auditQueries)
+	auditSvc := auditlogs.NewService(auditRepo)
+	auditHandler := auditlogs.NewHandler(auditSvc)
+	auditLogsReg := func(mux *http.ServeMux) {
+		auditlogs.Register(mux, auditHandler, authOpts...)
+	}
+
 	log := logging.New(slog.LevelError) // suppress output in tests
-	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg, enrollmentReg, sectionEnrollmentReg, gradesReg, reportsReg)
+	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg, enrollmentReg, sectionEnrollmentReg, gradesReg, reportsReg, auditLogsReg)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

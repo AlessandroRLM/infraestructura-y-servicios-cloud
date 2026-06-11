@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	shutdownTimeout    = 15 * time.Second
-	readHeaderTimeout  = 5 * time.Second
+	shutdownTimeout   = 15 * time.Second
+	readHeaderTimeout = 5 * time.Second
 )
 
 // HandlerReg is a function that registers one or more routes on the given mux.

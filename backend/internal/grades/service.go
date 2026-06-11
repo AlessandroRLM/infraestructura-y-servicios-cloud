@@ -27,9 +27,10 @@ import (
 //  1. Multiply sum by 10.
 //  2. Take floor (truncate) + add 1 if remainder >= 0.5 (i.e. multiply by 2, add 1 if ≥ 10).
 //  3. Divide by 10.
+//
 // Result compared >= 4.0 → "passed"; < 4.0 → "failed".
 //
-// Dependency direction: internal/grades → internal/section_enrollment. Never the reverse.
+// Dependency direction: internal/grades → internal/sectionenrollment. Never the reverse.
 type Service struct {
 	repo Repository
 }

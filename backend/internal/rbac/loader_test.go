@@ -26,11 +26,11 @@ func TestPostgresRoleLoader_Load(t *testing.T) {
 	userID := uuid.New()
 
 	tests := []struct {
-		name        string
-		codes       []string
-		checkHas    authz.Permission
-		wantHas     bool
-		wantLen     int
+		name     string
+		codes    []string
+		checkHas authz.Permission
+		wantHas  bool
+		wantLen  int
 	}{
 		{
 			name:     "returns PermissionSet with correct membership for known codes",

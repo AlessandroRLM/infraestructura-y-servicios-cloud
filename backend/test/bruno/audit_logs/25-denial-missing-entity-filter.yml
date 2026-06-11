@@ -1,0 +1,35 @@
+info:
+  name: 25 Denial Missing Entity Filter
+  type: http
+  seq: 25
+
+http:
+  method: POST
+  url: "{{host}}/audit_logs.v1.AuditLogsService/ListAuditLogs"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{audit_admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "entityId": "{{audit_grade_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "invalid_argument"
+
+docs: |
+  Denial: entity field is absent → handler returns invalid_argument before DB access.
+  entity is a required partition key; all rows without it are ambiguous.

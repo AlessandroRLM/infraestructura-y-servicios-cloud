@@ -1,0 +1,37 @@
+info:
+  name: 16 Setup Student A Confirm Reset
+  type: http
+  seq: 16
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/ConfirmPasswordReset"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "token": "{{audit_student_a_reset_token}}",
+        "newPassword": "AuditStudentA123!"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        bru.setVar("audit_student_a_password", "AuditStudentA123!");
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Audit logs setup — step 2 of student A login chain: confirm password reset.

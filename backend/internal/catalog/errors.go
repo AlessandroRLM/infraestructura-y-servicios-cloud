@@ -40,8 +40,7 @@ func TranslatePgError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("%w", ErrNotFound)
 	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		switch pgErr.Code {
 		case "23505":
 			return fmt.Errorf("%w", ErrAlreadyExists)

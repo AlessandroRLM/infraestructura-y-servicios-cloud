@@ -9,9 +9,10 @@ import (
 
 // TestAuthMigration_UsersTable verifies that the 000001_users migration applied correctly.
 // Assertions:
-//   (a) the users table exists with the required columns and the UNIQUE constraint on email
-//   (b) inserting a row without specifying id yields a UUID whose version nibble is 7
-//       (proves the native uuidv7() default — requires Postgres 18+)
+//
+//	(a) the users table exists with the required columns and the UNIQUE constraint on email
+//	(b) inserting a row without specifying id yields a UUID whose version nibble is 7
+//	    (proves the native uuidv7() default — requires Postgres 18+)
 func TestAuthMigration_UsersTable(t *testing.T) {
 	ctx := context.Background()
 

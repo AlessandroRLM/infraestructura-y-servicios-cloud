@@ -27,15 +27,15 @@ runtime:
     - expression: res.status
       operator: eq
       value: "200"
-    - expression: res.body.grades[0].sectionEnrollmentId
+    - expression: (res.body.grades ?? []).some(g => g.sectionEnrollmentId === bru.getVar("grades_se_a_id") && g.value !== "")
       operator: eq
-      value: "{{grades_se_a_id}}"
-    - expression: res.body.grades[0].value
-      operator: neq
-      value: ""
+      value: "true"
 
 docs: |
   Happy path: student A reads their own grades via ListOwnGrades.
   The OwnGrade message intentionally omits gradedBy (privacy).
-  Asserts grades are returned for grades_se_a_id and that value is non-empty.
+  Asserts a grade for grades_se_a_id is present with a non-empty value.
+  Membership (.some) instead of grades[0]: other folders in a full
+  collection run also grade the shared seeded student A, so response
+  order is not guaranteed.
   Requires grades.view_own permission.
