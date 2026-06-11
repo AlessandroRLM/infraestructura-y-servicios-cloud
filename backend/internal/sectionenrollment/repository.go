@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/metrics"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
 
@@ -76,6 +77,7 @@ type ListSectionEnrollmentsFilter struct {
 type postgresRepository struct {
 	q    sectionenrollmentdb.Querier
 	pool *pgxpool.Pool
+	m    *metrics.SectionEnrollment
 }
 
 // Compile-time proof that *postgresRepository satisfies the Repository interface.
@@ -83,8 +85,9 @@ var _ Repository = (*postgresRepository)(nil)
 
 // NewPostgresRepository constructs a Repository backed by the given sqlc Querier.
 // pool is required by EnrollSectionTx, which opens a transaction.
-func NewPostgresRepository(q sectionenrollmentdb.Querier, pool *pgxpool.Pool) Repository {
-	return &postgresRepository{q: q, pool: pool}
+// m provides the domain counters injected at startup; it must not be nil.
+func NewPostgresRepository(q sectionenrollmentdb.Querier, pool *pgxpool.Pool, m *metrics.SectionEnrollment) Repository {
+	return &postgresRepository{q: q, pool: pool, m: m}
 }
 
 // EnrollSectionTx executes the seat-accounting transaction under READ COMMITTED isolation.
@@ -127,8 +130,7 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 				"capacity", preCapRow.Capacity,
 				"active", preCount,
 			)
-			// TODO(metrics): increment section_full_total{path="pre_check"} when a
-			// Prometheus/OTel pipeline is wired into internal/platform.
+			r.m.SectionFull.WithLabelValues("pre_check").Inc()
 			return sectionenrollmentdb.SectionEnrollment{}, ErrSectionFull
 		}
 	}
@@ -157,6 +159,7 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 			slog.WarnContext(ctx, "section enrollment lock timeout",
 				"section_id", p.SectionID,
 			)
+			r.m.LockTimeout.Inc()
 		}
 		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
@@ -276,8 +279,7 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 			"capacity", sectionRow.Capacity,
 			"active", activeCount,
 		)
-		// TODO(metrics): increment section_full_total{path="under_lock"} when a
-		// Prometheus/OTel pipeline is wired into internal/platform.
+		r.m.SectionFull.WithLabelValues("under_lock").Inc()
 		return sectionenrollmentdb.SectionEnrollment{}, ErrSectionFull
 	}
 
@@ -382,9 +384,15 @@ func setOutcomeWithQuerier(ctx context.Context, q sectionenrollmentdb.Querier, i
 	return row, nil
 }
 
-// newFakeRepository constructs a repository backed by the given Querier without a
-// pool (the pool is only used for EnrollSectionTx, which opens a real transaction).
-// Used exclusively in unit tests that exercise non-transactional repository methods.
+// newFakeRepository constructs a repository backed by the given Querier without a pool.
+// A fresh metrics registry is created per call so tests do not share counter state.
+// Used in unit tests that exercise non-transactional repository methods.
 func newFakeRepository(q sectionenrollmentdb.Querier) Repository {
-	return &postgresRepository{q: q, pool: nil}
+	return &postgresRepository{q: q, pool: nil, m: metrics.New().SectionEnrollmentMetrics()}
+}
+
+// newFakeRepositoryWithMetrics constructs a repository backed by the given Querier and
+// the given metrics struct, without a pool. Used in unit tests that verify counter increments.
+func newFakeRepositoryWithMetrics(q sectionenrollmentdb.Querier, m *metrics.SectionEnrollment) Repository {
+	return &postgresRepository{q: q, pool: nil, m: m}
 }

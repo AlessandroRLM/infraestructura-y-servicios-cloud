@@ -8,6 +8,7 @@ import (
 	"connectrpc.com/connect"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/metrics"
 )
 
 // concurrencyLimiter is a bounded in-flight admission control mechanism for the
@@ -26,15 +27,22 @@ import (
 // DB_MAX_CONNS (env) and/or the factor in NewConcurrencyLimiter to tune backpressure.
 type concurrencyLimiter struct {
 	tokens chan struct{}
+	m      *metrics.SectionEnrollment
 }
 
-// newConcurrencyLimiter constructs a concurrencyLimiter with the given capacity.
-// cap=0 means every acquisition fails (fully closed path).
+// newConcurrencyLimiter constructs a concurrencyLimiter with the given capacity and a
+// fresh metrics registry. cap=0 means every acquisition fails (fully closed path).
 func newConcurrencyLimiter(cap int) *concurrencyLimiter {
+	return newConcurrencyLimiterWithMetrics(cap, metrics.New().SectionEnrollmentMetrics())
+}
+
+// newConcurrencyLimiterWithMetrics constructs a concurrencyLimiter with the given capacity
+// and metrics struct. Used in tests that verify counter increments.
+func newConcurrencyLimiterWithMetrics(cap int, m *metrics.SectionEnrollment) *concurrencyLimiter {
 	if cap < 0 {
 		cap = 0
 	}
-	return &concurrencyLimiter{tokens: make(chan struct{}, cap)}
+	return &concurrencyLimiter{tokens: make(chan struct{}, cap), m: m}
 }
 
 // tryAcquire attempts a non-blocking acquisition of one slot.
@@ -55,9 +63,10 @@ func (l *concurrencyLimiter) tryAcquire() (release func(), ok bool) {
 //
 // poolSize is the value of cfg.DBMaxConns (DB_MAX_CONNS env var, default 10).
 // With poolSize=10 the cap is 6; with the test harness poolSize=5 the cap is 3.
-func NewConcurrencyLimiter(poolSize int) *concurrencyLimiter {
+// m provides the domain counters; it must not be nil.
+func NewConcurrencyLimiter(poolSize int, m *metrics.SectionEnrollment) *concurrencyLimiter {
 	cap := int(math.Floor(float64(poolSize) * 0.6))
-	return newConcurrencyLimiter(cap)
+	return newConcurrencyLimiterWithMetrics(cap, m)
 }
 
 // enrollProcedures is the set of inscription procedures subject to admission control.
@@ -88,8 +97,7 @@ func NewConcurrencyLimitInterceptor(lim *concurrencyLimiter) connect.UnaryInterc
 					"cap", cap(lim.tokens),
 					"procedure", req.Spec().Procedure,
 				)
-				// TODO(metrics): increment admission_saturated_total counter when a Prometheus/OTel
-				// pipeline is wired into internal/platform.
+				lim.m.AdmissionSaturated.Inc()
 				return nil, connect.NewError(connect.CodeResourceExhausted, ErrAdmissionSaturated)
 			}
 			defer release()

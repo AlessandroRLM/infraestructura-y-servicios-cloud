@@ -34,6 +34,7 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
+	platformmetrics "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/metrics"
 	platformredis "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/redis"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/server"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/profiles"
@@ -85,6 +86,11 @@ func main() {
 		log.Error("redis ping failed", "err", err)
 		os.Exit(1)
 	}
+
+	// Metrics registry and domain counters.
+	metricsReg := platformmetrics.New()
+	seMetrics := metricsReg.SectionEnrollmentMetrics()
+	redInterceptor := metricsReg.RPCInterceptor()
 
 	// Auth dependencies.
 	sessionStore := session.NewRedisStore(redisClient)
@@ -198,7 +204,7 @@ func main() {
 	// concurrencyLimiter caps inscription transactions at floor(DBMaxConns*0.6) to
 	// protect the connection pool from stampede exhaustion. With default DBMaxConns=10
 	// the cap is 6; saturated requests return CodeResourceExhausted immediately.
-	seLimiter := sectionenrollment.NewConcurrencyLimiter(cfg.DBMaxConns)
+	seLimiter := sectionenrollment.NewConcurrencyLimiter(cfg.DBMaxConns, seMetrics)
 	seLimiterInterceptor := sectionenrollment.NewConcurrencyLimitInterceptor(seLimiter)
 
 	// Auth handler (repository → service → Connect handler).
@@ -208,11 +214,13 @@ func main() {
 	authHandler := auth.NewHandler(svc, cfg)
 
 	// Interceptor options shared across all service endpoints.
-	authOpts := server.Chain(authInterceptor, authzInterceptor)
-	// seOpts prepends the admission limiter ahead of auth for the section_enrollment service.
-	// The limiter is procedure-aware: it only gates EnrollOwnSection and EnrollSection;
+	// The RED interceptor is OUTERMOST so that all requests — including rejected ones
+	// (unauthenticated, authz denied, limiter saturated) — are counted with their codes.
+	authOpts := server.Chain(redInterceptor, authInterceptor, authzInterceptor)
+	// seOpts prepends the admission limiter between RED and auth for the section_enrollment
+	// service. The limiter is procedure-aware: it only gates EnrollOwnSection and EnrollSection;
 	// list/get/withdraw procedures are passed through without acquiring a slot.
-	seOpts := server.Chain(seLimiterInterceptor, authInterceptor, authzInterceptor)
+	seOpts := server.Chain(redInterceptor, seLimiterInterceptor, authInterceptor, authzInterceptor)
 
 	// authReg curries auth.Register into the HandlerReg signature.
 	authReg := func(mux *http.ServeMux) {
@@ -254,7 +262,7 @@ func main() {
 	// inspects the procedure name and is a no-op for non-enroll procedures registered on the
 	// same handler. This keeps a single handler registration while enforcing per-procedure limits.
 	seQueries := sectionenrollmentdb.New(pool)
-	seRepo := sectionenrollment.NewPostgresRepository(seQueries, pool)
+	seRepo := sectionenrollment.NewPostgresRepository(seQueries, pool, seMetrics)
 	seSvc := sectionenrollment.NewService(seRepo)
 	seHandler := sectionenrollment.NewHandler(seSvc)
 
@@ -303,6 +311,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// metricsHandlerReg registers the /metrics endpoint on the mux. The handler
+	// enforces X-Metrics-Token authentication and is NOT a Connect procedure.
+	metricsHandlerReg := func(mux *http.ServeMux) {
+		mux.Handle("/metrics", metricsReg.Handler(cfg.MetricsAuthToken))
+	}
+
 	srv := server.New(log, pool, redisPinger,
 		health.Register,
 		authReg,
@@ -313,6 +327,7 @@ func main() {
 		gradesReg,
 		reportsReg,
 		auditLogsReg,
+		metricsHandlerReg,
 	)
 	srv.Addr = cfg.HTTPAddr
 
