@@ -15,38 +15,38 @@ import (
 // fakeQuerier implements reportsdb.Querier with explicit called sentinels per method.
 type fakeQuerier struct {
 	// per-method called flags
-	actaSectionExistsCalled      bool
-	isTeacherForSectionCalled    bool
-	actaForSectionAdminCalled    bool
-	actaForSectionTeacherCalled  bool
-	occupancyPeriodExistsCalled  bool
-	occupancyForPeriodCalled     bool
-	programExistsCalled          bool
-	programSummaryCalled         bool
-	studentExistsCalled          bool
-	fichaForStudentCalled        bool
+	actaSectionExistsCalled     bool
+	isTeacherForSectionCalled   bool
+	actaForSectionAdminCalled   bool
+	actaForSectionTeacherCalled bool
+	occupancyPeriodExistsCalled bool
+	occupancyForPeriodCalled    bool
+	programExistsCalled         bool
+	programSummaryCalled        bool
+	studentExistsCalled         bool
+	fichaForStudentCalled       bool
 
 	// configurable return values
-	actaSectionExistsResult      bool
-	actaSectionExistsErr         error
-	isTeacherForSectionResult    bool
-	isTeacherForSectionErr       error
-	actaForSectionAdminResult    []reportsdb.ActaForSectionAdminRow
-	actaForSectionAdminErr       error
-	actaForSectionTeacherResult  []reportsdb.ActaForSectionByTeacherRow
-	actaForSectionTeacherErr     error
-	occupancyPeriodExistsResult  bool
-	occupancyPeriodExistsErr     error
-	occupancyForPeriodResult     []reportsdb.OccupancyForPeriodRow
-	occupancyForPeriodErr        error
-	programExistsResult          bool
-	programExistsErr             error
-	programSummaryResult         []reportsdb.ProgramSummaryRow
-	programSummaryErr            error
-	studentExistsResult          bool
-	studentExistsErr             error
-	fichaForStudentResult        []reportsdb.FichaForStudentRow
-	fichaForStudentErr           error
+	actaSectionExistsResult     bool
+	actaSectionExistsErr        error
+	isTeacherForSectionResult   bool
+	isTeacherForSectionErr      error
+	actaForSectionAdminResult   []reportsdb.ActaForSectionAdminRow
+	actaForSectionAdminErr      error
+	actaForSectionTeacherResult []reportsdb.ActaForSectionByTeacherRow
+	actaForSectionTeacherErr    error
+	occupancyPeriodExistsResult bool
+	occupancyPeriodExistsErr    error
+	occupancyForPeriodResult    []reportsdb.OccupancyForPeriodRow
+	occupancyForPeriodErr       error
+	programExistsResult         bool
+	programExistsErr            error
+	programSummaryResult        []reportsdb.ProgramSummaryRow
+	programSummaryErr           error
+	studentExistsResult         bool
+	studentExistsErr            error
+	fichaForStudentResult       []reportsdb.FichaForStudentRow
+	fichaForStudentErr          error
 }
 
 var _ reportsdb.Querier = (*fakeQuerier)(nil)

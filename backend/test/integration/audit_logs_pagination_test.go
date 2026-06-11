@@ -212,12 +212,12 @@ func TestAuditLogs_Pagination_PageSizeAbove200_Clamps200(t *testing.T) {
 // TestAuditLogs_Pagination_Scenario23_CursorStabilityUnderInserts is a deterministic
 // sequential test that verifies cursor stability when new rows are inserted between pages.
 //
-// 1. Seed N "old" rows for entity+entity_id.
-// 2. Request page 1 → receive up to page_size rows + next_page_token=C.
-// 3. INSERT M "new" rows for the SAME entity+entity_id (their UUIDv7 ids will be > all old ids).
-// 4. Request page 2 with page_token=C.
-// 5. Assert: no overlap with page 1; no old rows skipped; new rows NOT visible on page 2
-//    (because ORDER BY id DESC with id < C excludes ids > C).
+//  1. Seed N "old" rows for entity+entity_id.
+//  2. Request page 1 → receive up to page_size rows + next_page_token=C.
+//  3. INSERT M "new" rows for the SAME entity+entity_id (their UUIDv7 ids will be > all old ids).
+//  4. Request page 2 with page_token=C.
+//  5. Assert: no overlap with page 1; no old rows skipped; new rows NOT visible on page 2
+//     (because ORDER BY id DESC with id < C excludes ids > C).
 func TestAuditLogs_Pagination_Scenario23_CursorStabilityUnderInserts(t *testing.T) {
 	ctx := context.Background()
 	_, adminSID := seedUserWithSession(t, "audit-pag-cursor-stable@audit.test", "admin")

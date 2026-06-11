@@ -422,4 +422,3 @@ func TestGradesRecord_ConcurrentDuplicate(t *testing.T) {
 		t.Errorf("concurrent insert: aborted = %d, want 1", aborted)
 	}
 }
-

@@ -1,4 +1,4 @@
-package audit_logs
+package auditlogs
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/audit_logs/auditlogsdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auditlogs/auditlogsdb"
 )
 
 // ListParams holds the filtering and pagination parameters for ListAuditLogs.

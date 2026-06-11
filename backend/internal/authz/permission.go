@@ -14,19 +14,19 @@ type Permission string
 // insert the same literal strings, and a test asserts parity between this slice and
 // the seeded rows.
 const (
-	PermUsersManage                Permission = "users.manage"
-	PermCatalogManage              Permission = "catalog.manage"
-	PermEnrollmentManage           Permission = "enrollment.manage"
-	PermSectionsEnroll             Permission = "sections.enroll"
-	PermEnrollmentViewOwn          Permission = "enrollment.view_own"
-	PermGradesWrite                Permission = "grades.write"
-	PermGradesRead                 Permission = "grades.read"
-	PermGradesViewOwn              Permission = "grades.view_own"
-	PermReportsRead                Permission = "reports.read"
-	PermAuditRead                  Permission = "audit.read"
-	PermGradesOverride             Permission = "grades.override"
-	PermProfileViewOwn             Permission = "profile.view_own"
-	PermSectionEnrollmentViewOwn   Permission = "section_enrollment.view_own"
+	PermUsersManage              Permission = "users.manage"
+	PermCatalogManage            Permission = "catalog.manage"
+	PermEnrollmentManage         Permission = "enrollment.manage"
+	PermSectionsEnroll           Permission = "sections.enroll"
+	PermEnrollmentViewOwn        Permission = "enrollment.view_own"
+	PermGradesWrite              Permission = "grades.write"
+	PermGradesRead               Permission = "grades.read"
+	PermGradesViewOwn            Permission = "grades.view_own"
+	PermReportsRead              Permission = "reports.read"
+	PermAuditRead                Permission = "audit.read"
+	PermGradesOverride           Permission = "grades.override"
+	PermProfileViewOwn           Permission = "profile.view_own"
+	PermSectionEnrollmentViewOwn Permission = "section_enrollment.view_own"
 )
 
 // AllPermissions lists every defined permission in the order they appear above.

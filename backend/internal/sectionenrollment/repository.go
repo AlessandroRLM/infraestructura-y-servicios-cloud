@@ -1,4 +1,4 @@
-package section_enrollment
+package sectionenrollment
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment/section_enrollmentdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
 
 // Repository provides data access for the section_enrollment domain.
@@ -21,32 +21,32 @@ type Repository interface {
 	// EnrollSectionTx runs the full seat-accounting transaction with a FOR UPDATE
 	// lock on the section row. isAdmin=true skips the enrollment window gate and
 	// enables revival of withdrawn inscriptions.
-	EnrollSectionTx(ctx context.Context, p EnrollSectionParams, isAdmin bool) (section_enrollmentdb.SectionEnrollment, error)
+	EnrollSectionTx(ctx context.Context, p EnrollSectionParams, isAdmin bool) (sectionenrollmentdb.SectionEnrollment, error)
 
 	// SetSectionEnrollmentOutcomeTx transitions a section_enrollment to passed or failed
 	// and writes the rounded final grade, executing within a caller-owned transaction.
 	// Valid source states: in_progress, passed, failed (allows passed<->failed corrections).
 	// withdrawn source is rejected → ErrInvalidTransition. target must be passed or failed.
 	// finalGrade is the rounded NUMERIC(3,1) value to persist alongside the outcome.
-	SetSectionEnrollmentOutcomeTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (section_enrollmentdb.SectionEnrollment, error)
+	SetSectionEnrollmentOutcomeTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (sectionenrollmentdb.SectionEnrollment, error)
 
 	// WithdrawSection transitions an in_progress inscription to withdrawn.
 	// Returns ErrNotFound when the inscription is absent or not in_progress.
-	WithdrawSection(ctx context.Context, id uuid.UUID) (section_enrollmentdb.SectionEnrollment, error)
+	WithdrawSection(ctx context.Context, id uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error)
 
 	// GetSectionEnrollment returns a live inscription by id. Soft-deleted rows return ErrNotFound.
-	GetSectionEnrollment(ctx context.Context, id uuid.UUID) (section_enrollmentdb.SectionEnrollment, error)
+	GetSectionEnrollment(ctx context.Context, id uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error)
 
 	// ListSectionEnrollments returns live inscriptions matching the optional filter.
-	ListSectionEnrollments(ctx context.Context, f ListSectionEnrollmentsFilter) ([]section_enrollmentdb.SectionEnrollment, error)
+	ListSectionEnrollments(ctx context.Context, f ListSectionEnrollmentsFilter) ([]sectionenrollmentdb.SectionEnrollment, error)
 
 	// ListOwnSectionEnrollments returns all live inscriptions for the given student.
-	ListOwnSectionEnrollments(ctx context.Context, studentID uuid.UUID) ([]section_enrollmentdb.SectionEnrollment, error)
+	ListOwnSectionEnrollments(ctx context.Context, studentID uuid.UUID) ([]sectionenrollmentdb.SectionEnrollment, error)
 
 	// GetOwnSectionEnrollment returns a live inscription by id without the ownership check
 	// (ownership is enforced by the service). It is distinct from GetSectionEnrollment to
 	// allow the service to apply scoping after the fetch.
-	GetOwnSectionEnrollment(ctx context.Context, id uuid.UUID) (section_enrollmentdb.SectionEnrollment, error)
+	GetOwnSectionEnrollment(ctx context.Context, id uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error)
 }
 
 // EnrollSectionParams holds the validated inputs for EnrollSectionTx.
@@ -74,7 +74,7 @@ type ListSectionEnrollmentsFilter struct {
 // postgresRepository is the production implementation backed by a sqlc Querier and
 // a connection pool used exclusively by EnrollSectionTx.
 type postgresRepository struct {
-	q    section_enrollmentdb.Querier
+	q    sectionenrollmentdb.Querier
 	pool *pgxpool.Pool
 }
 
@@ -83,7 +83,7 @@ var _ Repository = (*postgresRepository)(nil)
 
 // NewPostgresRepository constructs a Repository backed by the given sqlc Querier.
 // pool is required by EnrollSectionTx, which opens a transaction.
-func NewPostgresRepository(q section_enrollmentdb.Querier, pool *pgxpool.Pool) Repository {
+func NewPostgresRepository(q sectionenrollmentdb.Querier, pool *pgxpool.Pool) Repository {
 	return &postgresRepository{q: q, pool: pool}
 }
 
@@ -102,7 +102,7 @@ func NewPostgresRepository(q section_enrollmentdb.Querier, pool *pgxpool.Pool) R
 //  6. Lock key row (enrollment_id, section_id) FOR UPDATE; detect existing/withdrawn/terminal.
 //  7. COUNT active seats under the lock; n >= capacity → ErrSectionFull.
 //  8. INSERT (fresh) or UPDATE (revival, admin only).
-func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectionParams, isAdmin bool) (section_enrollmentdb.SectionEnrollment, error) {
+func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectionParams, isAdmin bool) (sectionenrollmentdb.SectionEnrollment, error) {
 	// Non-locking fast-fail pre-check: avoids queuing on the lock for obviously-full sections.
 	// Run BEFORE BeginTx so that a full section is rejected without ever acquiring the row lock.
 	// The under-lock count below is authoritative; this is a stale-tolerant optimisation only.
@@ -112,14 +112,14 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			slog.ErrorContext(ctx, "section_enrollment: pre-check capacity read failed", "err", err)
-			return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+			return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 		}
 		// Section absent at pre-check: fall through to the tx, which will return NotFound.
 	} else {
 		preCount, err := r.q.CountActiveSeats(ctx, pgtype.UUID{Bytes: p.SectionID, Valid: true})
 		if err != nil {
 			slog.ErrorContext(ctx, "section_enrollment: pre-check count failed", "err", err)
-			return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+			return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 		}
 		if preCount >= int64(preCapRow.Capacity) {
 			slog.WarnContext(ctx, "section enrollment rejected: section full (pre-check)",
@@ -129,22 +129,22 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 			)
 			// TODO(metrics): increment section_full_total{path="pre_check"} when a
 			// Prometheus/OTel pipeline is wired into internal/platform.
-			return section_enrollmentdb.SectionEnrollment{}, ErrSectionFull
+			return sectionenrollmentdb.SectionEnrollment{}, ErrSectionFull
 		}
 	}
 
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	q := section_enrollmentdb.New(tx)
+	q := sectionenrollmentdb.New(tx)
 
 	// 1. Set per-transaction lock timeout. This bounds how long the hot path can block
 	//    waiting for the section row lock under a registration stampede.
 	if _, err := tx.Exec(ctx, "SET LOCAL lock_timeout = '2500ms'"); err != nil {
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 
 	// 2. Lock section row FOR UPDATE. Fetches capacity, course_id, period_year, and
@@ -158,7 +158,7 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 				"section_id", p.SectionID,
 			)
 		}
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 	slog.DebugContext(ctx, "section lock acquired",
 		"section_id", p.SectionID,
@@ -170,7 +170,7 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 	//    (fail-closed). Admin path is never window-gated.
 	if !isAdmin {
 		if !sectionRow.WindowOpen.Valid || !sectionRow.WindowOpen.Bool {
-			return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: enrollment window is closed or not configured", ErrWindowClosed)
+			return sectionenrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: enrollment window is closed or not configured", ErrWindowClosed)
 		}
 	}
 
@@ -186,17 +186,17 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 		eRow, err := q.ResolveEnrollmentByID(ctx, pgtype.UUID{Bytes: p.EnrollmentID, Valid: true})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return section_enrollmentdb.SectionEnrollment{}, ErrNotFound
+				return sectionenrollmentdb.SectionEnrollment{}, ErrNotFound
 			}
-			return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+			return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 		}
 		if eRow.Status != "paid" {
-			return section_enrollmentdb.SectionEnrollment{}, ErrNotPaid
+			return sectionenrollmentdb.SectionEnrollment{}, ErrNotPaid
 		}
 		// Enforce annual-matrícula semantics: the enrollment's year must match the
 		// section's academic period year. A matrícula is valid only within its own year.
 		if eRow.Year != sectionRow.PeriodYear {
-			return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: enrollment year %d, period year %d",
+			return sectionenrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: enrollment year %d, period year %d",
 				ErrEnrollmentYearMismatch, eRow.Year, sectionRow.PeriodYear)
 		}
 		enrollmentID = eRow.ID
@@ -205,39 +205,39 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 		// Self-service path: resolve the enrollment by (student_id, program_id, period_year).
 		// The year is taken from the locked section row so the student cannot use a
 		// matrícula from a different year to enroll in this section.
-		eRow, err := q.ResolveEnrollmentByStudentAndProgram(ctx, section_enrollmentdb.ResolveEnrollmentByStudentAndProgramParams{
+		eRow, err := q.ResolveEnrollmentByStudentAndProgram(ctx, sectionenrollmentdb.ResolveEnrollmentByStudentAndProgramParams{
 			StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
 			ProgramID: pgtype.UUID{Bytes: p.ProgramID, Valid: true},
 			Year:      sectionRow.PeriodYear,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return section_enrollmentdb.SectionEnrollment{}, ErrNotFound
+				return sectionenrollmentdb.SectionEnrollment{}, ErrNotFound
 			}
-			return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+			return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 		}
 		if eRow.Status != "paid" {
-			return section_enrollmentdb.SectionEnrollment{}, ErrNotPaid
+			return sectionenrollmentdb.SectionEnrollment{}, ErrNotPaid
 		}
 		enrollmentID = eRow.ID
 		programID = eRow.ProgramID
 	}
 
 	// 5. Course-in-program gate.
-	inProgram, err := q.CourseInProgram(ctx, section_enrollmentdb.CourseInProgramParams{
+	inProgram, err := q.CourseInProgram(ctx, sectionenrollmentdb.CourseInProgramParams{
 		ProgramID: programID,
 		CourseID:  sectionRow.CourseID,
 	})
 	if err != nil {
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 	if !inProgram {
-		return section_enrollmentdb.SectionEnrollment{}, ErrCourseNotInProgram
+		return sectionenrollmentdb.SectionEnrollment{}, ErrCourseNotInProgram
 	}
 
 	// 6. Lock key row FOR UPDATE (revival detection). Only LIVE rows are returned by the query
 	//    (deleted_at IS NULL filter) so a soft-deleted row never triggers AlreadyExists or revival.
-	existingRow, keyErr := q.GetSectionEnrollmentByKeyForUpdate(ctx, section_enrollmentdb.GetSectionEnrollmentByKeyForUpdateParams{
+	existingRow, keyErr := q.GetSectionEnrollmentByKeyForUpdate(ctx, sectionenrollmentdb.GetSectionEnrollmentByKeyForUpdateParams{
 		EnrollmentID: enrollmentID,
 		SectionID:    pgtype.UUID{Bytes: p.SectionID, Valid: true},
 	})
@@ -248,27 +248,27 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 		switch existingRow.Status {
 		case "in_progress":
 			// Live active row — duplicate enrollment attempt.
-			return section_enrollmentdb.SectionEnrollment{}, ErrAlreadyExists
+			return sectionenrollmentdb.SectionEnrollment{}, ErrAlreadyExists
 		case "withdrawn":
 			if !isAdmin {
 				// Students cannot self-revive a withdrawn inscription.
-				return section_enrollmentdb.SectionEnrollment{}, ErrWithdrawnNotRevivable
+				return sectionenrollmentdb.SectionEnrollment{}, ErrWithdrawnNotRevivable
 			}
 			isRevival = true
 		default:
 			// passed or failed: a completed course may not be re-enrolled.
-			return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: inscription is in terminal status %q", ErrInvalidTransition, existingRow.Status)
+			return sectionenrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: inscription is in terminal status %q", ErrInvalidTransition, existingRow.Status)
 		}
 	case errors.Is(keyErr, pgx.ErrNoRows):
 		// No existing live row — fresh insert path.
 	default:
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(keyErr)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(keyErr)
 	}
 
 	// 7. COUNT active seats under the lock. This is the authoritative check.
 	activeCount, err := q.CountActiveSeats(ctx, pgtype.UUID{Bytes: p.SectionID, Valid: true})
 	if err != nil {
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 	if activeCount >= int64(sectionRow.Capacity) {
 		slog.WarnContext(ctx, "section enrollment rejected: section full (under lock)",
@@ -278,57 +278,57 @@ func (r *postgresRepository) EnrollSectionTx(ctx context.Context, p EnrollSectio
 		)
 		// TODO(metrics): increment section_full_total{path="under_lock"} when a
 		// Prometheus/OTel pipeline is wired into internal/platform.
-		return section_enrollmentdb.SectionEnrollment{}, ErrSectionFull
+		return sectionenrollmentdb.SectionEnrollment{}, ErrSectionFull
 	}
 
 	// 8. Insert (fresh) or revive (admin only).
-	var result section_enrollmentdb.SectionEnrollment
+	var result sectionenrollmentdb.SectionEnrollment
 	if isRevival {
 		result, err = q.ReviveSectionEnrollment(ctx, existingRow.ID)
 	} else {
-		result, err = q.InsertSectionEnrollment(ctx, section_enrollmentdb.InsertSectionEnrollmentParams{
+		result, err = q.InsertSectionEnrollment(ctx, sectionenrollmentdb.InsertSectionEnrollmentParams{
 			EnrollmentID: enrollmentID,
 			SectionID:    pgtype.UUID{Bytes: p.SectionID, Valid: true},
 		})
 	}
 	if err != nil {
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 	return result, nil
 }
 
 // WithdrawSection transitions an in_progress inscription to withdrawn.
 // Returns ErrNotFound when the inscription is absent, already withdrawn, or soft-deleted.
-func (r *postgresRepository) WithdrawSection(ctx context.Context, id uuid.UUID) (section_enrollmentdb.SectionEnrollment, error) {
+func (r *postgresRepository) WithdrawSection(ctx context.Context, id uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
 	row, err := r.q.WithdrawSectionEnrollment(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 	return row, nil
 }
 
 // GetSectionEnrollment returns a live inscription by id.
-func (r *postgresRepository) GetSectionEnrollment(ctx context.Context, id uuid.UUID) (section_enrollmentdb.SectionEnrollment, error) {
+func (r *postgresRepository) GetSectionEnrollment(ctx context.Context, id uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
 	row, err := r.q.GetSectionEnrollmentByID(ctx, pgtype.UUID{Bytes: id, Valid: true})
 	if err != nil {
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 	return row, nil
 }
 
 // GetOwnSectionEnrollment returns a live inscription by id (same as GetSectionEnrollment;
 // ownership is enforced by the service after the fetch).
-func (r *postgresRepository) GetOwnSectionEnrollment(ctx context.Context, id uuid.UUID) (section_enrollmentdb.SectionEnrollment, error) {
+func (r *postgresRepository) GetOwnSectionEnrollment(ctx context.Context, id uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
 	return r.GetSectionEnrollment(ctx, id)
 }
 
 // ListSectionEnrollments returns live inscriptions filtered by optional criteria.
-func (r *postgresRepository) ListSectionEnrollments(ctx context.Context, f ListSectionEnrollmentsFilter) ([]section_enrollmentdb.SectionEnrollment, error) {
-	params := section_enrollmentdb.ListSectionEnrollmentsParams{}
+func (r *postgresRepository) ListSectionEnrollments(ctx context.Context, f ListSectionEnrollmentsFilter) ([]sectionenrollmentdb.SectionEnrollment, error) {
+	params := sectionenrollmentdb.ListSectionEnrollmentsParams{}
 	if f.SectionID != nil {
 		params.SectionID = pgtype.UUID{Bytes: *f.SectionID, Valid: true}
 	}
@@ -346,7 +346,7 @@ func (r *postgresRepository) ListSectionEnrollments(ctx context.Context, f ListS
 }
 
 // ListOwnSectionEnrollments returns all live inscriptions for the given student.
-func (r *postgresRepository) ListOwnSectionEnrollments(ctx context.Context, studentID uuid.UUID) ([]section_enrollmentdb.SectionEnrollment, error) {
+func (r *postgresRepository) ListOwnSectionEnrollments(ctx context.Context, studentID uuid.UUID) ([]sectionenrollmentdb.SectionEnrollment, error) {
 	rows, err := r.q.ListOwnSectionEnrollments(ctx, pgtype.UUID{Bytes: studentID, Valid: true})
 	if err != nil {
 		return nil, TranslatePgError(err)
@@ -358,16 +358,16 @@ func (r *postgresRepository) ListOwnSectionEnrollments(ctx context.Context, stud
 // the caller-owned transaction tx. It executes the owned SetSectionEnrollmentOutcome query
 // over the given tx using the WithTx pattern, preserving the single-tx atomicity boundary.
 // Zero rows returned → ErrInvalidTransition (withdrawn source or invalid target).
-func (r *postgresRepository) SetSectionEnrollmentOutcomeTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (section_enrollmentdb.SectionEnrollment, error) {
-	q := section_enrollmentdb.New(tx)
+func (r *postgresRepository) SetSectionEnrollmentOutcomeTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (sectionenrollmentdb.SectionEnrollment, error) {
+	q := sectionenrollmentdb.New(tx)
 	return setOutcomeWithQuerier(ctx, q, id, outcome, finalGrade)
 }
 
 // setOutcomeWithQuerier is the querier-level implementation of the outcome transition.
 // Separated from SetSectionEnrollmentOutcomeTx so that it can be unit-tested with a fake querier
 // without requiring a real pgx.Tx.
-func setOutcomeWithQuerier(ctx context.Context, q section_enrollmentdb.Querier, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (section_enrollmentdb.SectionEnrollment, error) {
-	row, err := q.SetSectionEnrollmentOutcome(ctx, section_enrollmentdb.SetSectionEnrollmentOutcomeParams{
+func setOutcomeWithQuerier(ctx context.Context, q sectionenrollmentdb.Querier, id uuid.UUID, outcome string, finalGrade pgtype.Numeric) (sectionenrollmentdb.SectionEnrollment, error) {
+	row, err := q.SetSectionEnrollmentOutcome(ctx, sectionenrollmentdb.SetSectionEnrollmentOutcomeParams{
 		ID:         pgtype.UUID{Bytes: id, Valid: true},
 		Status:     outcome,
 		FinalGrade: finalGrade,
@@ -375,9 +375,9 @@ func setOutcomeWithQuerier(ctx context.Context, q section_enrollmentdb.Querier, 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Zero rows: source is withdrawn, or target is not passed/failed.
-			return section_enrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: invalid transition to %q or source is withdrawn", ErrInvalidTransition, outcome)
+			return sectionenrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: invalid transition to %q or source is withdrawn", ErrInvalidTransition, outcome)
 		}
-		return section_enrollmentdb.SectionEnrollment{}, TranslatePgError(err)
+		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 	return row, nil
 }
@@ -385,6 +385,6 @@ func setOutcomeWithQuerier(ctx context.Context, q section_enrollmentdb.Querier, 
 // newFakeRepository constructs a repository backed by the given Querier without a
 // pool (the pool is only used for EnrollSectionTx, which opens a real transaction).
 // Used exclusively in unit tests that exercise non-transactional repository methods.
-func newFakeRepository(q section_enrollmentdb.Querier) Repository {
+func newFakeRepository(q sectionenrollmentdb.Querier) Repository {
 	return &postgresRepository{q: q, pool: nil}
 }

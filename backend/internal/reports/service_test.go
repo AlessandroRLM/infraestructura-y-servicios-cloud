@@ -18,37 +18,37 @@ import (
 // --- fakeRepository ---
 
 type fakeRepository struct {
-	sectionExistsCalled         bool
-	isTeacherForSectionCalled   bool
-	actaAdminCalled             bool
-	actaTeacherCalled           bool
-	periodExistsCalled          bool
-	occupancyForPeriodCalled    bool
-	programExistsCalled         bool
-	programSummaryCalled        bool
-	studentExistsCalled         bool
-	fichaForStudentCalled       bool
+	sectionExistsCalled       bool
+	isTeacherForSectionCalled bool
+	actaAdminCalled           bool
+	actaTeacherCalled         bool
+	periodExistsCalled        bool
+	occupancyForPeriodCalled  bool
+	programExistsCalled       bool
+	programSummaryCalled      bool
+	studentExistsCalled       bool
+	fichaForStudentCalled     bool
 
-	sectionExistsResult        bool
-	sectionExistsErr           error
-	isTeacherForSectionResult  bool
-	isTeacherForSectionErr     error
-	actaAdminResult            []reportsdb.ActaForSectionAdminRow
-	actaAdminErr               error
-	actaTeacherResult          []reportsdb.ActaForSectionByTeacherRow
-	actaTeacherErr             error
-	periodExistsResult         bool
-	periodExistsErr            error
-	occupancyResult            []reportsdb.OccupancyForPeriodRow
-	occupancyErr               error
-	programExistsResult        bool
-	programExistsErr           error
-	programSummaryResult       []reportsdb.ProgramSummaryRow
-	programSummaryErr          error
-	studentExistsResult        bool
-	studentExistsErr           error
-	fichaResult                []reportsdb.FichaForStudentRow
-	fichaErr                   error
+	sectionExistsResult       bool
+	sectionExistsErr          error
+	isTeacherForSectionResult bool
+	isTeacherForSectionErr    error
+	actaAdminResult           []reportsdb.ActaForSectionAdminRow
+	actaAdminErr              error
+	actaTeacherResult         []reportsdb.ActaForSectionByTeacherRow
+	actaTeacherErr            error
+	periodExistsResult        bool
+	periodExistsErr           error
+	occupancyResult           []reportsdb.OccupancyForPeriodRow
+	occupancyErr              error
+	programExistsResult       bool
+	programExistsErr          error
+	programSummaryResult      []reportsdb.ProgramSummaryRow
+	programSummaryErr         error
+	studentExistsResult       bool
+	studentExistsErr          error
+	fichaResult               []reportsdb.FichaForStudentRow
+	fichaErr                  error
 }
 
 var _ Repository = (*fakeRepository)(nil)

@@ -1,4 +1,4 @@
-package audit_logs
+package auditlogs
 
 import (
 	"context"

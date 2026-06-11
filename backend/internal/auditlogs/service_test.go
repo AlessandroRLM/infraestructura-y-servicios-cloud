@@ -1,4 +1,4 @@
-package audit_logs
+package auditlogs
 
 import (
 	"context"
@@ -10,14 +10,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	auditlogsv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/audit_logs/v1"
-	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/audit_logs/auditlogsdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auditlogs/auditlogsdb"
 )
 
 // fakeRepository is a test double for Repository with an explicit `called` sentinel.
 type fakeRepository struct {
-	called  bool
-	rows    []auditlogsdb.AuditLog
-	err     error
+	called    bool
+	rows      []auditlogsdb.AuditLog
+	err       error
 	gotParams ListParams
 }
 

@@ -1,13 +1,13 @@
-package audit_logs
+package auditlogs
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	auditlogsv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/audit_logs/v1"
-	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/audit_logs/auditlogsdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auditlogs/auditlogsdb"
+	"github.com/google/uuid"
 )
 
 const (
@@ -152,4 +152,3 @@ func auditLogToProto(row auditlogsdb.AuditLog) *auditlogsv1.AuditLog {
 
 	return log
 }
-

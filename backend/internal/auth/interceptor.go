@@ -67,4 +67,3 @@ func NewSessionInterceptor(store session.Store, loader RoleLoader, cfg config.Co
 		}
 	}
 }
-

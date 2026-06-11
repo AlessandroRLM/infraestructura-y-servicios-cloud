@@ -30,63 +30,63 @@ type fakeRepository struct {
 	countLiveQuotas     int64
 
 	// Courses
-	createCourseRow              catalogdb.Course
-	createCourseErr              error
-	createCourseActor            *uuid.UUID
-	updateCourseRow              catalogdb.Course
-	updateCourseErr              error
-	getCourseRow                 catalogdb.Course
-	getCourseErr                 error
-	listCoursesRows              []catalogdb.Course
-	softDeleteCourseE            error
-	countCourseAssociations      int64
-	countCourseAssociationsErr   error
+	createCourseRow            catalogdb.Course
+	createCourseErr            error
+	createCourseActor          *uuid.UUID
+	updateCourseRow            catalogdb.Course
+	updateCourseErr            error
+	getCourseRow               catalogdb.Course
+	getCourseErr               error
+	listCoursesRows            []catalogdb.Course
+	softDeleteCourseE          error
+	countCourseAssociations    int64
+	countCourseAssociationsErr error
 
 	// Program courses
-	addCourseToProgramRow catalogdb.ProgramCourse
-	addCourseToProgramErr error
-	removeCourseErr       error
+	addCourseToProgramRow  catalogdb.ProgramCourse
+	addCourseToProgramErr  error
+	removeCourseErr        error
 	listProgramCoursesRows []catalogdb.ProgramCourse
 
 	// Academic periods
-	createAcademicPeriodRow    catalogdb.AcademicPeriod
-	createAcademicPeriodErr    error
-	updateAcademicPeriodRow    catalogdb.AcademicPeriod
-	getAcademicPeriodRow       catalogdb.AcademicPeriod
-	getAcademicPeriodErr       error
-	listAcademicPeriodsRows    []catalogdb.AcademicPeriod
-	softDeleteAcademicPeriodE  error
+	createAcademicPeriodRow   catalogdb.AcademicPeriod
+	createAcademicPeriodErr   error
+	updateAcademicPeriodRow   catalogdb.AcademicPeriod
+	getAcademicPeriodRow      catalogdb.AcademicPeriod
+	getAcademicPeriodErr      error
+	listAcademicPeriodsRows   []catalogdb.AcademicPeriod
+	softDeleteAcademicPeriodE error
 
 	// Program quotas
-	createProgramQuotaRow  catalogdb.ProgramQuota
-	createProgramQuotaErr  error
+	createProgramQuotaRow   catalogdb.ProgramQuota
+	createProgramQuotaErr   error
 	createProgramQuotaActor *uuid.UUID
-	updateProgramQuotaRow  catalogdb.ProgramQuota
-	updateProgramQuotaErr  error
-	getProgramQuotaRow     catalogdb.ProgramQuota
-	getProgramQuotaErr     error
-	listProgramQuotasRows  []catalogdb.ProgramQuota
+	updateProgramQuotaRow   catalogdb.ProgramQuota
+	updateProgramQuotaErr   error
+	getProgramQuotaRow      catalogdb.ProgramQuota
+	getProgramQuotaErr      error
+	listProgramQuotasRows   []catalogdb.ProgramQuota
 	softDeleteProgramQuotaE error
 
 	// Sections
-	createSectionRow               catalogdb.Section
-	createSectionErr               error
-	createSectionActor             *uuid.UUID
-	updateSectionRow               catalogdb.Section
-	updateSectionErr               error
-	getSectionRow                  catalogdb.Section
-	getSectionErr                  error
-	listSectionsRows               []catalogdb.Section
-	softDeleteSectionE             error
-	countLiveSectionsByCourse      int64
-	countLiveSectionsByPeriod      int64
-	countSectionTeachersN          int64
+	createSectionRow          catalogdb.Section
+	createSectionErr          error
+	createSectionActor        *uuid.UUID
+	updateSectionRow          catalogdb.Section
+	updateSectionErr          error
+	getSectionRow             catalogdb.Section
+	getSectionErr             error
+	listSectionsRows          []catalogdb.Section
+	softDeleteSectionE        error
+	countLiveSectionsByCourse int64
+	countLiveSectionsByPeriod int64
+	countSectionTeachersN     int64
 
 	// Section teachers
-	assignTeacherRow               catalogdb.SectionTeacher
-	assignTeacherErr               error
-	removeTeacherErr               error
-	listSectionTeachersRows        []catalogdb.SectionTeacher
+	assignTeacherRow        catalogdb.SectionTeacher
+	assignTeacherErr        error
+	removeTeacherErr        error
+	listSectionTeachersRows []catalogdb.SectionTeacher
 }
 
 // Compile-time check: fakeRepository must satisfy catalog.Repository.
@@ -530,10 +530,10 @@ func TestService_DeleteCourse_ActorPassedToRepo(t *testing.T) {
 	var capturedActor *uuid.UUID
 	repo := &fakeRepositoryWithDeleteActor{
 		fakeRepository: fakeRepository{
-			countCourseAssociations:    0,
-			countLiveSectionsByCourse:  0,
+			countCourseAssociations:   0,
+			countLiveSectionsByCourse: 0,
 		},
-		captureActor:  &capturedActor,
+		captureActor:    &capturedActor,
 		captureIsCourse: true,
 	}
 	svc := catalog.NewService(repo)
@@ -745,7 +745,7 @@ func TestService_DeleteCourse_BlockedByLiveSections(t *testing.T) {
 	t.Parallel()
 
 	repo := &fakeRepository{
-		countCourseAssociations:  0,
+		countCourseAssociations:   0,
 		countLiveSectionsByCourse: 3,
 	}
 	svc := catalog.NewService(repo)

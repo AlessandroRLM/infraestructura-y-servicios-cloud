@@ -1,4 +1,4 @@
-package section_enrollment
+package sectionenrollment
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 
 	section_enrollmentv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
-	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment/section_enrollmentdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
 
 // Handler implements section_enrollmentv1connect.SectionEnrollmentServiceHandler.
@@ -217,7 +217,7 @@ func (h *Handler) ListSectionEnrollments(
 // --- Proto converter ---
 
 // sectionEnrollmentToProto converts a database row to its proto representation.
-func sectionEnrollmentToProto(r section_enrollmentdb.SectionEnrollment) *section_enrollmentv1.SectionEnrollment {
+func sectionEnrollmentToProto(r sectionenrollmentdb.SectionEnrollment) *section_enrollmentv1.SectionEnrollment {
 	se := &section_enrollmentv1.SectionEnrollment{
 		Id:           uuidToString(r.ID),
 		EnrollmentId: uuidToString(r.EnrollmentID),

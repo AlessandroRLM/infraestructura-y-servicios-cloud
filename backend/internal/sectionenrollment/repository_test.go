@@ -1,4 +1,4 @@
-package section_enrollment
+package sectionenrollment
 
 import (
 	"context"
@@ -11,20 +11,20 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment/section_enrollmentdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
 
-// fakeQuerier is a fake implementation of section_enrollmentdb.Querier for unit testing.
+// fakeQuerier is a fake implementation of sectionenrollmentdb.Querier for unit testing.
 // It uses explicit called bool sentinels and configurable responses.
 type fakeQuerier struct {
 	// GetSectionCapacity (non-locking pre-check)
 	getSectionCapacityCalled bool
-	getSectionCapacityRow    section_enrollmentdb.GetSectionCapacityRow
+	getSectionCapacityRow    sectionenrollmentdb.GetSectionCapacityRow
 	getSectionCapacityErr    error
 
 	// GetSectionForUpdateWithWindow
 	getSectionCalled bool
-	getSectionRow    section_enrollmentdb.GetSectionForUpdateWithWindowRow
+	getSectionRow    sectionenrollmentdb.GetSectionForUpdateWithWindowRow
 	getSectionErr    error
 
 	// CountActiveSeats
@@ -34,12 +34,12 @@ type fakeQuerier struct {
 
 	// ResolveEnrollmentByID (admin path)
 	resolveByIDCalled bool
-	resolveByIDRow    section_enrollmentdb.ResolveEnrollmentByIDRow
+	resolveByIDRow    sectionenrollmentdb.ResolveEnrollmentByIDRow
 	resolveByIDErr    error
 
 	// ResolveEnrollmentByStudentAndProgram (student path)
 	resolveByStudentProgramCalled bool
-	resolveByStudentProgramRow    section_enrollmentdb.ResolveEnrollmentByStudentAndProgramRow
+	resolveByStudentProgramRow    sectionenrollmentdb.ResolveEnrollmentByStudentAndProgramRow
 	resolveByStudentProgramErr    error
 
 	// CourseInProgram
@@ -49,53 +49,53 @@ type fakeQuerier struct {
 
 	// GetSectionEnrollmentByKeyForUpdate
 	getKeyForUpdateCalled bool
-	getKeyForUpdateRow    section_enrollmentdb.SectionEnrollment
+	getKeyForUpdateRow    sectionenrollmentdb.SectionEnrollment
 	getKeyForUpdateErr    error
 
 	// InsertSectionEnrollment
 	insertCalled bool
-	insertRow    section_enrollmentdb.SectionEnrollment
+	insertRow    sectionenrollmentdb.SectionEnrollment
 	insertErr    error
 
 	// ReviveSectionEnrollment
 	reviveCalled bool
-	reviveRow    section_enrollmentdb.SectionEnrollment
+	reviveRow    sectionenrollmentdb.SectionEnrollment
 	reviveErr    error
 
 	// WithdrawSectionEnrollment
 	withdrawCalled bool
-	withdrawRow    section_enrollmentdb.SectionEnrollment
+	withdrawRow    sectionenrollmentdb.SectionEnrollment
 	withdrawErr    error
 
 	// GetSectionEnrollmentByID
 	getByIDCalled bool
-	getByIDRow    section_enrollmentdb.SectionEnrollment
+	getByIDRow    sectionenrollmentdb.SectionEnrollment
 	getByIDErr    error
 
 	// ListSectionEnrollments
 	listCalled bool
-	listRows   []section_enrollmentdb.SectionEnrollment
+	listRows   []sectionenrollmentdb.SectionEnrollment
 	listErr    error
 
 	// ListOwnSectionEnrollments
 	listOwnCalled bool
-	listOwnRows   []section_enrollmentdb.SectionEnrollment
+	listOwnRows   []sectionenrollmentdb.SectionEnrollment
 	listOwnErr    error
 
 	// SetSectionEnrollmentOutcome
 	setOutcomeCalled     bool
-	setOutcomeRow        section_enrollmentdb.SectionEnrollment
+	setOutcomeRow        sectionenrollmentdb.SectionEnrollment
 	setOutcomeErr        error
 	setOutcomeLastStatus string
 	setOutcomeLastGrade  pgtype.Numeric
 }
 
-func (f *fakeQuerier) GetSectionCapacity(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.GetSectionCapacityRow, error) {
+func (f *fakeQuerier) GetSectionCapacity(_ context.Context, _ pgtype.UUID) (sectionenrollmentdb.GetSectionCapacityRow, error) {
 	f.getSectionCapacityCalled = true
 	return f.getSectionCapacityRow, f.getSectionCapacityErr
 }
 
-func (f *fakeQuerier) GetSectionForUpdateWithWindow(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.GetSectionForUpdateWithWindowRow, error) {
+func (f *fakeQuerier) GetSectionForUpdateWithWindow(_ context.Context, _ pgtype.UUID) (sectionenrollmentdb.GetSectionForUpdateWithWindowRow, error) {
 	f.getSectionCalled = true
 	return f.getSectionRow, f.getSectionErr
 }
@@ -105,57 +105,57 @@ func (f *fakeQuerier) CountActiveSeats(_ context.Context, _ pgtype.UUID) (int64,
 	return f.countSeatsResult, f.countSeatsErr
 }
 
-func (f *fakeQuerier) ResolveEnrollmentByID(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.ResolveEnrollmentByIDRow, error) {
+func (f *fakeQuerier) ResolveEnrollmentByID(_ context.Context, _ pgtype.UUID) (sectionenrollmentdb.ResolveEnrollmentByIDRow, error) {
 	f.resolveByIDCalled = true
 	return f.resolveByIDRow, f.resolveByIDErr
 }
 
-func (f *fakeQuerier) ResolveEnrollmentByStudentAndProgram(_ context.Context, _ section_enrollmentdb.ResolveEnrollmentByStudentAndProgramParams) (section_enrollmentdb.ResolveEnrollmentByStudentAndProgramRow, error) {
+func (f *fakeQuerier) ResolveEnrollmentByStudentAndProgram(_ context.Context, _ sectionenrollmentdb.ResolveEnrollmentByStudentAndProgramParams) (sectionenrollmentdb.ResolveEnrollmentByStudentAndProgramRow, error) {
 	f.resolveByStudentProgramCalled = true
 	return f.resolveByStudentProgramRow, f.resolveByStudentProgramErr
 }
 
-func (f *fakeQuerier) CourseInProgram(_ context.Context, _ section_enrollmentdb.CourseInProgramParams) (bool, error) {
+func (f *fakeQuerier) CourseInProgram(_ context.Context, _ sectionenrollmentdb.CourseInProgramParams) (bool, error) {
 	f.courseInProgramCalled = true
 	return f.courseInProgramResult, f.courseInProgramErr
 }
 
-func (f *fakeQuerier) GetSectionEnrollmentByKeyForUpdate(_ context.Context, _ section_enrollmentdb.GetSectionEnrollmentByKeyForUpdateParams) (section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeQuerier) GetSectionEnrollmentByKeyForUpdate(_ context.Context, _ sectionenrollmentdb.GetSectionEnrollmentByKeyForUpdateParams) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.getKeyForUpdateCalled = true
 	return f.getKeyForUpdateRow, f.getKeyForUpdateErr
 }
 
-func (f *fakeQuerier) InsertSectionEnrollment(_ context.Context, _ section_enrollmentdb.InsertSectionEnrollmentParams) (section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeQuerier) InsertSectionEnrollment(_ context.Context, _ sectionenrollmentdb.InsertSectionEnrollmentParams) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.insertCalled = true
 	return f.insertRow, f.insertErr
 }
 
-func (f *fakeQuerier) ReviveSectionEnrollment(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeQuerier) ReviveSectionEnrollment(_ context.Context, _ pgtype.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.reviveCalled = true
 	return f.reviveRow, f.reviveErr
 }
 
-func (f *fakeQuerier) WithdrawSectionEnrollment(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeQuerier) WithdrawSectionEnrollment(_ context.Context, _ pgtype.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.withdrawCalled = true
 	return f.withdrawRow, f.withdrawErr
 }
 
-func (f *fakeQuerier) GetSectionEnrollmentByID(_ context.Context, _ pgtype.UUID) (section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeQuerier) GetSectionEnrollmentByID(_ context.Context, _ pgtype.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.getByIDCalled = true
 	return f.getByIDRow, f.getByIDErr
 }
 
-func (f *fakeQuerier) ListSectionEnrollments(_ context.Context, _ section_enrollmentdb.ListSectionEnrollmentsParams) ([]section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeQuerier) ListSectionEnrollments(_ context.Context, _ sectionenrollmentdb.ListSectionEnrollmentsParams) ([]sectionenrollmentdb.SectionEnrollment, error) {
 	f.listCalled = true
 	return f.listRows, f.listErr
 }
 
-func (f *fakeQuerier) ListOwnSectionEnrollments(_ context.Context, _ pgtype.UUID) ([]section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeQuerier) ListOwnSectionEnrollments(_ context.Context, _ pgtype.UUID) ([]sectionenrollmentdb.SectionEnrollment, error) {
 	f.listOwnCalled = true
 	return f.listOwnRows, f.listOwnErr
 }
 
-func (f *fakeQuerier) SetSectionEnrollmentOutcome(_ context.Context, arg section_enrollmentdb.SetSectionEnrollmentOutcomeParams) (section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeQuerier) SetSectionEnrollmentOutcome(_ context.Context, arg sectionenrollmentdb.SetSectionEnrollmentOutcomeParams) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.setOutcomeCalled = true
 	f.setOutcomeLastStatus = arg.Status
 	f.setOutcomeLastGrade = arg.FinalGrade
@@ -173,9 +173,9 @@ func makeTimestamptz(t time.Time) pgtype.Timestamptz {
 }
 
 // newInsertedRow creates a fake SectionEnrollment as returned by InsertSectionEnrollment.
-func newInsertedRow(seID, enrollmentID, sectionID uuid.UUID) section_enrollmentdb.SectionEnrollment {
+func newInsertedRow(seID, enrollmentID, sectionID uuid.UUID) sectionenrollmentdb.SectionEnrollment {
 	now := time.Now()
-	return section_enrollmentdb.SectionEnrollment{
+	return sectionenrollmentdb.SectionEnrollment{
 		ID:           makePgUUID(seID),
 		EnrollmentID: makePgUUID(enrollmentID),
 		SectionID:    makePgUUID(sectionID),

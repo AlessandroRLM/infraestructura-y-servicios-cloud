@@ -1,6 +1,6 @@
-// Package audit_logs implements the audit_logs vertical slice: a single read-only
+// Package auditlogs implements the audit_logs vertical slice: a single read-only
 // Connect RPC (ListAuditLogs) over the append-only audit_logs table.
-package audit_logs
+package auditlogs
 
 import (
 	"context"

@@ -1,7 +1,7 @@
-// Package section_enrollment implements the student section inscription vertical slice:
+// Package sectionenrollment implements the section enrollment vertical slice:
 // window-gated self-enrollment, capacity-enforced seat accounting under a FOR UPDATE lock,
 // and an admission control interceptor to protect the connection pool under stampede load.
-package section_enrollment
+package sectionenrollment
 
 import (
 	"errors"

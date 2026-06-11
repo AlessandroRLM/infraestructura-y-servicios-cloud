@@ -1,4 +1,4 @@
-package audit_logs
+package auditlogs
 
 // Compile-time guard: *postgresRepository must satisfy Repository.
 // This test will fail to compile until repository.go defines both types.

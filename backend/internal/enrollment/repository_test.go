@@ -15,9 +15,9 @@ import (
 // fakeQuerier is a test double for enrollmentdb.Querier.
 // Each method records whether it was called via the called sentinel.
 type fakeQuerier struct {
-	lockQuotaCalled  bool
-	lockQuotaErr     error
-	lockCapacity     int32
+	lockQuotaCalled bool
+	lockQuotaErr    error
+	lockCapacity    int32
 
 	countActiveCalled bool
 	countActiveErr    error

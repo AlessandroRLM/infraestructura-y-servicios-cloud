@@ -1,4 +1,4 @@
-package section_enrollment
+package sectionenrollment
 
 import (
 	"context"
@@ -10,70 +10,70 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
-	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/section_enrollment/section_enrollmentdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
 
 // fakeRepository is a fake implementation of the Repository interface for service unit tests.
 type fakeRepository struct {
-	enrollTxCalled   bool
-	enrollTxRow      section_enrollmentdb.SectionEnrollment
-	enrollTxErr      error
-	enrollTxIsAdmin  bool // captures the isAdmin flag from the last call
+	enrollTxCalled  bool
+	enrollTxRow     sectionenrollmentdb.SectionEnrollment
+	enrollTxErr     error
+	enrollTxIsAdmin bool // captures the isAdmin flag from the last call
 
 	withdrawCalled bool
-	withdrawRow    section_enrollmentdb.SectionEnrollment
+	withdrawRow    sectionenrollmentdb.SectionEnrollment
 	withdrawErr    error
 
 	getSECalled bool
-	getSERow    section_enrollmentdb.SectionEnrollment
+	getSERow    sectionenrollmentdb.SectionEnrollment
 	getSEErr    error
 
 	listCalled bool
-	listRows   []section_enrollmentdb.SectionEnrollment
+	listRows   []sectionenrollmentdb.SectionEnrollment
 	listErr    error
 
 	listOwnCalled bool
-	listOwnRows   []section_enrollmentdb.SectionEnrollment
+	listOwnRows   []sectionenrollmentdb.SectionEnrollment
 	listOwnErr    error
 
 	getOwnCalled bool
-	getOwnRow    section_enrollmentdb.SectionEnrollment
+	getOwnRow    sectionenrollmentdb.SectionEnrollment
 	getOwnErr    error
 }
 
-func (f *fakeRepository) EnrollSectionTx(_ context.Context, _ EnrollSectionParams, isAdmin bool) (section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeRepository) EnrollSectionTx(_ context.Context, _ EnrollSectionParams, isAdmin bool) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.enrollTxCalled = true
 	f.enrollTxIsAdmin = isAdmin
 	return f.enrollTxRow, f.enrollTxErr
 }
 
-func (f *fakeRepository) WithdrawSection(_ context.Context, _ uuid.UUID) (section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeRepository) WithdrawSection(_ context.Context, _ uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.withdrawCalled = true
 	return f.withdrawRow, f.withdrawErr
 }
 
-func (f *fakeRepository) GetSectionEnrollment(_ context.Context, _ uuid.UUID) (section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeRepository) GetSectionEnrollment(_ context.Context, _ uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.getSECalled = true
 	return f.getSERow, f.getSEErr
 }
 
-func (f *fakeRepository) ListSectionEnrollments(_ context.Context, _ ListSectionEnrollmentsFilter) ([]section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeRepository) ListSectionEnrollments(_ context.Context, _ ListSectionEnrollmentsFilter) ([]sectionenrollmentdb.SectionEnrollment, error) {
 	f.listCalled = true
 	return f.listRows, f.listErr
 }
 
-func (f *fakeRepository) ListOwnSectionEnrollments(_ context.Context, _ uuid.UUID) ([]section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeRepository) ListOwnSectionEnrollments(_ context.Context, _ uuid.UUID) ([]sectionenrollmentdb.SectionEnrollment, error) {
 	f.listOwnCalled = true
 	return f.listOwnRows, f.listOwnErr
 }
 
-func (f *fakeRepository) GetOwnSectionEnrollment(_ context.Context, _ uuid.UUID) (section_enrollmentdb.SectionEnrollment, error) {
+func (f *fakeRepository) GetOwnSectionEnrollment(_ context.Context, _ uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.getOwnCalled = true
 	return f.getOwnRow, f.getOwnErr
 }
 
-func (f *fakeRepository) SetSectionEnrollmentOutcomeTx(_ context.Context, _ pgx.Tx, _ uuid.UUID, _ string, _ pgtype.Numeric) (section_enrollmentdb.SectionEnrollment, error) {
-	return section_enrollmentdb.SectionEnrollment{}, nil
+func (f *fakeRepository) SetSectionEnrollmentOutcomeTx(_ context.Context, _ pgx.Tx, _ uuid.UUID, _ string, _ pgtype.Numeric) (sectionenrollmentdb.SectionEnrollment, error) {
+	return sectionenrollmentdb.SectionEnrollment{}, nil
 }
 
 // contextWithUser adds a user ID to the context (mirrors auth.WithUserID).
@@ -208,7 +208,7 @@ func TestService_GetOwnSectionEnrollment_NoContext(t *testing.T) {
 func TestService_ListOwnSectionEnrollments_DerivesFromContext(t *testing.T) {
 	t.Parallel()
 
-	repo := &fakeRepository{listOwnRows: []section_enrollmentdb.SectionEnrollment{}}
+	repo := &fakeRepository{listOwnRows: []sectionenrollmentdb.SectionEnrollment{}}
 	svc := NewService(repo)
 
 	callerID := uuid.New()
@@ -288,4 +288,3 @@ func TestService_EnrollSection_PaidGateChecked(t *testing.T) {
 		t.Error("EnrollSectionTx must be called even when it returns ErrNotPaid")
 	}
 }
-

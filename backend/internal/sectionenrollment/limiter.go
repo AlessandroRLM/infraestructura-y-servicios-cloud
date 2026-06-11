@@ -1,4 +1,4 @@
-package section_enrollment
+package sectionenrollment
 
 import (
 	"context"

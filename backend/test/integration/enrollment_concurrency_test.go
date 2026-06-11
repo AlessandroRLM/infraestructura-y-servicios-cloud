@@ -85,7 +85,7 @@ func TestEnrollment_OversellRace(t *testing.T) {
 	go race(adminSID1, students[capacity-1], client1)
 	go race(adminSID2, students[capacity], client2)
 
-	ready.Wait() // wait until both goroutines are set up and blocked at the barrier
+	ready.Wait()   // wait until both goroutines are set up and blocked at the barrier
 	close(barrier) // release both simultaneously
 
 	// Collect results.

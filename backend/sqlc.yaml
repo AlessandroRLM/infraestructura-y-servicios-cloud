@@ -55,12 +55,12 @@ sql:
         sql_package: "pgx/v5"
         emit_interface: true
   - engine: "postgresql"
-    queries: "internal/section_enrollment/query.sql"
+    queries: "internal/sectionenrollment/query.sql"
     schema: "migrations/"
     gen:
       go:
-        package: "section_enrollmentdb"
-        out: "internal/section_enrollment/section_enrollmentdb"
+        package: "sectionenrollmentdb"
+        out: "internal/sectionenrollment/sectionenrollmentdb"
         sql_package: "pgx/v5"
         emit_interface: true
   - engine: "postgresql"
@@ -82,11 +82,11 @@ sql:
         sql_package: "pgx/v5"
         emit_interface: true
   - engine: "postgresql"
-    queries: "internal/audit_logs/query.sql"
+    queries: "internal/auditlogs/query.sql"
     schema: "migrations/"
     gen:
       go:
         package: "auditlogsdb"
-        out: "internal/audit_logs/auditlogsdb"
+        out: "internal/auditlogs/auditlogsdb"
         sql_package: "pgx/v5"
         emit_interface: true
