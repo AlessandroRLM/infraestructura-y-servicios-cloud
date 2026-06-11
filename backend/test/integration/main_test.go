@@ -39,6 +39,7 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
+	platformmetrics "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/metrics"
 	platformredis "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/redis"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/server"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/profiles"
@@ -155,14 +156,21 @@ func TestMain(m *testing.M) {
 	}
 	testRedisClient = redisClient
 	sharedCfg = config.Config{
-		BcryptCost:      4, // fast for tests
-		SessionTTL:      time.Hour,
-		ResetTokenTTL:   15 * time.Minute,
-		ReportsCacheTTL: 5 * time.Minute,
-		AppEnv:          "test",
-		CookieSecure:    false,
+		BcryptCost:       4, // fast for tests
+		SessionTTL:       time.Hour,
+		ResetTokenTTL:    15 * time.Minute,
+		ReportsCacheTTL:  5 * time.Minute,
+		AppEnv:           "test",
+		CookieSecure:     false,
+		MetricsAuthToken: "test-metrics-token",
 	}
 	testCfg := sharedCfg
+
+	// Metrics registry for the test harness. A fresh registry ensures no counter
+	// state bleeds between test runs in the same binary.
+	testMetricsReg := platformmetrics.New()
+	testSEMetrics := testMetricsReg.SectionEnrollmentMetrics()
+	testREDInterceptor := testMetricsReg.RPCInterceptor()
 
 	sessionStore := session.NewRedisStore(redisClient)
 	// Use the real Postgres role loader so that permission-based tests exercise the full chain.
@@ -269,15 +277,16 @@ func TestMain(m *testing.M) {
 
 	// Admission limiter for the section_enrollment enroll procedures.
 	// DB_MAX_CONNS is set to "5" in the test environment → cap = floor(5*0.6) = 3.
-	seLimiter := sectionenrollment.NewConcurrencyLimiter(5)
+	seLimiter := sectionenrollment.NewConcurrencyLimiter(5, testSEMetrics)
 	seLimiterInterceptor := sectionenrollment.NewConcurrencyLimitInterceptor(seLimiter)
 
 	queries := authdb.New(pool)
 	repo := auth.NewPostgresRepository(queries)
 	svc := auth.NewService(repo, sessionStore, roleLoader, testCfg)
 	authHandler := auth.NewHandler(svc, testCfg)
-	authOpts := server.Chain(authInterceptor, authzInterceptor)
-	seOpts := server.Chain(seLimiterInterceptor, authInterceptor, authzInterceptor)
+	// RED interceptor OUTERMOST mirrors cmd/api/main.go exactly.
+	authOpts := server.Chain(testREDInterceptor, authInterceptor, authzInterceptor)
+	seOpts := server.Chain(testREDInterceptor, seLimiterInterceptor, authInterceptor, authzInterceptor)
 	authReg := func(mux *http.ServeMux) {
 		auth.Register(mux, authHandler, authOpts...)
 	}
@@ -311,7 +320,7 @@ func TestMain(m *testing.M) {
 
 	// Section enrollment handler wiring — mirrors cmd/api/main.go exactly.
 	seQueries := sectionenrollmentdb.New(pool)
-	seRepo := sectionenrollment.NewPostgresRepository(seQueries, pool)
+	seRepo := sectionenrollment.NewPostgresRepository(seQueries, pool, testSEMetrics)
 	seSvc := sectionenrollment.NewService(seRepo)
 	seHandler := sectionenrollment.NewHandler(seSvc)
 	sectionEnrollmentReg := func(mux *http.ServeMux) {
@@ -346,8 +355,13 @@ func TestMain(m *testing.M) {
 		auditlogs.Register(mux, auditHandler, authOpts...)
 	}
 
+	// metricsHandlerReg registers /metrics with the test token — mirrors cmd/api/main.go.
+	metricsHandlerReg := func(mux *http.ServeMux) {
+		mux.Handle("/metrics", testMetricsReg.Handler(sharedCfg.MetricsAuthToken))
+	}
+
 	log := logging.New(slog.LevelError) // suppress output in tests
-	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg, enrollmentReg, sectionEnrollmentReg, gradesReg, reportsReg, auditLogsReg)
+	srv := server.New(log, pool, rPinger, health.Register, authReg, profilesReg, catalogReg, enrollmentReg, sectionEnrollmentReg, gradesReg, reportsReg, auditLogsReg, metricsHandlerReg)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

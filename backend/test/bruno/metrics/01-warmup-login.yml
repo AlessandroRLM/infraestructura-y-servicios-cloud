@@ -1,0 +1,42 @@
+info:
+  name: 01 Warmup Login RPC
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/Login"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "email": "warmup@smoke.test",
+        "password": "invalidpassword"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        // This warmup call fires a Connect Login RPC through the RED interceptor so that
+        // academico_rpc_requests_total is populated before 02-get-metrics-valid-token runs.
+        // Login with invalid credentials returns 401 (unauthenticated) — that is expected.
+        // The RED interceptor counts even failed RPCs, so the counter is incremented.
+        expect([200, 401]).to.include(res.status);
+
+docs: |
+  Warmup: fires a Connect Login RPC (no auth required) so that academico_rpc_requests_total
+  is populated in the metrics output before 02-get-metrics-valid-token runs.
+  The binding test plan B-1 requires academico_rpc_requests_total to be present in the
+  /metrics body. Vec metrics only appear after their first observation, so this warmup
+  ensures at least one RPC counter entry exists at scrape time.
+  Login with invalid credentials returns 401 — expected and intentional.

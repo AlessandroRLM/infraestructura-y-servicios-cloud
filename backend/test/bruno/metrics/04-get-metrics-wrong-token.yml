@@ -1,0 +1,30 @@
+info:
+  name: 04 Get Metrics Wrong Token
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{host}}/metrics"
+  headers:
+    - name: X-Metrics-Token
+      value: "wrong"
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        test("wrong token returns 401 and leaks no metrics", function () {
+          expect(res.status).to.equal(401);
+          expect(String(res.body ?? "")).to.not.include("academico_");
+        });
+
+docs: |
+  Denial: GET /metrics with an incorrect X-Metrics-Token value must return 401.
+  Verifies constant-time comparison rejects mismatched tokens.

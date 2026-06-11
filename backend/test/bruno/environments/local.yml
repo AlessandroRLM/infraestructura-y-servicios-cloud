@@ -37,3 +37,6 @@ variables:
   - name: teacher_email
     value: ""
     enabled: true
+  - name: metrics_token
+    value: "dev-metrics-token"
+    enabled: true
