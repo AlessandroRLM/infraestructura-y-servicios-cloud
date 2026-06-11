@@ -83,6 +83,14 @@ func New() *Registry {
 
 	reg.MustRegister(sectionFull, lockTimeout, admissionSaturated, rpcRequests, rpcDuration)
 
+	// Pre-initialize both SectionFull label combinations so that the series appear in
+	// the /metrics output from the first scrape — even before any capacity rejection
+	// has occurred. This makes rate() expressions valid from boot and ensures Bruno /
+	// integration tests that assert body.includes('academico_section_full_total') pass
+	// without needing a prior rejection event.
+	sectionFull.WithLabelValues("pre_check")
+	sectionFull.WithLabelValues("under_lock")
+
 	se := &SectionEnrollment{
 		SectionFull:        sectionFull,
 		LockTimeout:        lockTimeout,

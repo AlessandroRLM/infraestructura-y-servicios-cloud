@@ -1,7 +1,7 @@
 info:
-  name: 01 Get Metrics Valid Token
+  name: 02 Get Metrics Valid Token
   type: http
-  seq: 1
+  seq: 2
 
 http:
   method: GET
@@ -25,14 +25,20 @@ runtime:
         const body = res.body;
         expect(res.status).to.equal(200);
         expect(res.headers['content-type']).to.include('text/plain');
-        // Plain counters and runtime collectors are always present at zero.
-        // Vec metrics (rpc_requests, section_full) only appear after first observation.
+        // Plain counters and runtime collectors are always present at zero from boot.
         expect(body).to.include('academico_section_lock_timeout_total');
         expect(body).to.include('academico_admission_saturated_total');
         expect(body).to.include('go_goroutines');
+        // section_full Vec is pre-initialized at construction — both path labels appear
+        // at value 0 from the first scrape (B-1 binding plan requirement).
+        expect(body).to.include('academico_section_full_total');
+        // rpc_requests_total appears after the warmup RPC in 01 fires through RED interceptor.
+        expect(body).to.include('academico_rpc_requests_total');
 
 docs: |
   Smoke: GET /metrics with a valid X-Metrics-Token.
   Asserts status 200, text/plain Content-Type, and presence of key metric families.
+  Requires the warmup request (01) to have fired a Connect RPC so that
+  academico_rpc_requests_total is present. academico_section_full_total is always
+  present because New() pre-initializes both path label combinations at construction.
   The metrics_token variable must be set in the local environment (local.yml).
-  This is the first non-Connect, non-JSON endpoint in the Bruno collection.

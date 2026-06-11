@@ -1,7 +1,7 @@
 info:
-  name: 03 Get Metrics Wrong Token
+  name: 04 Get Metrics Wrong Token
   type: http
-  seq: 3
+  seq: 4
 
 http:
   method: GET

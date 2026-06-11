@@ -152,6 +152,54 @@ func TestConcurrencyLimiter_SaturationIncrementsAdmissionCounter(t *testing.T) {
 	}
 }
 
+// TestNew_SectionFullVecPreInitialized verifies that metrics.New() pre-initializes both
+// SectionFull label combinations so the series exist at value 0 from boot. This ensures
+// /metrics exposes academico_section_full_total even before any rejection event occurs,
+// making rate() expressions valid and Bruno B-1 body assertions deterministic.
+func TestNew_SectionFullVecPreInitialized(t *testing.T) {
+	t.Parallel()
+
+	reg := metrics.New()
+
+	mfs, err := reg.Gather()
+	if err != nil {
+		t.Fatalf("Gather() error: %v", err)
+	}
+
+	// Locate the academico_section_full_total family.
+	var found *dto.MetricFamily
+	for _, mf := range mfs {
+		if mf.GetName() == "academico_section_full_total" {
+			found = mf
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("academico_section_full_total family not found in Gather() output — pre-init missing")
+	}
+
+	// Both path label values must be present at value 0.
+	wantPaths := map[string]bool{"pre_check": false, "under_lock": false}
+	for _, m := range found.GetMetric() {
+		for _, lp := range m.GetLabel() {
+			if lp.GetName() == "path" {
+				val := lp.GetValue()
+				if _, ok := wantPaths[val]; ok {
+					wantPaths[val] = true
+					if v := m.GetCounter().GetValue(); v != 0 {
+						t.Errorf("academico_section_full_total{path=%q} = %.0f, want 0 at boot", val, v)
+					}
+				}
+			}
+		}
+	}
+	for path, seen := range wantPaths {
+		if !seen {
+			t.Errorf("academico_section_full_total{path=%q} not present after metrics.New()", path)
+		}
+	}
+}
+
 // counterValue reads the current value of a prometheus.Counter via the Write method.
 func counterValue(t *testing.T, c prometheus.Counter) float64 {
 	t.Helper()
