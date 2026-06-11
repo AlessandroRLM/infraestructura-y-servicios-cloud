@@ -1,0 +1,56 @@
+info:
+  name: 20 Setup Override Grade Correction
+  type: http
+  seq: 20
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/OverrideGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{audit_admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{audit_eval_1_id}}",
+        "sectionEnrollmentId": "{{audit_se_a_id}}",
+        "value": "6.5",
+        "expectedVersion": 1
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.grade && body.grade.id) {
+          bru.setVar("audit_grade_id", body.grade.id);
+          bru.setVar("audit_grade_version", String(body.grade.version));
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.grade.value === '6.5'
+      operator: eq
+      value: "true"
+    - expression: res.body.grade.version
+      operator: eq
+      value: "2"
+
+docs: |
+  Audit logs setup — admin corrects grade from 5.0 to 6.5 using expectedVersion=1.
+  This is the UPDATE path in RecordGradeTx: isUpdate=true, oldValue="5.0", newValue="6.5".
+  RecordGradeTx writes an audit_logs row with:
+    action="grade.update", entity="grades", entity_id=audit_grade_id,
+    detail={"old_value":"5.0","new_value":"6.5"}, actor_id=admin UUID.
+  This row is the target for the happy-path ListAuditLogs assertions in step 21.

@@ -1,7 +1,7 @@
 info:
-  name: 03 Happy Path Walk Second Page
+  name: 22 Happy Path Pagination Contract Last Page
   type: http
-  seq: 3
+  seq: 22
 
 http:
   method: POST
@@ -10,13 +10,13 @@ http:
     - name: Content-Type
       value: application/json
     - name: Cookie
-      value: "sid={{admin_sid}}"
+      value: "sid={{audit_admin_sid}}"
   body:
     type: json
     data: |-
       {
         "entity": "grades",
-        "entityId": "{{audit_entity_id}}",
+        "entityId": "{{audit_grade_id}}",
         "pageSize": 20,
         "pageToken": "{{audit_page_token}}"
       }
@@ -37,8 +37,7 @@ runtime:
       value: "true"
 
 docs: |
-  Happy path: walks the second page using the token from step 02.
-  Since there are no seeded rows, audit_page_token is empty and this request
-  re-queries the last page. Asserts: HTTP 200 and empty next_page_token.
-  The protojson empty-field guard '(res.body.nextPageToken ?? '') === ""' handles
-  the case where the field is omitted entirely from the response.
+  Happy path: pagination contract — with only 1 correction row and page_size=20,
+  the only page is the last page. Asserts HTTP 200 and that next_page_token is absent
+  or empty (protojson omits empty scalar fields; the field will be absent).
+  The guard '(res.body.nextPageToken ?? '') === ""' handles both absent and empty-string cases.

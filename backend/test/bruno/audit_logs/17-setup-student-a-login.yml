@@ -1,7 +1,7 @@
 info:
-  name: 05 Setup Student Login
+  name: 17 Setup Student A Login
   type: http
-  seq: 5
+  seq: 17
 
 http:
   method: POST
@@ -14,7 +14,7 @@ http:
     data: |-
       {
         "email": "{{student_a_email}}",
-        "password": "StudentSmoke123!"
+        "password": "{{audit_student_a_password}}"
       }
 
 settings:
@@ -30,13 +30,12 @@ runtime:
         const sc = res.headers["set-cookie"];
         const raw = Array.isArray(sc) ? sc.join(";") : String(sc || "");
         const m = raw.match(/sid=([^;]+)/);
-        if (m) { bru.setVar("student_a_sid", m[1]); }
+        if (m) { bru.setVar("audit_student_a_sid", m[1]); }
   assertions:
     - expression: res.status
       operator: eq
       value: "200"
 
 docs: |
-  Setup: student A login. Captures student_a_sid for step 06.
-  student_a_email and the password are provided by seed.sh (--env-var student_a_email=...).
-  Students hold grades.view_own only — they do NOT hold audit.read.
+  Audit logs setup — step 3 of student A login chain: login, captures audit_student_a_sid.
+  Student A holds grades.view_own only — they do NOT hold audit.read.

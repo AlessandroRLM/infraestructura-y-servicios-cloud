@@ -1,7 +1,7 @@
 info:
-  name: 01 Setup Admin Login
+  name: 03 Setup Admin Login
   type: http
-  seq: 1
+  seq: 3
 
 http:
   method: POST
@@ -25,23 +25,17 @@ settings:
 
 runtime:
   scripts:
-    - type: before-request
-      code: |-
-        // Seed a run-scoped entity_id so repeated runs do not collide on unique constraints.
-        const sfx = String(Date.now()).slice(-8);
-        bru.setVar("audit_entity_id", `00000000-0000-0000-0000-${sfx.padStart(12, "0")}`);
-        console.log(`[audit-setup] entity_id=${bru.getVar("audit_entity_id")}`);
     - type: after-response
       code: |-
         const sc = res.headers["set-cookie"];
         const raw = Array.isArray(sc) ? sc.join(";") : String(sc || "");
         const m = raw.match(/sid=([^;]+)/);
-        if (m) { bru.setVar("admin_sid", m[1]); }
+        if (m) { bru.setVar("audit_admin_sid", m[1]); }
   assertions:
     - expression: res.status
       operator: eq
       value: "200"
 
 docs: |
-  Audit logs setup: admin login. Captures admin_sid and seeds audit_entity_id.
-  The admin role holds audit.read permission.
+  Audit logs setup — step 3: admin login, captures audit_admin_sid.
+  Admin holds audit.read + grades.override + all catalog/enrollment permissions.

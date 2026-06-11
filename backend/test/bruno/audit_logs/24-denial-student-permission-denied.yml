@@ -1,0 +1,38 @@
+info:
+  name: 24 Denial Student Permission Denied
+  type: http
+  seq: 24
+
+http:
+  method: POST
+  url: "{{host}}/audit_logs.v1.AuditLogsService/ListAuditLogs"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{audit_student_a_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "entity": "grades",
+        "entityId": "{{audit_grade_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "permission_denied"
+
+docs: |
+  Denial: student session calls ListAuditLogs (requires audit.read).
+  audit_student_a_sid was captured via the 3-step password-reset chain (steps 15-17).
+  Students hold grades.view_own only; the authz interceptor denies before the handler.
+  Expected error: permission_denied.

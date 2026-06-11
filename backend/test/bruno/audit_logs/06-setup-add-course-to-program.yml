@@ -1,0 +1,36 @@
+info:
+  name: 06 Setup Add Course To Program
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/AddCourseToProgram"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{audit_admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{audit_prog_id}}",
+        "courseId": "{{audit_course_id}}"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Audit logs setup — associates the test course with the test program.
+  Required so that EnrollSection can validate program/course membership.

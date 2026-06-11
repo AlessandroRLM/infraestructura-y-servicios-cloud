@@ -1,7 +1,7 @@
 info:
-  name: 07 Denial Missing Entity Filter
+  name: 23 Denial No Session
   type: http
-  seq: 7
+  seq: 23
 
 http:
   method: POST
@@ -9,13 +9,12 @@ http:
   headers:
     - name: Content-Type
       value: application/json
-    - name: Cookie
-      value: "sid={{admin_sid}}"
   body:
     type: json
     data: |-
       {
-        "entityId": "{{audit_entity_id}}"
+        "entity": "grades",
+        "entityId": "{{audit_grade_id}}"
       }
 
 settings:
@@ -28,8 +27,8 @@ runtime:
   assertions:
     - expression: res.body.code
       operator: eq
-      value: "invalid_argument"
+      value: "unauthenticated"
 
 docs: |
-  Denial: entity field is absent → handler returns invalid_argument before DB access.
-  entity is a required partition key; all rows without it are ambiguous.
+  Denial: no session cookie → auth interceptor rejects with unauthenticated.
+  No Cookie header is sent. The auth interceptor short-circuits before the authz check.

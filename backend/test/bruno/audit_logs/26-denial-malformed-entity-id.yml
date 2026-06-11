@@ -1,7 +1,7 @@
 info:
-  name: 06 Denial Student Permission Denied
+  name: 26 Denial Malformed Entity ID
   type: http
-  seq: 6
+  seq: 26
 
 http:
   method: POST
@@ -10,13 +10,13 @@ http:
     - name: Content-Type
       value: application/json
     - name: Cookie
-      value: "sid={{student_a_sid}}"
+      value: "sid={{audit_admin_sid}}"
   body:
     type: json
     data: |-
       {
         "entity": "grades",
-        "entityId": "{{audit_entity_id}}"
+        "entityId": "not-a-uuid"
       }
 
 settings:
@@ -29,9 +29,8 @@ runtime:
   assertions:
     - expression: res.body.code
       operator: eq
-      value: "permission_denied"
+      value: "invalid_argument"
 
 docs: |
-  Denial: student session calls ListAuditLogs (requires audit.read).
-  Students hold grades.view_own only; the authz interceptor denies before the handler.
-  Expected error: permission_denied.
+  Denial: entity_id is not a valid UUID → handler rejects with invalid_argument.
+  UUID parsing happens at the handler layer before any DB access.

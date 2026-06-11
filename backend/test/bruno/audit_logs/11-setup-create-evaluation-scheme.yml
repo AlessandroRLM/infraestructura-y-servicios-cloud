@@ -1,0 +1,54 @@
+info:
+  name: 11 Setup Create Evaluation Scheme
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/CreateEvaluationScheme"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{audit_admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "courseId": "{{audit_course_id}}",
+        "evaluations": [
+          {"weight": "0.400"},
+          {"weight": "0.300"},
+          {"weight": "0.300"}
+        ]
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && Array.isArray(body.evaluations) && body.evaluations.length >= 1) {
+          bru.setVar("audit_eval_1_id", body.evaluations[0].id);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.evaluations[0].id
+      operator: neq
+      value: ""
+    - expression: res.body.evaluations[0].weight === '0.400'
+      operator: eq
+      value: "true"
+
+docs: |
+  Audit logs setup — creates a 3-evaluation scheme for the test course.
+  Captures audit_eval_1_id for the grade correction that produces the audit row.
+  Requires grades.override (admin-only).

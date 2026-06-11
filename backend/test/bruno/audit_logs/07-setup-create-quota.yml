@@ -1,0 +1,37 @@
+info:
+  name: 07 Setup Create Program Quota
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{host}}/catalog.v1.CatalogService/CreateProgramQuota"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{audit_admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "programId": "{{audit_prog_id}}",
+        "year": 2026,
+        "admissionQuota": 30
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+docs: |
+  Audit logs setup — creates the program quota for year 2026.
+  Required by CreateEnrollment (checks that a quota exists for the student's year).

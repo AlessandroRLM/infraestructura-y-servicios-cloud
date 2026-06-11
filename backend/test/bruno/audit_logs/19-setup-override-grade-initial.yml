@@ -1,0 +1,55 @@
+info:
+  name: 19 Setup Override Grade Initial Value
+  type: http
+  seq: 19
+
+http:
+  method: POST
+  url: "{{host}}/grades.v1.GradesService/OverrideGrade"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{audit_admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "evaluationId": "{{audit_eval_1_id}}",
+        "sectionEnrollmentId": "{{audit_se_a_id}}",
+        "value": "5.0"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.body;
+        if (body && body.grade && body.grade.id) {
+          bru.setVar("audit_grade_id", body.grade.id);
+          bru.setVar("audit_grade_version", String(body.grade.version));
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.grade.id
+      operator: neq
+      value: ""
+    - expression: res.body.grade.value === '5.0'
+      operator: eq
+      value: "true"
+    - expression: res.body.grade.version
+      operator: eq
+      value: "1"
+
+docs: |
+  Audit logs setup — admin records initial grade 5.0 for eval_1 via OverrideGrade.
+  This is a first insert (version=1). No audit_logs row is written on first insert.
+  Captures audit_grade_id and audit_grade_version for the correction step (20).

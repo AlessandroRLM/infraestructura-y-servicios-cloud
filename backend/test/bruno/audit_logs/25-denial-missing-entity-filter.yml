@@ -1,7 +1,7 @@
 info:
-  name: 08 Denial Malformed Entity ID
+  name: 25 Denial Missing Entity Filter
   type: http
-  seq: 8
+  seq: 25
 
 http:
   method: POST
@@ -10,13 +10,12 @@ http:
     - name: Content-Type
       value: application/json
     - name: Cookie
-      value: "sid={{admin_sid}}"
+      value: "sid={{audit_admin_sid}}"
   body:
     type: json
     data: |-
       {
-        "entity": "grades",
-        "entityId": "not-a-uuid"
+        "entityId": "{{audit_grade_id}}"
       }
 
 settings:
@@ -32,5 +31,5 @@ runtime:
       value: "invalid_argument"
 
 docs: |
-  Denial: entity_id is not a valid UUID → handler rejects with invalid_argument.
-  UUID parsing happens at the handler layer before any DB access.
+  Denial: entity field is absent → handler returns invalid_argument before DB access.
+  entity is a required partition key; all rows without it are ambiguous.
