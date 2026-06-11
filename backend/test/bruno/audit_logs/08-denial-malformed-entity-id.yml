@@ -1,0 +1,36 @@
+info:
+  name: 08 Denial Malformed Entity ID
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{host}}/audit_logs.v1.AuditLogsService/ListAuditLogs"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {
+        "entity": "grades",
+        "entityId": "not-a-uuid"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.body.code
+      operator: eq
+      value: "invalid_argument"
+
+docs: |
+  Denial: entity_id is not a valid UUID → handler rejects with invalid_argument.
+  UUID parsing happens at the handler layer before any DB access.
