@@ -131,3 +131,26 @@ func TestGetSession_ExemptConfirmation(t *testing.T) {
 		t.Error("user_id must be populated for zero-permission user")
 	}
 }
+
+// TestGetSession_DeletedUserMidSession verifies scenario 5: a user soft-deleted after
+// session issuance receives CodeUnauthenticated on the next GetSession call.
+// The Redis session entry remains valid; the repo finds no live user row.
+func TestGetSession_DeletedUserMidSession(t *testing.T) {
+	userID := seedUserNoRole(t, "get-session-deleted@test.local")
+	sid := seedSessionInRedis(t, userID, time.Hour)
+
+	// Soft-delete the user while the session is still live.
+	_, err := pgxPool.Exec(context.Background(),
+		`UPDATE users SET deleted_at = now() WHERE id = $1`,
+		userID,
+	)
+	if err != nil {
+		t.Fatalf("soft-delete user: %v", err)
+	}
+
+	req := connect.NewRequest(&authv1.GetSessionRequest{})
+	req.Header().Set("Cookie", "sid="+sid)
+
+	_, err = newAuthClient(nil).GetSession(context.Background(), req)
+	assertConnectCode(t, err, connect.CodeUnauthenticated)
+}

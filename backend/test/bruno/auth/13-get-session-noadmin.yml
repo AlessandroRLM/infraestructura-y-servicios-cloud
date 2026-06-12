@@ -33,6 +33,18 @@ runtime:
     - expression: res.body.email
       operator: isString
       value: ""
+    - expression: res.body.roles
+      operator: isArray
+      value: ""
+    - expression: res.body.roles.length
+      operator: eq
+      value: "0"
+    - expression: res.body.permissions
+      operator: isArray
+      value: ""
+    - expression: res.body.permissions.length
+      operator: eq
+      value: "0"
 
 docs: |
   GetSession for a role-less user — expects 200, empty roles and permissions arrays.
