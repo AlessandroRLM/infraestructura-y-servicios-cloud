@@ -1,0 +1,40 @@
+info:
+  name: 13 GetSession Noadmin (role-less user)
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/GetSession"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{noadmin_sid}}"
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.userId
+      operator: isString
+      value: ""
+    - expression: res.body.email
+      operator: isString
+      value: ""
+
+docs: |
+  GetSession for a role-less user — expects 200, empty roles and permissions arrays.
+  Requires noadmin_sid to be set (run section_enrollment/52-denial-noadmin-login first,
+  or run 03-admin-login and substitute with any sid for a role-less account).

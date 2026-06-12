@@ -1,0 +1,34 @@
+info:
+  name: 14 GetSession No Cookie
+  type: http
+  seq: 14
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/GetSession"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+    - expression: res.body.code
+      operator: eq
+      value: "unauthenticated"
+
+docs: |
+  GetSession without a session cookie — expects unauthenticated error.
+  Confirms GetSession is NOT in publicProcedures (session interceptor applies).
