@@ -1,0 +1,8 @@
+version: v2
+inputs:
+  - directory: ../backend/proto
+plugins:
+  - remote: buf.build/bufbuild/es
+    out: src/gen
+  - remote: buf.build/connectrpc/es
+    out: src/gen
