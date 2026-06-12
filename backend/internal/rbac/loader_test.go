@@ -20,6 +20,10 @@ func (f *fakeQuerier) GetPermissionsForUser(_ context.Context, _ pgtype.UUID) ([
 	return f.codes, nil
 }
 
+func (f *fakeQuerier) GetRolesForUser(_ context.Context, _ pgtype.UUID) ([]string, error) {
+	return []string{}, nil
+}
+
 func TestPostgresRoleLoader_Load(t *testing.T) {
 	t.Parallel()
 
