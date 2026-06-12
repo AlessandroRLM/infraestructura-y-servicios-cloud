@@ -40,7 +40,7 @@ func TestMapError_InternalDoesNotLeakRawError(t *testing.T) {
 }
 
 // TestMapError_UserNotFound_MapsToUnauthenticated verifies that ErrUserNotFound maps
-// to CodeUnauthenticated (deleted-user mid-session forces re-login, per FR-5/AD7).
+// to CodeUnauthenticated (deleted-user mid-session forces re-login).
 func TestMapError_UserNotFound_MapsToUnauthenticated(t *testing.T) {
 	err := mapError(ErrUserNotFound)
 
@@ -80,7 +80,7 @@ func buildGetSessionServer(
 }
 
 // TestHandlerGetSession_CacheControlHeader verifies the Cache-Control: no-store header
-// is set on every GetSession response (FR-8).
+// is set on every GetSession response.
 func TestHandlerGetSession_CacheControlHeader(t *testing.T) {
 	userID := uuid.New()
 	repo := &stubRepo{getUserByIDUser: User{ID: userID, Email: "a@b.com"}}
@@ -132,5 +132,19 @@ func TestHandlerGetSession_ProtoMapping(t *testing.T) {
 	}
 	if len(msg.GetPermissions()) != 1 || msg.GetPermissions()[0] != "users.manage" {
 		t.Errorf("permissions = %v, want [users.manage]", msg.GetPermissions())
+	}
+}
+
+// TestMapError_NonSentinelMapsToInternal verifies that a plain (non-sentinel) error —
+// such as the one returned when user ID is missing from context — maps to CodeInternal.
+func TestMapError_NonSentinelMapsToInternal(t *testing.T) {
+	err := mapError(fmt.Errorf("auth: GetSession: user ID missing from context"))
+
+	connectErr, ok := errors.AsType[*connect.Error](err)
+	if !ok {
+		t.Fatalf("expected *connect.Error, got %T", err)
+	}
+	if connectErr.Code() != connect.CodeInternal {
+		t.Errorf("code = %v, want CodeInternal", connectErr.Code())
 	}
 }

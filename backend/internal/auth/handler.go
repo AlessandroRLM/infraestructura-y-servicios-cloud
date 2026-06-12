@@ -127,7 +127,7 @@ func mapError(err error) error {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	if errors.Is(err, ErrUserNotFound) {
-		// A deleted account with a still-live session must force re-login (FR-5/AD7).
+		// A deleted account with a still-live session must force re-login.
 		slog.Warn("GetSession: user not found — account deleted after session issued")
 		return connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}

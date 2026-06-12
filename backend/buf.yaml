@@ -5,6 +5,7 @@ lint:
   use:
     - STANDARD
   except:
+    # GetSession intentionally returns Session rather than GetSessionResponse.
     - RPC_RESPONSE_STANDARD_NAME
 breaking:
   use:
