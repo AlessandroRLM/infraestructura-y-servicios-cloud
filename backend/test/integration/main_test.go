@@ -183,6 +183,7 @@ func TestMain(m *testing.M) {
 		authv1connect.AuthServiceRequestPasswordResetProcedure: {},
 		authv1connect.AuthServiceConfirmPasswordResetProcedure: {},
 		authv1connect.AuthServiceLogoutProcedure:               {},
+		authv1connect.AuthServiceGetSessionProcedure:           {},
 	}
 
 	// policies mirrors cmd/api/main.go — all profiles and catalog procedures are registered.
