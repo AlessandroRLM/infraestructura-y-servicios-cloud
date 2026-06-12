@@ -9,6 +9,7 @@ service AuthService {
   rpc Logout(LogoutRequest) returns (LogoutResponse);
   rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
   rpc ConfirmPasswordReset(ConfirmPasswordResetRequest) returns (ConfirmPasswordResetResponse);
+  rpc GetSession(GetSessionRequest) returns (Session);
 }
 
 message LoginRequest {
@@ -38,3 +39,12 @@ message ConfirmPasswordResetRequest {
 }
 
 message ConfirmPasswordResetResponse {}
+
+message GetSessionRequest {}
+
+message Session {
+  string user_id = 1;
+  string email = 2;
+  repeated string roles = 3;
+  repeated string permissions = 4;
+}
