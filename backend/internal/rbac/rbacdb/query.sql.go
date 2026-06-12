@@ -39,3 +39,30 @@ func (q *Queries) GetPermissionsForUser(ctx context.Context, userID pgtype.UUID)
 	}
 	return items, nil
 }
+
+const getRolesForUser = `-- name: GetRolesForUser :many
+SELECT r.name FROM roles r
+  JOIN user_roles ur ON ur.role_id = r.id
+WHERE ur.user_id = $1
+ORDER BY r.name
+`
+
+func (q *Queries) GetRolesForUser(ctx context.Context, userID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, getRolesForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

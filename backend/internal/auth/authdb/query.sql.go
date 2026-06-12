@@ -34,6 +34,25 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	return i, err
 }
 
+const getUserByID = `-- name: GetUserByID :one
+SELECT id, email
+FROM users
+WHERE id = $1
+  AND deleted_at IS NULL
+`
+
+type GetUserByIDRow struct {
+	ID    pgtype.UUID
+	Email string
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error) {
+	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i GetUserByIDRow
+	err := row.Scan(&i.ID, &i.Email)
+	return i, err
+}
+
 const updatePasswordHash = `-- name: UpdatePasswordHash :exec
 UPDATE users
 SET password_hash = $2,
