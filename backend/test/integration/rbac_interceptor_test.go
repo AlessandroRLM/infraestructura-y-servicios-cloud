@@ -282,3 +282,7 @@ func (h *noopTestAuthHandler) RequestPasswordReset(_ context.Context, _ *connect
 func (h *noopTestAuthHandler) ConfirmPasswordReset(_ context.Context, _ *connect.Request[authv1.ConfirmPasswordResetRequest]) (*connect.Response[authv1.ConfirmPasswordResetResponse], error) {
 	return connect.NewResponse(&authv1.ConfirmPasswordResetResponse{}), nil
 }
+
+func (h *noopTestAuthHandler) GetSession(_ context.Context, _ *connect.Request[authv1.GetSessionRequest]) (*connect.Response[authv1.Session], error) {
+	return connect.NewResponse(&authv1.Session{}), nil
+}
