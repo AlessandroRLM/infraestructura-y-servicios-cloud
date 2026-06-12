@@ -87,11 +87,11 @@ func TestGetSession_RoleLessUser(t *testing.T) {
 	if msg.GetEmail() != "get-session-norole@test.local" {
 		t.Errorf("email = %q, want get-session-norole@test.local", msg.GetEmail())
 	}
-	if msg.GetRoles() == nil || len(msg.GetRoles()) != 0 {
-		t.Errorf("roles = %v, want []", msg.GetRoles())
+	if len(msg.GetRoles()) != 0 {
+		t.Errorf("roles = %v, want empty", msg.GetRoles())
 	}
-	if msg.GetPermissions() == nil || len(msg.GetPermissions()) != 0 {
-		t.Errorf("permissions = %v, want []", msg.GetPermissions())
+	if len(msg.GetPermissions()) != 0 {
+		t.Errorf("permissions = %v, want empty", msg.GetPermissions())
 	}
 }
 
