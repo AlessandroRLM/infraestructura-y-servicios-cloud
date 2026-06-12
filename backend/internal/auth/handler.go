@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"connectrpc.com/connect"
@@ -94,6 +95,26 @@ func (h *Handler) ConfirmPasswordReset(
 	return connect.NewResponse(&authv1.ConfirmPasswordResetResponse{}), nil
 }
 
+// GetSession returns the session data for the authenticated caller.
+func (h *Handler) GetSession(
+	ctx context.Context,
+	_ *connect.Request[authv1.GetSessionRequest],
+) (*connect.Response[authv1.Session], error) {
+	result, err := h.svc.GetSession(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	session := &authv1.Session{
+		UserId:      result.UserID,
+		Email:       result.Email,
+		Roles:       result.Roles,
+		Permissions: result.Permissions,
+	}
+	resp := connect.NewResponse(session)
+	resp.Header().Set("Cache-Control", "no-store")
+	return resp, nil
+}
+
 // mapError converts domain errors to connect.Error codes.
 func mapError(err error) error {
 	if errors.Is(err, ErrInvalidCredentials) {
@@ -104,6 +125,11 @@ func mapError(err error) error {
 	}
 	if errors.Is(err, ErrInvalidToken) {
 		return connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if errors.Is(err, ErrUserNotFound) {
+		// A deleted account with a still-live session must force re-login.
+		slog.Warn("GetSession: user not found — account deleted after session issued")
+		return connect.NewError(connect.CodeUnauthenticated, errors.New("unauthenticated"))
 	}
 	// Do not forward the raw error chain to the client; internal details must not leak.
 	return connect.NewError(connect.CodeInternal, errors.New("internal error"))

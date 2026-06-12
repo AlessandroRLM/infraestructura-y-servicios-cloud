@@ -26,6 +26,7 @@ var ErrUserNotFound = fmt.Errorf("auth: user not found")
 type Repository interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	UpdatePasswordHash(ctx context.Context, id uuid.UUID, hash string) error
+	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 }
 
 type postgresRepository struct {
@@ -57,6 +58,22 @@ func (r *postgresRepository) GetUserByEmail(ctx context.Context, email string) (
 		Email:        row.Email,
 		PasswordHash: row.PasswordHash,
 	}, nil
+}
+
+func (r *postgresRepository) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+	row, err := r.q.GetUserByID(ctx, pgID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return User{}, ErrUserNotFound
+		}
+		return User{}, fmt.Errorf("auth: GetUserByID: %w", err)
+	}
+	uid, err := pgUUIDToUUID(row.ID)
+	if err != nil {
+		return User{}, err
+	}
+	return User{ID: uid, Email: row.Email}, nil
 }
 
 func (r *postgresRepository) UpdatePasswordHash(ctx context.Context, id uuid.UUID, hash string) error {

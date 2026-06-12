@@ -106,6 +106,7 @@ func main() {
 		authv1connect.AuthServiceRequestPasswordResetProcedure: {},
 		authv1connect.AuthServiceConfirmPasswordResetProcedure: {},
 		authv1connect.AuthServiceLogoutProcedure:               {},
+		authv1connect.AuthServiceGetSessionProcedure:           {},
 	}
 
 	// policies maps each protected procedure to a PolicyFunc. Every procedure not in

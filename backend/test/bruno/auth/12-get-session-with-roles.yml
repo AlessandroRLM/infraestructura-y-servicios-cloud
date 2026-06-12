@@ -1,0 +1,45 @@
+info:
+  name: 12 GetSession With Roles
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{host}}/auth.v1.AuthService/GetSession"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Cookie
+      value: "sid={{admin_sid}}"
+  body:
+    type: json
+    data: |-
+      {}
+
+settings:
+  encodeUrl: true
+  timeout: 5000
+  followRedirects: false
+  maxRedirects: 0
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.userId
+      operator: isString
+      value: ""
+    - expression: res.body.email
+      operator: isString
+      value: ""
+    - expression: res.body.roles
+      operator: isArray
+      value: ""
+    - expression: res.body.permissions
+      operator: isArray
+      value: ""
+
+docs: |
+  GetSession with a valid admin session cookie — expects 200, populated roles and permissions arrays.
+  Requires 03-admin-login to have run first (captures admin_sid).

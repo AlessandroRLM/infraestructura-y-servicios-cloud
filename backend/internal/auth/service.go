@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth/session"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 )
 
@@ -154,6 +156,57 @@ func (s *Service) ConfirmPasswordReset(ctx context.Context, token, newPassword s
 		return fmt.Errorf("auth: confirm-reset: update: %w", err)
 	}
 	return nil
+}
+
+// SessionResult holds the resolved identity and authority for an authenticated user.
+type SessionResult struct {
+	UserID      string
+	Email       string
+	Roles       []string
+	Permissions []string
+}
+
+// GetSession resolves the session data for the authenticated caller.
+// It reads user_id and permissions from ctx (set by the session interceptor),
+// fetches email from the database, and fetches role names via the loader.
+// Returns ErrUserNotFound when the account was deleted after the session was issued.
+func (s *Service) GetSession(ctx context.Context) (SessionResult, error) {
+	userID, ok := UserIDFromContext(ctx)
+	if !ok {
+		return SessionResult{}, fmt.Errorf("auth: GetSession: user ID missing from context")
+	}
+
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return SessionResult{}, ErrUserNotFound
+		}
+		return SessionResult{}, fmt.Errorf("auth: GetSession: %w", err)
+	}
+
+	roles, err := s.loader.LoadRoles(ctx, userID)
+	if err != nil {
+		return SessionResult{}, fmt.Errorf("auth: GetSession: %w", err)
+	}
+
+	var permStrings []string
+	if perms, ok := authz.PermissionsFromContext(ctx); ok {
+		permStrings = make([]string, 0, len(perms))
+		for p := range perms {
+			permStrings = append(permStrings, string(p))
+		}
+	} else {
+		permStrings = make([]string, 0)
+	}
+	slices.Sort(permStrings)
+	slices.Sort(roles)
+
+	return SessionResult{
+		UserID:      userID.String(),
+		Email:       user.Email,
+		Roles:       roles,
+		Permissions: permStrings,
+	}, nil
 }
 
 // ErrInvalidCredentials is returned when email/password do not match or the user is deleted.

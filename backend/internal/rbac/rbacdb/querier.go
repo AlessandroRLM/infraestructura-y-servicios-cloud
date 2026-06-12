@@ -14,6 +14,7 @@ type Querier interface {
 	// DISTINCT is required: a user with multiple roles that share a permission would otherwise
 	// produce duplicate rows, one per (role, permission) combination.
 	GetPermissionsForUser(ctx context.Context, userID pgtype.UUID) ([]string, error)
+	GetRolesForUser(ctx context.Context, userID pgtype.UUID) ([]string, error)
 }
 
 var _ Querier = (*Queries)(nil)
