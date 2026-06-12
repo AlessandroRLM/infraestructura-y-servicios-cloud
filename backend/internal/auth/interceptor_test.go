@@ -52,6 +52,10 @@ func (l *failingLoader) Load(_ context.Context, _ uuid.UUID) (authz.PermissionSe
 	return authz.PermissionSet{}, errInfra
 }
 
+func (l *failingLoader) LoadRoles(_ context.Context, _ uuid.UUID) ([]string, error) {
+	return nil, errInfra
+}
+
 // successStore returns a valid session so the loader is reached.
 type successStore struct {
 	userID uuid.UUID
@@ -109,6 +113,10 @@ func (h *noopInterceptorHandler) RequestPasswordReset(_ context.Context, _ *conn
 }
 func (h *noopInterceptorHandler) ConfirmPasswordReset(_ context.Context, _ *connect.Request[authv1.ConfirmPasswordResetRequest]) (*connect.Response[authv1.ConfirmPasswordResetResponse], error) {
 	return connect.NewResponse(&authv1.ConfirmPasswordResetResponse{}), nil
+}
+
+func (h *noopInterceptorHandler) GetSession(_ context.Context, _ *connect.Request[authv1.GetSessionRequest]) (*connect.Response[authv1.Session], error) {
+	return connect.NewResponse(&authv1.Session{}), nil
 }
 
 // TestSessionInterceptor_StoreTouchFailure_DoesNotLeakInternalError verifies that a

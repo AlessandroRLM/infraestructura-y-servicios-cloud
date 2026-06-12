@@ -39,3 +39,18 @@ func (l PostgresRoleLoader) Load(ctx context.Context, userID uuid.UUID) (authz.P
 	}
 	return authz.NewPermissionSet(perms), nil
 }
+
+// LoadRoles returns the role names assigned to userID, ordered ascending.
+// An empty slice (not an error) is returned when the user has no role memberships.
+func (l PostgresRoleLoader) LoadRoles(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	pgID := pgtype.UUID{Bytes: userID, Valid: true}
+
+	names, err := l.q.GetRolesForUser(ctx, pgID)
+	if err != nil {
+		return nil, fmt.Errorf("rbac: load roles for user %s: %w", userID, err)
+	}
+
+	result := make([]string, 0, len(names))
+	result = append(result, names...)
+	return result, nil
+}
