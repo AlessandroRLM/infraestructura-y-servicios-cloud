@@ -116,3 +116,22 @@ FROM teacher_qualifications
 WHERE teacher_id = $1
   AND deleted_at IS NULL
 ORDER BY year, created_at;
+
+-- name: UpsertOwnProfile :one
+UPDATE user_profiles SET
+    birth_date              = COALESCE(sqlc.narg('birth_date'),              birth_date),
+    phone                   = COALESCE(sqlc.narg('phone'),                   phone),
+    personal_email          = COALESCE(sqlc.narg('personal_email'),          personal_email),
+    address_street          = COALESCE(sqlc.narg('address_street'),          address_street),
+    commune                 = COALESCE(sqlc.narg('commune'),                 commune),
+    region                  = COALESCE(sqlc.narg('region'),                  region),
+    country                 = COALESCE(sqlc.narg('country'),                 country),
+    postal_code             = COALESCE(sqlc.narg('postal_code'),             postal_code),
+    photo_url               = COALESCE(sqlc.narg('photo_url'),               photo_url),
+    emergency_contact_name  = COALESCE(sqlc.narg('emergency_contact_name'),  emergency_contact_name),
+    emergency_contact_phone = COALESCE(sqlc.narg('emergency_contact_phone'), emergency_contact_phone),
+    updated_at = now(),
+    updated_by = sqlc.narg('updated_by')
+WHERE user_id = sqlc.arg('user_id')
+  AND deleted_at IS NULL
+RETURNING *;
