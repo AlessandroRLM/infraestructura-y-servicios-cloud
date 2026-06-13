@@ -60,6 +60,9 @@ const (
 	// ProfileServiceGetOwnProfileProcedure is the fully-qualified name of the ProfileService's
 	// GetOwnProfile RPC.
 	ProfileServiceGetOwnProfileProcedure = "/profiles.v1.ProfileService/GetOwnProfile"
+	// ProfileServiceUpsertOwnProfileProcedure is the fully-qualified name of the ProfileService's
+	// UpsertOwnProfile RPC.
+	ProfileServiceUpsertOwnProfileProcedure = "/profiles.v1.ProfileService/UpsertOwnProfile"
 )
 
 // ProfileServiceClient is a client for the profiles.v1.ProfileService service.
@@ -76,6 +79,10 @@ type ProfileServiceClient interface {
 	// Self-read procedure — requires profile.view_own permission.
 	// The caller's identity is taken from the session context; no user_id field is accepted.
 	GetOwnProfile(context.Context, *connect.Request[v1.GetOwnProfileRequest]) (*connect.Response[v1.UserProfile], error)
+	// Self-edit procedure — requires profile.edit_own permission.
+	// Identity from session context; no user_id field. PATCH semantics: absent field
+	// preserves the column; present field writes it (present-empty clears).
+	UpsertOwnProfile(context.Context, *connect.Request[v1.UpsertOwnProfileRequest]) (*connect.Response[v1.UserProfile], error)
 }
 
 // NewProfileServiceClient constructs a client for the profiles.v1.ProfileService service. By
@@ -143,6 +150,12 @@ func NewProfileServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(profileServiceMethods.ByName("GetOwnProfile")),
 			connect.WithClientOptions(opts...),
 		),
+		upsertOwnProfile: connect.NewClient[v1.UpsertOwnProfileRequest, v1.UserProfile](
+			httpClient,
+			baseURL+ProfileServiceUpsertOwnProfileProcedure,
+			connect.WithSchema(profileServiceMethods.ByName("UpsertOwnProfile")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -157,6 +170,7 @@ type profileServiceClient struct {
 	addTeacherQualification   *connect.Client[v1.AddTeacherQualificationRequest, v1.TeacherQualification]
 	listTeacherQualifications *connect.Client[v1.ListTeacherQualificationsRequest, v1.ListTeacherQualificationsResponse]
 	getOwnProfile             *connect.Client[v1.GetOwnProfileRequest, v1.UserProfile]
+	upsertOwnProfile          *connect.Client[v1.UpsertOwnProfileRequest, v1.UserProfile]
 }
 
 // UpsertUserProfile calls profiles.v1.ProfileService.UpsertUserProfile.
@@ -204,6 +218,11 @@ func (c *profileServiceClient) GetOwnProfile(ctx context.Context, req *connect.R
 	return c.getOwnProfile.CallUnary(ctx, req)
 }
 
+// UpsertOwnProfile calls profiles.v1.ProfileService.UpsertOwnProfile.
+func (c *profileServiceClient) UpsertOwnProfile(ctx context.Context, req *connect.Request[v1.UpsertOwnProfileRequest]) (*connect.Response[v1.UserProfile], error) {
+	return c.upsertOwnProfile.CallUnary(ctx, req)
+}
+
 // ProfileServiceHandler is an implementation of the profiles.v1.ProfileService service.
 type ProfileServiceHandler interface {
 	// Management procedures — require users.manage permission.
@@ -218,6 +237,10 @@ type ProfileServiceHandler interface {
 	// Self-read procedure — requires profile.view_own permission.
 	// The caller's identity is taken from the session context; no user_id field is accepted.
 	GetOwnProfile(context.Context, *connect.Request[v1.GetOwnProfileRequest]) (*connect.Response[v1.UserProfile], error)
+	// Self-edit procedure — requires profile.edit_own permission.
+	// Identity from session context; no user_id field. PATCH semantics: absent field
+	// preserves the column; present field writes it (present-empty clears).
+	UpsertOwnProfile(context.Context, *connect.Request[v1.UpsertOwnProfileRequest]) (*connect.Response[v1.UserProfile], error)
 }
 
 // NewProfileServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -281,6 +304,12 @@ func NewProfileServiceHandler(svc ProfileServiceHandler, opts ...connect.Handler
 		connect.WithSchema(profileServiceMethods.ByName("GetOwnProfile")),
 		connect.WithHandlerOptions(opts...),
 	)
+	profileServiceUpsertOwnProfileHandler := connect.NewUnaryHandler(
+		ProfileServiceUpsertOwnProfileProcedure,
+		svc.UpsertOwnProfile,
+		connect.WithSchema(profileServiceMethods.ByName("UpsertOwnProfile")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/profiles.v1.ProfileService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ProfileServiceUpsertUserProfileProcedure:
@@ -301,6 +330,8 @@ func NewProfileServiceHandler(svc ProfileServiceHandler, opts ...connect.Handler
 			profileServiceListTeacherQualificationsHandler.ServeHTTP(w, r)
 		case ProfileServiceGetOwnProfileProcedure:
 			profileServiceGetOwnProfileHandler.ServeHTTP(w, r)
+		case ProfileServiceUpsertOwnProfileProcedure:
+			profileServiceUpsertOwnProfileHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -344,4 +375,8 @@ func (UnimplementedProfileServiceHandler) ListTeacherQualifications(context.Cont
 
 func (UnimplementedProfileServiceHandler) GetOwnProfile(context.Context, *connect.Request[v1.GetOwnProfileRequest]) (*connect.Response[v1.UserProfile], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("profiles.v1.ProfileService.GetOwnProfile is not implemented"))
+}
+
+func (UnimplementedProfileServiceHandler) UpsertOwnProfile(context.Context, *connect.Request[v1.UpsertOwnProfileRequest]) (*connect.Response[v1.UserProfile], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("profiles.v1.ProfileService.UpsertOwnProfile is not implemented"))
 }
