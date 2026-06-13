@@ -11,7 +11,7 @@ import (
 )
 
 type Querier interface {
-	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (GetUserByIDRow, error)
 	UpdatePasswordHash(ctx context.Context, arg UpdatePasswordHashParams) error
 }
