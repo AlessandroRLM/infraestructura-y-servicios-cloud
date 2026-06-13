@@ -12,9 +12,11 @@ interface RouterContext {
 function AppError() {
   return (
     <div data-testid="app-error">
-      <p>Something went wrong. The service may be temporarily unavailable.</p>
+      <p>
+        Algo salió mal. El servicio podría no estar disponible temporalmente.
+      </p>
       <button type="button" onClick={() => window.location.reload()}>
-        Retry
+        Reintentar
       </button>
     </div>
   );

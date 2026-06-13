@@ -21,7 +21,7 @@ async function renderLogin(login: LoginHandler, sessionSource?: SessionSource) {
     ...(sessionSource ? { sessionSource } : {}),
   });
   // The router resolves the route asynchronously; wait for the form to mount.
-  await screen.findByRole("button", { name: "Sign in" });
+  await screen.findByRole("button", { name: "Iniciar sesión" });
 }
 
 describe("LoginForm", () => {
@@ -30,11 +30,16 @@ describe("LoginForm", () => {
     const login = vi.fn(async () => create(LoginResponseSchema, {}));
     await renderLogin(login);
 
-    await user.type(screen.getByLabelText("Email"), "not-an-email");
-    await user.type(screen.getByLabelText("Password"), "secret");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.type(
+      screen.getByLabelText("Correo electrónico"),
+      "not-an-email",
+    );
+    await user.type(screen.getByLabelText("Contraseña"), "secret");
+    await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
-    expect(await screen.findByText("Enter a valid email")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Correo electrónico no válido"),
+    ).toBeInTheDocument();
     expect(login).not.toHaveBeenCalled();
   });
 
@@ -46,9 +51,12 @@ describe("LoginForm", () => {
     });
     await renderLogin(login);
 
-    await user.type(screen.getByLabelText("Email"), "user@test.com");
-    await user.type(screen.getByLabelText("Password"), "secret");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.type(
+      screen.getByLabelText("Correo electrónico"),
+      "user@test.com",
+    );
+    await user.type(screen.getByLabelText("Contraseña"), "secret");
+    await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
     await waitFor(() => expect(login).toHaveBeenCalledTimes(1));
     expect(login.mock.calls[0][0]).toMatchObject({
@@ -74,9 +82,12 @@ describe("LoginForm", () => {
 
     await renderLogin(login, sessionSource);
 
-    await user.type(screen.getByLabelText("Email"), "user@test.com");
-    await user.type(screen.getByLabelText("Password"), "secret");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.type(
+      screen.getByLabelText("Correo electrónico"),
+      "user@test.com",
+    );
+    await user.type(screen.getByLabelText("Contraseña"), "secret");
+    await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
     expect(await screen.findByTestId("dashboard")).toBeInTheDocument();
   });
@@ -88,16 +99,19 @@ describe("LoginForm", () => {
     });
     await renderLogin(login);
 
-    await user.type(screen.getByLabelText("Email"), "user@test.com");
-    await user.type(screen.getByLabelText("Password"), "wrong");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.type(
+      screen.getByLabelText("Correo electrónico"),
+      "user@test.com",
+    );
+    await user.type(screen.getByLabelText("Contraseña"), "wrong");
+    await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
     expect(
-      await screen.findByText("Email or password is incorrect"),
+      await screen.findByText("Correo o contraseña incorrectos"),
     ).toBeInTheDocument();
     // Confirm the alert role carries the correct message.
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Email or password is incorrect",
+      "Correo o contraseña incorrectos",
     );
     expect(toastError).not.toHaveBeenCalled();
   });
@@ -109,18 +123,21 @@ describe("LoginForm", () => {
     });
     await renderLogin(login);
 
-    await user.type(screen.getByLabelText("Email"), "user@test.com");
-    await user.type(screen.getByLabelText("Password"), "secret");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.type(
+      screen.getByLabelText("Correo electrónico"),
+      "user@test.com",
+    );
+    await user.type(screen.getByLabelText("Contraseña"), "secret");
+    await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith(
-        "Couldn't connect. Please try again.",
+        "No se pudo conectar. Inténtalo de nuevo.",
       ),
     );
     // Toast path must NOT also set the inline error.
     expect(
-      screen.queryByText("Email or password is incorrect"),
+      screen.queryByText("Correo o contraseña incorrectos"),
     ).not.toBeInTheDocument();
   });
 
@@ -145,9 +162,12 @@ describe("LoginForm", () => {
       sessionSource,
     });
 
-    await user.type(await screen.findByLabelText("Email"), "user@test.com");
-    await user.type(screen.getByLabelText("Password"), "secret");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.type(
+      await screen.findByLabelText("Correo electrónico"),
+      "user@test.com",
+    );
+    await user.type(screen.getByLabelText("Contraseña"), "secret");
+    await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
     // Verify the router honored the injected redirect value, not the default "/".
     await waitFor(() =>

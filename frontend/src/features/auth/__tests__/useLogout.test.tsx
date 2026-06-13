@@ -33,7 +33,9 @@ describe("LogoutButton", () => {
     // Spy on setQueryData to capture the cleared value before gcTime:0 GCs it.
     const setQueryDataSpy = vi.spyOn(queryClient, "setQueryData");
 
-    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Cerrar sesión" }),
+    );
 
     await waitFor(() => expect(logout).toHaveBeenCalledTimes(1));
 
@@ -58,7 +60,9 @@ describe("LogoutButton", () => {
 
     const setQueryDataSpy = vi.spyOn(queryClient, "setQueryData");
 
-    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Cerrar sesión" }),
+    );
 
     // Hook's onError clears the stale cache entry for the expired session.
     await waitFor(() =>
@@ -83,17 +87,19 @@ describe("LogoutButton", () => {
 
     const setQueryDataSpy = vi.spyOn(queryClient, "setQueryData");
 
-    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Cerrar sesión" }),
+    );
 
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith(
-        "Could not sign out. Please try again.",
+        "No se pudo cerrar sesión. Inténtalo de nuevo.",
       ),
     );
 
     // Component stays on the dashboard — the Sign out button is still present.
     expect(
-      screen.getByRole("button", { name: "Sign out" }),
+      screen.getByRole("button", { name: "Cerrar sesión" }),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("login-page")).not.toBeInTheDocument();
 

@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { AuthenticatedLayout } from "@/components/layout/AuthenticatedLayout";
 import { bootstrapQueryOptions } from "@/features/auth";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -14,5 +15,5 @@ export const Route = createFileRoute("/_authenticated")({
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
   },
-  component: () => <Outlet />,
+  component: AuthenticatedLayout,
 });

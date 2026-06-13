@@ -1,16 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LogoutButton } from "@/features/auth";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Dashboard,
 });
 
-// LogoutButton lives here until a shared authenticated layout/navbar exists.
 function Dashboard() {
   return (
-    <div data-testid="dashboard">
-      <span>Dashboard</span>
-      <LogoutButton />
+    <div className="space-y-1" data-testid="dashboard">
+      <h1 className="font-semibold text-2xl tracking-tight">Inicio</h1>
+      <p className="text-muted-foreground">Bienvenido de nuevo.</p>
     </div>
   );
 }

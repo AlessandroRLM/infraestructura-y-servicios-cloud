@@ -12,6 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
+import { Route as AuthenticatedSectionEnrollmentsRouteImport } from './routes/_authenticated/section-enrollments'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
+import { Route as AuthenticatedEnrollmentsRouteImport } from './routes/_authenticated/enrollments'
+import { Route as AuthenticatedAccessControlRouteImport } from './routes/_authenticated/access-control'
+import { Route as AuthenticatedAcademicsRouteImport } from './routes/_authenticated/academics'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -27,27 +34,115 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSectionEnrollmentsRoute =
+  AuthenticatedSectionEnrollmentsRouteImport.update({
+    id: '/section-enrollments',
+    path: '/section-enrollments',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGradesRoute = AuthenticatedGradesRouteImport.update({
+  id: '/grades',
+  path: '/grades',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedEnrollmentsRoute =
+  AuthenticatedEnrollmentsRouteImport.update({
+    id: '/enrollments',
+    path: '/enrollments',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAccessControlRoute =
+  AuthenticatedAccessControlRouteImport.update({
+    id: '/access-control',
+    path: '/access-control',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAcademicsRoute = AuthenticatedAcademicsRouteImport.update({
+  id: '/academics',
+  path: '/academics',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
+  '/academics': typeof AuthenticatedAcademicsRoute
+  '/access-control': typeof AuthenticatedAccessControlRoute
+  '/enrollments': typeof AuthenticatedEnrollmentsRoute
+  '/grades': typeof AuthenticatedGradesRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/section-enrollments': typeof AuthenticatedSectionEnrollmentsRoute
+  '/users': typeof AuthenticatedUsersRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/academics': typeof AuthenticatedAcademicsRoute
+  '/access-control': typeof AuthenticatedAccessControlRoute
+  '/enrollments': typeof AuthenticatedEnrollmentsRoute
+  '/grades': typeof AuthenticatedGradesRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/section-enrollments': typeof AuthenticatedSectionEnrollmentsRoute
+  '/users': typeof AuthenticatedUsersRoute
   '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/academics': typeof AuthenticatedAcademicsRoute
+  '/_authenticated/access-control': typeof AuthenticatedAccessControlRoute
+  '/_authenticated/enrollments': typeof AuthenticatedEnrollmentsRoute
+  '/_authenticated/grades': typeof AuthenticatedGradesRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/section-enrollments': typeof AuthenticatedSectionEnrollmentsRoute
+  '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/academics'
+    | '/access-control'
+    | '/enrollments'
+    | '/grades'
+    | '/reports'
+    | '/section-enrollments'
+    | '/users'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/'
-  id: '__root__' | '/_authenticated' | '/login' | '/_authenticated/'
+  to:
+    | '/login'
+    | '/academics'
+    | '/access-control'
+    | '/enrollments'
+    | '/grades'
+    | '/reports'
+    | '/section-enrollments'
+    | '/users'
+    | '/'
+  id:
+    | '__root__'
+    | '/_authenticated'
+    | '/login'
+    | '/_authenticated/academics'
+    | '/_authenticated/access-control'
+    | '/_authenticated/enrollments'
+    | '/_authenticated/grades'
+    | '/_authenticated/reports'
+    | '/_authenticated/section-enrollments'
+    | '/_authenticated/users'
+    | '/_authenticated/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -78,14 +173,77 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/users': {
+      id: '/_authenticated/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AuthenticatedUsersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/section-enrollments': {
+      id: '/_authenticated/section-enrollments'
+      path: '/section-enrollments'
+      fullPath: '/section-enrollments'
+      preLoaderRoute: typeof AuthenticatedSectionEnrollmentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/grades': {
+      id: '/_authenticated/grades'
+      path: '/grades'
+      fullPath: '/grades'
+      preLoaderRoute: typeof AuthenticatedGradesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/enrollments': {
+      id: '/_authenticated/enrollments'
+      path: '/enrollments'
+      fullPath: '/enrollments'
+      preLoaderRoute: typeof AuthenticatedEnrollmentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/access-control': {
+      id: '/_authenticated/access-control'
+      path: '/access-control'
+      fullPath: '/access-control'
+      preLoaderRoute: typeof AuthenticatedAccessControlRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/academics': {
+      id: '/_authenticated/academics'
+      path: '/academics'
+      fullPath: '/academics'
+      preLoaderRoute: typeof AuthenticatedAcademicsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAcademicsRoute: typeof AuthenticatedAcademicsRoute
+  AuthenticatedAccessControlRoute: typeof AuthenticatedAccessControlRoute
+  AuthenticatedEnrollmentsRoute: typeof AuthenticatedEnrollmentsRoute
+  AuthenticatedGradesRoute: typeof AuthenticatedGradesRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedSectionEnrollmentsRoute: typeof AuthenticatedSectionEnrollmentsRoute
+  AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAcademicsRoute: AuthenticatedAcademicsRoute,
+  AuthenticatedAccessControlRoute: AuthenticatedAccessControlRoute,
+  AuthenticatedEnrollmentsRoute: AuthenticatedEnrollmentsRoute,
+  AuthenticatedGradesRoute: AuthenticatedGradesRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedSectionEnrollmentsRoute: AuthenticatedSectionEnrollmentsRoute,
+  AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 

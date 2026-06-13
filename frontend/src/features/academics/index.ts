@@ -1,4 +1,1 @@
-// Feature: academics
-// Status: scaffold — implementation pending
-// Connects to: CatalogService (gen/catalog/v1)
-export {};
+export { AcademicsPage } from "./components/AcademicsPage";
