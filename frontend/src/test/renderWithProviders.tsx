@@ -12,6 +12,7 @@ import {
   type AuthenticatedSession,
   SESSION_QUERY_KEY,
   SessionContext,
+  type SessionSource,
   type SessionState,
   stubSessionSource,
 } from "@/features/auth";
@@ -30,13 +31,28 @@ interface RenderOptions {
    * is only visible to useSession consumers rendered outside guarded routes.
    */
   session?: SessionState;
+  /** Override the session source injected into the router context (default: stubSessionSource). */
+  sessionSource?: SessionSource;
 }
 
-export function renderWithProviders(options: RenderOptions = {}): RenderResult {
+// Concrete router type inferred from the routeTree used in tests.
+type TestRouter = ReturnType<
+  typeof createRouter<typeof routeTree, "never", false>
+>;
+
+interface RenderWithProvidersResult extends RenderResult {
+  queryClient: QueryClient;
+  router: TestRouter;
+}
+
+export function renderWithProviders(
+  options: RenderOptions = {},
+): RenderWithProvidersResult {
   const {
     transport = defaultTransport,
     route = "/",
     session = { status: "unauthenticated" },
+    sessionSource = stubSessionSource,
   } = options;
 
   const testQueryClient = new QueryClient({
@@ -65,11 +81,11 @@ export function renderWithProviders(options: RenderOptions = {}): RenderResult {
     history: memoryHistory,
     context: {
       queryClient: testQueryClient,
-      sessionSource: stubSessionSource,
+      sessionSource,
     },
   });
 
-  return render(
+  const renderResult = render(
     <TransportProvider transport={transport}>
       <QueryClientProvider client={testQueryClient}>
         <SessionContext value={session}>
@@ -78,4 +94,6 @@ export function renderWithProviders(options: RenderOptions = {}): RenderResult {
       </QueryClientProvider>
     </TransportProvider>,
   );
+
+  return { ...renderResult, queryClient: testQueryClient, router };
 }

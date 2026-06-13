@@ -6,12 +6,12 @@ export const Route = createFileRoute("/_authenticated")({
   // makes navigations during the loading window wait for the real answer
   // rather than redirecting to /login prematurely. Same query key and
   // staleTime as SessionProvider — one cache entry, no second fetch.
-  beforeLoad: async ({ context }) => {
+  beforeLoad: async ({ context, location }) => {
     const session = await context.queryClient.ensureQueryData(
       bootstrapQueryOptions(context.sessionSource),
     );
     if (!session) {
-      throw redirect({ to: "/login" });
+      throw redirect({ to: "/login", search: { redirect: location.href } });
     }
   },
   component: () => <Outlet />,
