@@ -104,13 +104,13 @@ func TestProfilesMigration_TablesAndSeed(t *testing.T) {
 		}
 	})
 
-	t.Run("permissions_count_is_13_after_seed", func(t *testing.T) {
+	t.Run("permissions_count_is_14_after_seed", func(t *testing.T) {
 		var count int
 		if err := pgxPool.QueryRow(ctx, `SELECT COUNT(*) FROM permissions`).Scan(&count); err != nil {
 			t.Fatalf("count permissions: %v", err)
 		}
-		if count != 13 {
-			t.Errorf("permissions count = %d, want 13", count)
+		if count != 14 {
+			t.Errorf("permissions count = %d, want 14", count)
 		}
 	})
 
@@ -159,8 +159,8 @@ func TestProfilesMigration_TablesAndSeed(t *testing.T) {
 		if err := pgxPool.QueryRow(ctx, `SELECT COUNT(*) FROM permissions`).Scan(&count); err != nil {
 			t.Fatalf("count permissions after re-seed: %v", err)
 		}
-		if count != 13 {
-			t.Errorf("permissions count after re-seed = %d, want 13", count)
+		if count != 14 {
+			t.Errorf("permissions count after re-seed = %d, want 14", count)
 		}
 	})
 }

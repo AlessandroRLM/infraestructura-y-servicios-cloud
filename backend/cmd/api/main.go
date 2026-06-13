@@ -123,6 +123,7 @@ func main() {
 		profilesv1connect.ProfileServiceAddTeacherQualificationProcedure:   authz.RequirePermission(authz.PermUsersManage),
 		profilesv1connect.ProfileServiceListTeacherQualificationsProcedure: authz.RequirePermission(authz.PermUsersManage),
 		profilesv1connect.ProfileServiceGetOwnProfileProcedure:             authz.RequirePermission(authz.PermProfileViewOwn),
+		profilesv1connect.ProfileServiceUpsertOwnProfileProcedure:          authz.RequirePermission(authz.PermProfileEditOwn),
 
 		// Catalog procedures — all require catalog.manage.
 		catalogv1connect.CatalogServiceCreateProgramProcedure:            authz.RequirePermission(authz.PermCatalogManage),

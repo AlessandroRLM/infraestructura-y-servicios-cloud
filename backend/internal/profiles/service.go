@@ -64,6 +64,28 @@ func (s *Service) GetOwnProfile(ctx context.Context) (profilesdb.UserProfile, er
 	return s.repo.GetOwnProfile(ctx, callerID)
 }
 
+// UpsertOwnProfile applies PATCH-semantics edits to the caller's own profile.
+// Identity is derived from the session context; no user_id field is accepted.
+// Returns ErrNotFound when no authenticated user is in context or no profile row exists.
+func (s *Service) UpsertOwnProfile(ctx context.Context, p UpsertOwnProfileParams) (profilesdb.UserProfile, error) {
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return profilesdb.UserProfile{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+	}
+
+	// Validate birth_date only when present and non-empty.
+	if p.BirthDate != nil && *p.BirthDate != "" {
+		if _, err := time.Parse("2006-01-02", *p.BirthDate); err != nil {
+			return profilesdb.UserProfile{}, fmt.Errorf("%w: birth_date must be in YYYY-MM-DD format", ErrInvalidInput)
+		}
+	}
+
+	p.UserID = callerID
+	p.UpdatedBy = &callerID
+
+	return s.repo.UpsertOwnProfile(ctx, p)
+}
+
 // UpsertStudentProfile validates the input, populates audit columns, and delegates to the repository.
 func (s *Service) UpsertStudentProfile(ctx context.Context, p UpsertStudentProfileParams) (profilesdb.StudentProfile, error) {
 	if p.AdmissionYear <= 0 {

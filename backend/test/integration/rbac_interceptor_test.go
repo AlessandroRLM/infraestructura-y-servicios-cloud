@@ -93,8 +93,8 @@ func TestRBACInterceptor_PermissionsStoredInContext(t *testing.T) {
 		if !perms.Has(authz.PermUsersManage) {
 			t.Error("admin PermissionSet should contain users.manage")
 		}
-		if len(perms) != 13 {
-			t.Errorf("admin PermissionSet length = %d, want 13", len(perms))
+		if len(perms) != 14 {
+			t.Errorf("admin PermissionSet length = %d, want 14", len(perms))
 		}
 	})
 

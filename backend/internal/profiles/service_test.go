@@ -24,6 +24,11 @@ type fakeRepository struct {
 	getOwnProfileID     uuid.UUID
 	getOwnProfileCalled bool
 
+	upsertOwnProfileErr    error
+	upsertOwnProfileResult profilesdb.UserProfile
+	upsertOwnProfileCalled bool
+	upsertOwnProfileParams profiles.UpsertOwnProfileParams
+
 	upsertStudentProfileErr    error
 	upsertStudentProfileCalled bool
 	upsertStudentProfileParams profiles.UpsertStudentProfileParams
@@ -52,6 +57,12 @@ func (f *fakeRepository) GetOwnProfile(_ context.Context, callerID uuid.UUID) (p
 	f.getOwnProfileCalled = true
 	f.getOwnProfileID = callerID
 	return f.getOwnProfileResult, f.getOwnProfileErr
+}
+
+func (f *fakeRepository) UpsertOwnProfile(_ context.Context, p profiles.UpsertOwnProfileParams) (profilesdb.UserProfile, error) {
+	f.upsertOwnProfileCalled = true
+	f.upsertOwnProfileParams = p
+	return f.upsertOwnProfileResult, f.upsertOwnProfileErr
 }
 
 func (f *fakeRepository) UpsertStudentProfile(_ context.Context, p profiles.UpsertStudentProfileParams) (profilesdb.StudentProfile, error) {
@@ -203,6 +214,152 @@ func TestService_AddTeacherQualification_Validation(t *testing.T) {
 				t.Error("repo was called despite invalid input")
 			}
 		})
+	}
+}
+
+// TestService_UpsertOwnProfile_TriStateMapping verifies that the service passes
+// *string fields to the repository with the correct tri-state semantics:
+//   - nil (absent) is passed as nil (COALESCE will preserve the existing column value)
+//   - &"" (present-empty) is passed as &"" (COALESCE will set column to empty string)
+//   - &"value" (present) is passed as &"value" (COALESCE will set column to the value)
+func TestService_UpsertOwnProfile_TriStateMapping(t *testing.T) {
+	t.Parallel()
+
+	callerID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), callerID)
+
+	emptyStr := ""
+	valueStr := "555-0100"
+
+	cases := []struct {
+		name          string
+		phone         *string
+		wantPhone     *string
+		wantRepoCalled bool
+	}{
+		{
+			name:           "nil (absent) — must remain nil through to repo",
+			phone:          nil,
+			wantPhone:      nil,
+			wantRepoCalled: true,
+		},
+		{
+			name:           "present-empty — must remain &\"\" through to repo (do not collapse to nil)",
+			phone:          &emptyStr,
+			wantPhone:      &emptyStr,
+			wantRepoCalled: true,
+		},
+		{
+			name:           "present-non-empty — must be passed as-is",
+			phone:          &valueStr,
+			wantPhone:      &valueStr,
+			wantRepoCalled: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			repo := &fakeRepository{}
+			svc := profiles.NewService(repo)
+
+			params := profiles.UpsertOwnProfileParams{
+				Phone: tc.phone,
+			}
+
+			_, _ = svc.UpsertOwnProfile(ctx, params)
+
+			if repo.upsertOwnProfileCalled != tc.wantRepoCalled {
+				t.Errorf("repo.upsertOwnProfileCalled = %v, want %v", repo.upsertOwnProfileCalled, tc.wantRepoCalled)
+			}
+			if !tc.wantRepoCalled {
+				return
+			}
+
+			gotPhone := repo.upsertOwnProfileParams.Phone
+			if tc.wantPhone == nil {
+				if gotPhone != nil {
+					t.Errorf("phone: got non-nil %q, want nil (skip sentinel)", *gotPhone)
+				}
+			} else {
+				if gotPhone == nil {
+					t.Errorf("phone: got nil, want %q (must not collapse to nil)", *tc.wantPhone)
+				} else if *gotPhone != *tc.wantPhone {
+					t.Errorf("phone: got %q, want %q", *gotPhone, *tc.wantPhone)
+				}
+			}
+
+			// UserID and UpdatedBy must be set to callerID by the service.
+			if repo.upsertOwnProfileParams.UserID != callerID {
+				t.Errorf("UserID = %v, want %v", repo.upsertOwnProfileParams.UserID, callerID)
+			}
+			if repo.upsertOwnProfileParams.UpdatedBy == nil || *repo.upsertOwnProfileParams.UpdatedBy != callerID {
+				t.Errorf("UpdatedBy = %v, want %v", repo.upsertOwnProfileParams.UpdatedBy, callerID)
+			}
+		})
+	}
+}
+
+// TestService_UpsertOwnProfile_NoContext verifies that missing context user returns ErrNotFound.
+func TestService_UpsertOwnProfile_NoContext(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := profiles.NewService(repo)
+
+	_, err := svc.UpsertOwnProfile(context.Background(), profiles.UpsertOwnProfileParams{})
+	if !errors.Is(err, profiles.ErrNotFound) {
+		t.Errorf("UpsertOwnProfile without context user: got %v, want ErrNotFound", err)
+	}
+	if repo.upsertOwnProfileCalled {
+		t.Error("repo was called despite no authenticated user in context")
+	}
+}
+
+// TestService_UpsertOwnProfile_InvalidBirthDate verifies birth_date format validation.
+func TestService_UpsertOwnProfile_InvalidBirthDate(t *testing.T) {
+	t.Parallel()
+
+	callerID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), callerID)
+
+	malformed := "31-13-1990"
+	repo := &fakeRepository{}
+	svc := profiles.NewService(repo)
+
+	_, err := svc.UpsertOwnProfile(ctx, profiles.UpsertOwnProfileParams{
+		BirthDate: &malformed,
+	})
+	if !errors.Is(err, profiles.ErrInvalidInput) {
+		t.Errorf("UpsertOwnProfile malformed birth_date: got %v, want ErrInvalidInput", err)
+	}
+	if repo.upsertOwnProfileCalled {
+		t.Error("repo was called despite malformed birth_date")
+	}
+}
+
+// TestService_UpsertOwnProfile_EmptyBirthDateSkipsValidation verifies that present-empty
+// birth_date clears the field without triggering format validation.
+func TestService_UpsertOwnProfile_EmptyBirthDateSkipsValidation(t *testing.T) {
+	t.Parallel()
+
+	callerID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), callerID)
+
+	emptyDate := ""
+	repo := &fakeRepository{}
+	svc := profiles.NewService(repo)
+
+	_, err := svc.UpsertOwnProfile(ctx, profiles.UpsertOwnProfileParams{
+		BirthDate: &emptyDate,
+	})
+	// Should NOT return ErrInvalidInput (validation skipped for empty string).
+	if errors.Is(err, profiles.ErrInvalidInput) {
+		t.Errorf("UpsertOwnProfile empty birth_date: unexpected ErrInvalidInput (should skip validation)")
+	}
+	if !repo.upsertOwnProfileCalled {
+		t.Error("repo was not called for empty birth_date (should be delegated)")
 	}
 }
 

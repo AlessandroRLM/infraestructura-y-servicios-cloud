@@ -16,7 +16,7 @@ Sistema de gestión académica (matrículas, notas, reportes) sobre arquitectura
 
 | Capa | Tecnología |
 |------|-----------|
-| Frontend | React (servido por Nginx) |
+| Frontend | React SPA (servido por Nginx, TLS en el Ingress) |
 | Backend | Go (API REST) |
 | Datos | PostgreSQL (StatefulSet), Redis (cache) |
 | Orquestación | GKE (Kubernetes gestionado) |

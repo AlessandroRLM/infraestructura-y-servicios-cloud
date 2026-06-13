@@ -76,6 +76,10 @@ func (f *fakeQuerier) ListTeacherQualifications(_ context.Context, _ pgtype.UUID
 	return nil, nil
 }
 
+func (f *fakeQuerier) UpsertOwnProfile(_ context.Context, _ profilesdb.UpsertOwnProfileParams) (profilesdb.UserProfile, error) {
+	return profilesdb.UserProfile{}, nil
+}
+
 // Compile-time check that fakeQuerier implements profilesdb.Querier.
 var _ profilesdb.Querier = (*fakeQuerier)(nil)
 

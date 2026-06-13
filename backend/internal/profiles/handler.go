@@ -101,6 +101,37 @@ func (h *Handler) GetOwnProfile(
 	return connect.NewResponse(userProfileToProto(row)), nil
 }
 
+// UpsertOwnProfile applies PATCH-semantics edits to the caller's own profile.
+// No user_id is accepted — self-scope is enforced via session context.
+// Optional fields are passed through as *string to preserve the three-state
+// PATCH semantics: nil (absent) = preserve, &"" (present-empty) = clear, &"v" = set.
+func (h *Handler) UpsertOwnProfile(
+	ctx context.Context,
+	req *connect.Request[profilesv1.UpsertOwnProfileRequest],
+) (*connect.Response[profilesv1.UserProfile], error) {
+	params := UpsertOwnProfileParams{
+		// Pass proto optional *string fields directly — DO NOT collapse &"" to nil.
+		BirthDate:             req.Msg.BirthDate,
+		Phone:                 req.Msg.Phone,
+		PersonalEmail:         req.Msg.PersonalEmail,
+		AddressStreet:         req.Msg.AddressStreet,
+		Commune:               req.Msg.Commune,
+		Region:                req.Msg.Region,
+		Country:               req.Msg.Country,
+		PostalCode:            req.Msg.PostalCode,
+		PhotoURL:              req.Msg.PhotoUrl,
+		EmergencyContactName:  req.Msg.EmergencyContactName,
+		EmergencyContactPhone: req.Msg.EmergencyContactPhone,
+	}
+
+	row, err := h.svc.UpsertOwnProfile(ctx, params)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return connect.NewResponse(userProfileToProto(row)), nil
+}
+
 // UpsertStudentProfile upserts a student's academic profile.
 func (h *Handler) UpsertStudentProfile(
 	ctx context.Context,
