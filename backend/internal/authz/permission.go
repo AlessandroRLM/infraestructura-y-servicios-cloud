@@ -9,7 +9,7 @@ package authz
 // to a Permission parameter without an explicit conversion, catching typos early.
 type Permission string
 
-// The 13 permission codes that correspond to the operations matrix defined in the
+// The 14 permission codes that correspond to the operations matrix defined in the
 // system architecture. These constants are the single source of truth; seed migrations
 // insert the same literal strings, and a test asserts parity between this slice and
 // the seeded rows.
@@ -27,6 +27,7 @@ const (
 	PermGradesOverride           Permission = "grades.override"
 	PermProfileViewOwn           Permission = "profile.view_own"
 	PermSectionEnrollmentViewOwn Permission = "section_enrollment.view_own"
+	PermProfileEditOwn           Permission = "profile.edit_own"
 )
 
 // AllPermissions lists every defined permission in the order they appear above.
@@ -46,4 +47,5 @@ var AllPermissions = []Permission{
 	PermGradesOverride,
 	PermProfileViewOwn,
 	PermSectionEnrollmentViewOwn,
+	PermProfileEditOwn,
 }
