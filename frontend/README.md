@@ -30,6 +30,12 @@ frontend/src/
 
 Organización feature-first, espejo de los dominios del backend. El patrón container/presentational se aplica donde separa lógica de presentación.
 
+## API y transporte
+
+El cliente usa el protocolo **Connect** (`createConnectTransport`). En producción Nginx sirve la SPA y hace reverse-proxy de las rutas RPC hacia la API, por lo que frontend y backend comparten origen: la sesión viaja en una cookie `HttpOnly` `SameSite=Lax` (first-party, inaccesible desde JavaScript). En desarrollo, el proxy de Vite cumple el mismo rol que Nginx.
+
+El formato de serialización es condicional por entorno (`useBinaryFormat: import.meta.env.PROD`): JSON en desarrollo para mantener el panel de red legible, y protobuf binario en producción por eficiencia de payload. La elección del protocolo (Connect frente a gRPC nativo) y su impacto en el balanceo de carga se documentan en [`docs/arquitectura`](../docs/arquitectura/README.md#16-decisiones-y-alternativas).
+
 ## Uso
 
 Requisitos: [Bun](https://bun.sh), [`buf`](https://buf.build).
