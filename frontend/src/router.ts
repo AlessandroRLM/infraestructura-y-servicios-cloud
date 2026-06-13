@@ -1,16 +1,18 @@
 import { createRouter } from "@tanstack/react-router";
+import { transport } from "./core/connect/transport";
 import { queryClient } from "./core/query/queryClient";
+import { createRpcSessionSource } from "./features/auth";
 import { routeTree } from "./routeTree.gen";
 
-// Router is created once with a placeholder session.
-// Live session state is injected per render via RouterProvider's context prop
-// in the app root component (see main.tsx).
-// auth-and-guards Intent skill: never recreate the router on auth changes.
+// Single app-wide source instance: SessionProvider and route guards must hit
+// the same query cache entry.
+export const sessionSource = createRpcSessionSource(transport);
+
 export const router = createRouter({
   routeTree,
   context: {
     queryClient,
-    session: undefined!,
+    sessionSource,
   },
 });
 

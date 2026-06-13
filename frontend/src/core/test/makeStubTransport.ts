@@ -14,11 +14,18 @@ import { createRouterTransport } from "@connectrpc/connect";
  *     [GradesService, { listOwnGrades: async () => ({ grades: [] }) }],
  *   );
  */
-export function makeStubTransport(
-  ...handlers: [DescService, Partial<ServiceImpl<DescService>>][]
+export function makeStubTransport<Services extends DescService[]>(
+  ...handlers: {
+    [K in keyof Services]: [Services[K], Partial<ServiceImpl<Services[K]>>];
+  }
 ): Transport {
   return createRouterTransport((router) => {
-    for (const [service, impl] of handlers) {
+    // The mapped tuple keeps each handler typed against ITS service at the
+    // call site; correlation is erased here, where it no longer matters.
+    for (const [service, impl] of handlers as [
+      DescService,
+      Partial<ServiceImpl<DescService>>,
+    ][]) {
       router.service(service, impl);
     }
   });

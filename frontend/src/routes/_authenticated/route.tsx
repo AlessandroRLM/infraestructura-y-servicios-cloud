@@ -1,21 +1,18 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { bootstrapQueryOptions, stubSessionSource } from "@/core/session";
+import { bootstrapQueryOptions } from "@/features/auth";
 
 export const Route = createFileRoute("/_authenticated")({
-  beforeLoad: ({ context }) => {
-    // Guard: treat null/undefined (no session injected) and explicitly
-    // unauthenticated sessions as equivalent — redirect to /login.
-    // Live session is injected per render via RouterProvider's context prop
-    // (auth-and-guards Intent skill pattern).
-    // The stub always returns unauthenticated, so _authenticated routes are
-    // unreachable until the real SessionSource (GetSession RPC) lands.
-    if (!context.session || context.session.status !== "authenticated") {
-      throw redirect({ to: "/login" });
+  // Awaiting the bootstrap query (instead of reading a session snapshot)
+  // makes navigations during the loading window wait for the real answer
+  // rather than redirecting to /login prematurely. Same query key and
+  // staleTime as SessionProvider — one cache entry, no second fetch.
+  beforeLoad: async ({ context, location }) => {
+    const session = await context.queryClient.ensureQueryData(
+      bootstrapQueryOptions(context.sessionSource),
+    );
+    if (!session) {
+      throw redirect({ to: "/login", search: { redirect: location.href } });
     }
   },
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(
-      bootstrapQueryOptions(stubSessionSource),
-    ),
   component: () => <Outlet />,
 });
