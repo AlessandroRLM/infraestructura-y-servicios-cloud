@@ -11,3 +11,9 @@ aws_region = "us-east-1"
 # node_machine_type = "e2-medium"
 # node_min_count    = 2
 # node_max_count    = 4
+
+# Monitoring and alerting
+alert_email        = "ops@example.com"
+app_host           = "academico.example.com"
+billing_account_id = "XXXXXX-XXXXXX-XXXXXX"
+# monthly_budget_usd = 150
