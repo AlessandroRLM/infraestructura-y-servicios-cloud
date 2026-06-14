@@ -1,0 +1,7 @@
+# Production data volume: 20Gi on pd-balanced (GKE storage class standard-rwo).
+- op: replace
+  path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+  value: 20Gi
+- op: replace
+  path: /spec/volumeClaimTemplates/0/spec/storageClassName
+  value: standard-rwo

@@ -15,14 +15,13 @@ k8s/
 │   ├── hpa.yaml
 │   └── networkpolicy.yaml
 └── overlays/
-    └── dev/            # Overlay de desarrollo local (minikube)
-        ├── kustomization.yaml      # secretGenerator + namespace + patches
-        ├── namespace.yaml
-        ├── patch-cookie-secure.yaml
-        └── .env.dev                # credenciales dev — ignorado por git
+    ├── dev/            # Desarrollo local (minikube) — HTTP, secret desde .env.dev
+    ├── test/           # GKE — TLS, secret desde .env.test
+    └── prod/           # GKE — TLS, secret externo (Secret Manager), tags inmutables
 ```
 
-> Overlays para `prod`/`test` y secrets gestionados externamente están fuera del scope de este slice.
+Cada overlay crea su namespace (`academico-{dev,test,prod}`) con una `ResourceQuota` propia y hereda las `NetworkPolicy` del base — esto materializa la separación de ambientes (RNF-1). Diferencias por entorno: `COOKIE_SECURE` (dev `false`/HTTP, test+prod `true`/HTTPS), host + TLS del Ingress, clase y tamaño de almacenamiento, y origen del `Secret`. Detalle de prod en [`overlays/prod/README.md`](overlays/prod/README.md).
+
 > El fundamento de las decisiones de seguridad está en [`../docs/contenedores-kubernetes/seguridad-y-endurecimiento.md`](../docs/contenedores-kubernetes/seguridad-y-endurecimiento.md).
 
 ---

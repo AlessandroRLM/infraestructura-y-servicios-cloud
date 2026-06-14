@@ -1,0 +1,11 @@
+# Host + TLS for production. The TLS secret (academico-prod-tls) is provisioned
+# by cert-manager / managed certificate; the host is a placeholder — set the real domain.
+- op: replace
+  path: /spec/rules/0/host
+  value: academico.example.com
+- op: add
+  path: /spec/tls
+  value:
+    - hosts:
+        - academico.example.com
+      secretName: academico-prod-tls
