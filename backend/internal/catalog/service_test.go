@@ -934,6 +934,22 @@ func TestService_ListPrograms_EscapesQueryWildcards(t *testing.T) {
 	}
 }
 
+func TestService_ListPrograms_BlankQueryIsNoFilter(t *testing.T) {
+	t.Parallel()
+
+	for _, query := range []string{"", "   ", "\t\n "} {
+		repo := &fakeRepository{listProgramsRows: []catalogdb.Program{}}
+		svc := catalog.NewService(repo)
+
+		if _, err := svc.ListPrograms(context.Background(), 20, "", query); err != nil {
+			t.Fatalf("ListPrograms(%q): unexpected error: %v", query, err)
+		}
+		if repo.listProgramsArgs.Query != nil {
+			t.Errorf("ListPrograms(%q): Query = %q, want nil (no filter)", query, *repo.listProgramsArgs.Query)
+		}
+	}
+}
+
 func TestService_ListCourses_EscapesQueryWildcards(t *testing.T) {
 	t.Parallel()
 

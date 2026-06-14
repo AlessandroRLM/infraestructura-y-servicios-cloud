@@ -131,11 +131,7 @@ func (s *Service) ListPrograms(ctx context.Context, pageSize int32, pageToken st
 		tokenUUID = &id
 	}
 
-	var queryPtr *string
-	if query != "" {
-		escaped := pagination.EscapeLikePattern(query)
-		queryPtr = &escaped
-	}
+	queryPtr := pagination.SearchPattern(query)
 
 	rows, err := s.repo.ListPrograms(ctx, ListProgramsRepoParams{
 		Query:     queryPtr,
@@ -216,11 +212,7 @@ func (s *Service) ListCourses(ctx context.Context, pageSize int32, pageToken str
 		tokenUUID = &id
 	}
 
-	var queryPtr *string
-	if query != "" {
-		escaped := pagination.EscapeLikePattern(query)
-		queryPtr = &escaped
-	}
+	queryPtr := pagination.SearchPattern(query)
 
 	rows, err := s.repo.ListCourses(ctx, ListCoursesRepoParams{
 		Query:     queryPtr,

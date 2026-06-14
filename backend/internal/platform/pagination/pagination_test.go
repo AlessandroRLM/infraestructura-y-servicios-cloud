@@ -211,3 +211,40 @@ func TestEscapeLikePattern(t *testing.T) {
 		})
 	}
 }
+
+// --- SearchPattern ---
+
+func TestSearchPattern(t *testing.T) {
+	t.Parallel()
+
+	ptr := func(s string) *string { return &s }
+
+	cases := []struct {
+		name string
+		in   string
+		want *string
+	}{
+		{"empty is no filter", "", nil},
+		{"whitespace only is no filter", "   ", nil},
+		{"tabs and newlines only is no filter", "\t\n ", nil},
+		{"plain term", "eng", ptr("eng")},
+		{"trims surrounding whitespace", "  eng  ", ptr("eng")},
+		{"trims then escapes metacharacters", "  50%_  ", ptr(`50\%\_`)},
+		{"escapes backslash", `a\b`, ptr(`a\\b`)},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := pagination.SearchPattern(tc.in)
+			switch {
+			case tc.want == nil && got != nil:
+				t.Errorf("SearchPattern(%q) = %q, want nil", tc.in, *got)
+			case tc.want != nil && got == nil:
+				t.Errorf("SearchPattern(%q) = nil, want %q", tc.in, *tc.want)
+			case tc.want != nil && got != nil && *got != *tc.want:
+				t.Errorf("SearchPattern(%q) = %q, want %q", tc.in, *got, *tc.want)
+			}
+		})
+	}
+}

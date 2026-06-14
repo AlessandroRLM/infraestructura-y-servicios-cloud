@@ -19,6 +19,20 @@ func EscapeLikePattern(s string) string {
 	return s
 }
 
+// SearchPattern turns a caller-supplied search string into an optional ILIKE
+// argument. It trims surrounding whitespace and returns nil when nothing is
+// left, so a blank or whitespace-only query is a true no-filter passthrough;
+// otherwise it escapes LIKE metacharacters via EscapeLikePattern so the term
+// matches literally. SQL pairs the value with an explicit ESCAPE '\'.
+func SearchPattern(query string) *string {
+	trimmed := strings.TrimSpace(query)
+	if trimmed == "" {
+		return nil
+	}
+	escaped := EscapeLikePattern(trimmed)
+	return &escaped
+}
+
 // Clamp defines minimum and maximum page-size bounds.
 // Use Apply to clamp a caller-supplied page_size to a safe range.
 type Clamp struct {
