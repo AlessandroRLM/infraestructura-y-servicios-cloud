@@ -59,6 +59,35 @@ type RecordOutcome struct {
 	FinalGrade string
 }
 
+// ListGradesForSectionRepoParams holds pagination parameters for ListGradesForSectionPaged.
+type ListGradesForSectionRepoParams struct {
+	SectionID uuid.UUID
+	// PageToken is the exclusive upper bound on g.id (nil = start from most recent).
+	PageToken *uuid.UUID
+	// RowLimit is the number of rows to fetch (clampedPageSize + 1).
+	RowLimit int32
+}
+
+// ListGradesForSectionByTeacherRepoParams holds pagination parameters for
+// ListGradesForSectionByTeacherPaged.
+type ListGradesForSectionByTeacherRepoParams struct {
+	SectionID uuid.UUID
+	TeacherID uuid.UUID
+	// PageToken is the exclusive upper bound on g.id (nil = start from most recent).
+	PageToken *uuid.UUID
+	// RowLimit is the number of rows to fetch (clampedPageSize + 1).
+	RowLimit int32
+}
+
+// ListOwnGradesRepoParams holds pagination parameters for ListOwnGradesPaged.
+type ListOwnGradesRepoParams struct {
+	StudentID uuid.UUID
+	// PageToken is the exclusive upper bound on g.id (nil = start from most recent).
+	PageToken *uuid.UUID
+	// RowLimit is the number of rows to fetch (clampedPageSize + 1).
+	RowLimit int32
+}
+
 // Repository is the data-access contract for the grades slice.
 type Repository interface {
 	// CreateEvaluationSchemeTx creates the full evaluation scheme for a course atomically.
@@ -83,6 +112,19 @@ type Repository interface {
 	// is a member of section_teachers. Returns an empty slice if the caller is not a
 	// teacher of the section.
 	ListGradesForSectionByTeacher(ctx context.Context, sectionID, callerID uuid.UUID) ([]gradesdb.Grade, error)
+
+	// ListGradesForSectionPaged returns a keyset-paginated page of grades for a section
+	// (admin path). Results are ordered by g.id DESC.
+	ListGradesForSectionPaged(ctx context.Context, p ListGradesForSectionRepoParams) ([]gradesdb.Grade, error)
+
+	// ListGradesForSectionByTeacherPaged returns a keyset-paginated page of grades for
+	// a section, scoped to a teacher. Returns an empty slice when the teacher is not in
+	// section_teachers. Results are ordered by g.id DESC.
+	ListGradesForSectionByTeacherPaged(ctx context.Context, p ListGradesForSectionByTeacherRepoParams) ([]gradesdb.Grade, error)
+
+	// ListOwnGradesPaged returns a keyset-paginated page of grades for a student.
+	// Results are ordered by g.id DESC.
+	ListOwnGradesPaged(ctx context.Context, p ListOwnGradesRepoParams) ([]gradesdb.Grade, error)
 
 	// GetGrade returns a single grade by id.
 	GetGrade(ctx context.Context, id uuid.UUID) (gradesdb.Grade, error)
@@ -442,6 +484,61 @@ func (r *postgresRepository) ListGradesForSectionByTeacher(ctx context.Context, 
 	rows, err := r.q.ListGradesForSectionByTeacher(ctx, gradesdb.ListGradesForSectionByTeacherParams{
 		SectionID: pgtype.UUID{Bytes: sectionID, Valid: true},
 		TeacherID: pgtype.UUID{Bytes: callerID, Valid: true},
+	})
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
+}
+
+// ListGradesForSectionPaged returns a keyset-paginated page of grades for a section
+// (admin path, no teacher scope). Ordered by g.id DESC.
+func (r *postgresRepository) ListGradesForSectionPaged(ctx context.Context, p ListGradesForSectionRepoParams) ([]gradesdb.Grade, error) {
+	var tokenPG pgtype.UUID
+	if p.PageToken != nil {
+		tokenPG = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListGradesForSectionPaged(ctx, gradesdb.ListGradesForSectionPagedParams{
+		SectionID: pgtype.UUID{Bytes: p.SectionID, Valid: true},
+		PageToken: tokenPG,
+		RowLimit:  p.RowLimit,
+	})
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
+}
+
+// ListGradesForSectionByTeacherPaged returns a keyset-paginated page of grades for a
+// section scoped to a teacher. Ordered by g.id DESC.
+func (r *postgresRepository) ListGradesForSectionByTeacherPaged(ctx context.Context, p ListGradesForSectionByTeacherRepoParams) ([]gradesdb.Grade, error) {
+	var tokenPG pgtype.UUID
+	if p.PageToken != nil {
+		tokenPG = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListGradesForSectionByTeacherPaged(ctx, gradesdb.ListGradesForSectionByTeacherPagedParams{
+		SectionID: pgtype.UUID{Bytes: p.SectionID, Valid: true},
+		TeacherID: pgtype.UUID{Bytes: p.TeacherID, Valid: true},
+		PageToken: tokenPG,
+		RowLimit:  p.RowLimit,
+	})
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
+}
+
+// ListOwnGradesPaged returns a keyset-paginated page of grades for a student.
+// Ordered by g.id DESC.
+func (r *postgresRepository) ListOwnGradesPaged(ctx context.Context, p ListOwnGradesRepoParams) ([]gradesdb.Grade, error) {
+	var tokenPG pgtype.UUID
+	if p.PageToken != nil {
+		tokenPG = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListOwnGradesPaged(ctx, gradesdb.ListOwnGradesPagedParams{
+		StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
+		PageToken: tokenPG,
+		RowLimit:  p.RowLimit,
 	})
 	if err != nil {
 		return nil, TranslatePgError(err)

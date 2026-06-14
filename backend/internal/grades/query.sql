@@ -122,6 +122,51 @@ WHERE se.section_id = $1
     WHERE st.section_id = $1 AND st.teacher_id = $2
   );
 
+-- name: ListGradesForSectionPaged :many
+-- Keyset-paginated list of grades for a section (admin path, no teacher scope).
+-- Ordered by g.id DESC. page_token is the exclusive upper bound on g.id (NULL = start).
+SELECT g.*
+FROM grades g
+JOIN section_enrollments se ON se.id = g.section_enrollment_id
+WHERE se.section_id = sqlc.arg('section_id')
+  AND g.deleted_at IS NULL
+  AND se.deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR g.id < sqlc.narg('page_token')::uuid)
+ORDER BY g.id DESC
+LIMIT sqlc.arg('row_limit');
+
+-- name: ListGradesForSectionByTeacherPaged :many
+-- Keyset-paginated list of grades for a section, scoped to a teacher.
+-- Returns empty if the teacher is not in section_teachers for the section.
+-- Ordered by g.id DESC. page_token is the exclusive upper bound on g.id (NULL = start).
+SELECT g.*
+FROM grades g
+JOIN section_enrollments se ON se.id = g.section_enrollment_id
+WHERE se.section_id = sqlc.arg('section_id')
+  AND g.deleted_at IS NULL
+  AND se.deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR g.id < sqlc.narg('page_token')::uuid)
+  AND EXISTS (
+    SELECT 1 FROM section_teachers st
+    WHERE st.section_id = sqlc.arg('section_id') AND st.teacher_id = sqlc.arg('teacher_id')
+  )
+ORDER BY g.id DESC
+LIMIT sqlc.arg('row_limit');
+
+-- name: ListOwnGradesPaged :many
+-- Keyset-paginated list of grades for a student (via enrollments join).
+-- Ordered by g.id DESC. page_token is the exclusive upper bound on g.id (NULL = start).
+SELECT g.*
+FROM grades g
+JOIN section_enrollments se ON se.id = g.section_enrollment_id
+JOIN enrollments e ON e.id = se.enrollment_id
+WHERE e.student_id = sqlc.arg('student_id')
+  AND g.deleted_at IS NULL
+  AND se.deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR g.id < sqlc.narg('page_token')::uuid)
+ORDER BY g.id DESC
+LIMIT sqlc.arg('row_limit');
+
 -- name: GetGradeByIDForTeacher :one
 -- Fetches a grade by primary key only if the caller is in section_teachers for the grade's section.
 -- Returns no rows if the grade does not exist or the caller is not in that section.
