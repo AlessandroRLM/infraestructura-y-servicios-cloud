@@ -18,15 +18,19 @@ La guía de despliegue paso a paso está en [`docs/infraestructura`](../docs/inf
 
 ```
 infra/
-├── backend.tf      # estado remoto (GCS)
-├── providers.tf    # google + aws
+├── versions.tf                 # versiones de Terraform y providers
+├── backend.tf                  # estado remoto (GCS)
+├── providers.tf                # google, google-beta, aws, random
 ├── variables.tf
-├── network.tf      # VPC, subredes, NAT, firewall
-├── vms.tf          # bastion + ops
-├── gke.tf          # cluster + node pool
-├── storage.tf      # buckets GCS + S3
-├── backup.tf       # IAM AWS + cron de backup
-└── outputs.tf
+├── apis.tf                     # google_project_service (APIs GCP)
+├── kms.tf                      # key ring + crypto keys CMEK + IAM
+├── network.tf                  # VPC, subredes, Cloud NAT, firewall
+├── vms.tf                      # bastion + ops + SAs
+├── gke.tf                      # cluster + node pool + SA
+├── storage.tf                  # buckets GCS + S3 DR + IAM AWS
+├── snapshots.tf                # política de snapshot diario (disco postgres)
+├── outputs.tf
+└── terraform.tfvars.example
 ```
 
 ## Uso

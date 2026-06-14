@@ -1,0 +1,13 @@
+# Required
+project_id = "my-gcp-project-id"
+
+# Admin CIDR for SSH access to bastion and GKE master authorized networks
+admin_ip = "203.0.113.0/32"
+
+# AWS region for DR S3 bucket (default: us-east-1)
+aws_region = "us-east-1"
+
+# GKE node sizing (defaults shown)
+# node_machine_type = "e2-medium"
+# node_min_count    = 2
+# node_max_count    = 4
