@@ -1,8 +1,6 @@
 import { Loader2, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -12,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useDebounce } from "@/core/hooks";
+import { PageSizeSelector, SearchInput } from "@/core/components";
 import { Route } from "@/routes/_authenticated/users";
 import { SEARCH_DEBOUNCE_MS } from "../constants";
 import { useUsersList } from "../hooks/useUsersList";
@@ -23,17 +21,8 @@ interface UsersTableProps {
 }
 
 export function UsersTable({ onRowClick }: UsersTableProps) {
-  const { q } = Route.useSearch();
+  const { q, pageSize } = Route.useSearch();
   const navigate = Route.useNavigate();
-
-  const [inputValue, setInputValue] = useState(q);
-  const debouncedQ = useDebounce(inputValue, SEARCH_DEBOUNCE_MS);
-
-  useEffect(() => {
-    if (debouncedQ !== q) {
-      navigate({ search: { q: debouncedQ } });
-    }
-  }, [debouncedQ, q, navigate]);
 
   const {
     users,
@@ -43,23 +32,25 @@ export function UsersTable({ onRowClick }: UsersTableProps) {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    isFetchNextPageError,
-  } = useUsersList(q);
-
-  useEffect(() => {
-    if (isFetchNextPageError) {
-      toast.error("No se pudieron cargar más usuarios.");
-    }
-  }, [isFetchNextPageError]);
+  } = useUsersList(q, pageSize);
 
   return (
     <div className="flex flex-col gap-4">
-      <Input
-        placeholder="Buscar por email o nombre..."
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        className="max-w-sm"
-      />
+      <div className="flex items-center gap-3">
+        <SearchInput
+          value={q}
+          onChange={(v) => navigate({ search: (prev) => ({ ...prev, q: v }) })}
+          debounceMs={SEARCH_DEBOUNCE_MS}
+          placeholder="Buscar por email o nombre..."
+          className="max-w-sm"
+        />
+        <PageSizeSelector
+          value={pageSize}
+          onChange={(n) =>
+            navigate({ search: (prev) => ({ ...prev, pageSize: n }) })
+          }
+        />
+      </div>
 
       {isLoading && (
         <div
@@ -139,7 +130,13 @@ export function UsersTable({ onRowClick }: UsersTableProps) {
         <div className="flex justify-center">
           <Button
             variant="outline"
-            onClick={() => fetchNextPage()}
+            onClick={async () => {
+              try {
+                await fetchNextPage({ throwOnError: true });
+              } catch {
+                toast.error("No se pudieron cargar más usuarios.");
+              }
+            }}
             disabled={isFetchingNextPage}
             className="gap-2"
           >

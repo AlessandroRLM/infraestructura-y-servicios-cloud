@@ -1,12 +1,17 @@
 import { useMutation } from "@connectrpc/connect-query";
+import { createConnectQueryKey } from "@connectrpc/connect-query-core";
 import { useQueryClient } from "@tanstack/react-query";
 import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
-import { COURSES_QUERY_KEY } from "../api/queries";
 
 export function useDeleteCourse() {
   const queryClient = useQueryClient();
   return useMutation(CatalogService.method.deleteCourse, {
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: COURSES_QUERY_KEY }),
+      queryClient.invalidateQueries({
+        queryKey: createConnectQueryKey({
+          schema: CatalogService,
+          cardinality: undefined,
+        }),
+      }),
   });
 }
