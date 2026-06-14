@@ -92,6 +92,15 @@ resource "google_storage_bucket_iam_member" "ops_gcs_writer" {
   member = "serviceAccount:${google_service_account.ops.email}"
 }
 
+# container.developer is the minimal standard role that allows pods/exec on the cluster.
+# AWS S3 credentials for the ops VM are provisioned out-of-band (Secret Manager →
+# injected at boot) and must NOT be managed in Terraform state. (C-1)
+resource "google_project_iam_member" "ops_container_developer" {
+  project = var.project_id
+  role    = "roles/container.developer"
+  member  = "serviceAccount:${google_service_account.ops.email}"
+}
+
 # ────────────────────────────────────────────────────────────────────────────
 # KMS IAM — GKE etcd CMEK
 # ────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Install dependencies
+# ---------------------------------------------------------------------------
+
+# postgresql-client for pg_dump / psql (used by backup/restore scripts)
+apt-get update -qq
+apt-get install -y -qq postgresql-client
+
+# kubectl
+if ! command -v kubectl &>/dev/null; then
+  apt-get install -y -qq kubectl
+fi
+
+# google-cloud-cli-gke-gcloud-auth-plugin — preinstalled on GCE Debian images;
+# install only if missing.
+if ! gcloud components list --format='value(id)' 2>/dev/null | grep -q 'gke-gcloud-auth-plugin'; then
+  apt-get install -y -qq google-cloud-cli-gke-gcloud-auth-plugin 2>/dev/null || \
+    gcloud components install gke-gcloud-auth-plugin --quiet
+fi
+
+# awscli — prefer the package manager; fall back to pip if not available
+if ! command -v aws &>/dev/null; then
+  if apt-get install -y -qq awscli 2>/dev/null; then
+    : # installed via apt
+  else
+    python3 -m pip install --quiet awscli
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Install backup and restore scripts
+# ---------------------------------------------------------------------------
+mkdir -p /opt/backup
+
+cat > /opt/backup/backup.sh <<'__BACKUP_SCRIPT__'
+${backup_script}
+__BACKUP_SCRIPT__
+
+cat > /opt/backup/restore.sh <<'__RESTORE_SCRIPT__'
+${restore_script}
+__RESTORE_SCRIPT__
+
+chmod +x /opt/backup/backup.sh /opt/backup/restore.sh
+
+# ---------------------------------------------------------------------------
+# Environment defaults for the backup cron
+# ---------------------------------------------------------------------------
+cat > /etc/default/academico-backup <<EOF
+export GCS_BUCKET=${gcs_bucket}
+export S3_BUCKET=${s3_bucket}
+export NAMESPACE=${namespace}
+EOF
+
+# ---------------------------------------------------------------------------
+# Configure kubectl to reach the GKE cluster
+# ---------------------------------------------------------------------------
+gcloud container clusters get-credentials ${cluster_name} --zone ${zone}
+
+# ---------------------------------------------------------------------------
+# Cron job — daily at 02:00 UTC
+# ---------------------------------------------------------------------------
+cat > /etc/cron.d/academico-backup <<'EOF'
+0 2 * * * root . /etc/default/academico-backup && /opt/backup/backup.sh >> /var/log/academico-backup.log 2>&1
+EOF
+chmod 0644 /etc/cron.d/academico-backup
+
+# ---------------------------------------------------------------------------
+# Logrotate for backup log
+# ---------------------------------------------------------------------------
+cat > /etc/logrotate.d/academico-backup <<'EOF'
+/var/log/academico-backup.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 root adm
+}
+EOF
