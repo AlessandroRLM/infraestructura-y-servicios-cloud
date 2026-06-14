@@ -1,0 +1,11 @@
+# Host + TLS for the test environment. The TLS secret (academico-test-tls) is
+# provisioned by cert-manager; the host is a placeholder — set the real domain.
+- op: replace
+  path: /spec/rules/0/host
+  value: academico-test.example.com
+- op: add
+  path: /spec/tls
+  value:
+    - hosts:
+        - academico-test.example.com
+      secretName: academico-test-tls
