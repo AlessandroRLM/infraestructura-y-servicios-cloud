@@ -94,7 +94,7 @@ flowchart TB
         lb["Cloud Load Balancing<br/>Ingress HTTPS"]
         kms["Cloud KMS<br/>claves de cifrado"]
         mon["Cloud Monitoring<br/>+ Cloud Logging"]
-        gcs[("GCS<br/>assets · backups · tfstate")]
+        gcs[("GCS<br/>media · backups · tfstate")]
         pd[("Persistent Disk<br/>PVC de postgres")]
 
         subgraph vpc["VPC vpc-academico"]
@@ -131,7 +131,7 @@ flowchart TB
     pg -.volumen.-> pd
     admin -->|SSH IP fija| bastion
     bastion -.kubectl.-> cluster
-    web -.assets.-> gcs
+    web -.media usuarios.-> gcs
     ops -->|pg_dump diario| gcs
     gcs -->|réplica cross-cloud| s3
     iam -.autoriza.-> ops
@@ -154,7 +154,7 @@ flowchart TB
 | VPC + subredes             | Red privada segmentada (pública para bastión, privadas para cargas).                                                                        |
 | Cloud NAT                  | Salida a internet de las subredes privadas.                                                                                                 |
 | Persistent Disk            | Volúmenes persistentes (PVC) de PostgreSQL.                                                                                                 |
-| Cloud Storage (GCS)        | Activos estáticos, backups y estado de Terraform.                                                                                           |
+| Cloud Storage (GCS)        | Media subida por usuarios (p. ej. fotos de perfil), backups y estado de Terraform. El bundle estático del frontend lo sirve Nginx desde su imagen, no GCS. |
 | Cloud Load Balancing       | Expone la aplicación vía Ingress HTTPS.                                                                                                     |
 | Cloud Monitoring + Logging | Métricas, dashboards, alertas y logs de auditoría.                                                                                          |
 | Cloud KMS                  | Claves de cifrado en reposo (CMEK donde aplique).                                                                                           |

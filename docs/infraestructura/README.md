@@ -134,7 +134,7 @@ gcloud compute ssh bastion --zone=us-central1-a   # único acceso
 | Tipo   | Recurso                       | Uso                            | Retención                                   |
 | ------ | ----------------------------- | ------------------------------ | ------------------------------------------- |
 | Bloque | Persistent Disk (pd-balanced) | PVC de PostgreSQL              | snapshots diarios, 7 días                   |
-| Objeto | GCS `assets-academico`        | activos estáticos del frontend | —                                           |
+| Objeto | GCS `assets-academico`        | media subida por usuarios (p. ej. fotos de perfil) | —                                           |
 | Objeto | GCS `backups-academico`       | backups de la base             | 30 días                                     |
 | Objeto | S3 `backups-academico-dr`     | réplica cross-cloud            | versionado + lifecycle a frío a los 30 días |
 

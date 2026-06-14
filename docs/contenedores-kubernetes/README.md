@@ -8,7 +8,7 @@ La aplicación se divide en **cuatro contenedores**, uno por responsabilidad:
 
 | Contenedor | Contenido | Imagen base |
 |------------|-----------|-------------|
-| `web` | Frontend React compilado (Vite), servido por Nginx | `nginx:alpine` |
+| `web` | Frontend React compilado (Vite), servido por Nginx | `nginxinc/nginx-unprivileged:alpine` |
 | `api` | Backend Go (binario único) | `distroless` / `scratch` (multi-stage) |
 | `postgres` | Base de datos relacional | `postgres:18-alpine` |
 | `redis` | Sesiones y cache de reportes | `redis:7-alpine` |
