@@ -46,7 +46,6 @@ type fakeRepository struct {
 	addCourseToProgramRow              catalogdb.ProgramCourse
 	addCourseToProgramErr              error
 	removeCourseErr                    error
-	listProgramCoursesRows             []catalogdb.ProgramCourse
 	listProgramCoursesWithCourseRows   []catalogdb.ListProgramCoursesWithCourseRow
 	listProgramCoursesWithCourseErr    error
 
@@ -152,9 +151,6 @@ func (f *fakeRepository) AddCourseToProgram(_ context.Context, _, _ uuid.UUID) (
 }
 func (f *fakeRepository) RemoveCourseFromProgram(_ context.Context, _, _ uuid.UUID) error {
 	return f.removeCourseErr
-}
-func (f *fakeRepository) ListProgramCourses(_ context.Context, _ uuid.UUID) ([]catalogdb.ProgramCourse, error) {
-	return f.listProgramCoursesRows, nil
 }
 func (f *fakeRepository) ListProgramCoursesWithCourse(_ context.Context, _ uuid.UUID) ([]catalogdb.ListProgramCoursesWithCourseRow, error) {
 	return f.listProgramCoursesWithCourseRows, f.listProgramCoursesWithCourseErr

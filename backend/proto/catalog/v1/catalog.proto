@@ -108,6 +108,7 @@ message ProgramCourse {
   string program_id = 1;
   string course_id  = 2;
   string created_at = 3;
+  // course is the embedded course; populated by ListProgramCourses, left unset by AddCourseToProgram.
   Course course     = 4;
 }
 

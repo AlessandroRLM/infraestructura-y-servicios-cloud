@@ -48,8 +48,6 @@ type fakeQuerier struct {
 	insertProgramCourseRow              catalogdb.ProgramCourse
 	deleteProgramCourseRows             int64
 	deleteProgramCourseErr              error
-	listProgramCoursesRows              []catalogdb.ProgramCourse
-	listProgramCoursesErr               error
 	listProgramCoursesWithCourseRows    []catalogdb.ListProgramCoursesWithCourseRow
 	listProgramCoursesWithCourseErr     error
 
@@ -153,9 +151,6 @@ func (f *fakeQuerier) InsertProgramCourse(_ context.Context, _ catalogdb.InsertP
 }
 func (f *fakeQuerier) DeleteProgramCourse(_ context.Context, _ catalogdb.DeleteProgramCourseParams) (int64, error) {
 	return f.deleteProgramCourseRows, f.deleteProgramCourseErr
-}
-func (f *fakeQuerier) ListProgramCourses(_ context.Context, _ pgtype.UUID) ([]catalogdb.ProgramCourse, error) {
-	return f.listProgramCoursesRows, f.listProgramCoursesErr
 }
 func (f *fakeQuerier) ListProgramCoursesWithCourse(_ context.Context, _ pgtype.UUID) ([]catalogdb.ListProgramCoursesWithCourseRow, error) {
 	return f.listProgramCoursesWithCourseRows, f.listProgramCoursesWithCourseErr

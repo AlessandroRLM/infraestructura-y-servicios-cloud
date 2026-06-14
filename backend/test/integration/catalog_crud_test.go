@@ -521,6 +521,14 @@ func TestCatalog_ProgramCourses_Enriched(t *testing.T) {
 	); err != nil {
 		t.Fatalf("seed orphaned association: %v", err)
 	}
+	// Clean up the orphaned association before the FK-constrained course/program rows are deleted.
+	t.Cleanup(func() {
+		t.Helper()
+		_, _ = pgxPool.Exec(context.Background(),
+			`DELETE FROM program_courses WHERE program_id = $1 AND course_id = $2`,
+			progID2, delCrsID,
+		)
+	})
 
 	sdListReq := connect.NewRequest(&catalogv1.ListProgramCoursesRequest{ProgramId: progID2})
 	sdListReq.Header().Set("Cookie", "sid="+adminSID)

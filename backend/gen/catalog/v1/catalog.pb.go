@@ -445,11 +445,12 @@ func (x *ProgramQuota) GetUpdatedBy() string {
 
 // ProgramCourse represents a single course-to-program association, with the live course embedded.
 type ProgramCourse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ProgramId     string                 `protobuf:"bytes,1,opt,name=program_id,json=programId,proto3" json:"program_id,omitempty"`
-	CourseId      string                 `protobuf:"bytes,2,opt,name=course_id,json=courseId,proto3" json:"course_id,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	Course        *Course                `protobuf:"bytes,4,opt,name=course,proto3" json:"course,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	ProgramId string                 `protobuf:"bytes,1,opt,name=program_id,json=programId,proto3" json:"program_id,omitempty"`
+	CourseId  string                 `protobuf:"bytes,2,opt,name=course_id,json=courseId,proto3" json:"course_id,omitempty"`
+	CreatedAt string                 `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// course is the embedded course; populated by ListProgramCourses, left unset by AddCourseToProgram.
+	Course        *Course `protobuf:"bytes,4,opt,name=course,proto3" json:"course,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
