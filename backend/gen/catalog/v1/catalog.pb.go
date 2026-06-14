@@ -1428,6 +1428,7 @@ type ListProgramsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PageSize      int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	PageToken     string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	Query         string                 `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1472,6 +1473,13 @@ func (x *ListProgramsRequest) GetPageSize() int32 {
 func (x *ListProgramsRequest) GetPageToken() string {
 	if x != nil {
 		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListProgramsRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
 	}
 	return ""
 }
@@ -1784,6 +1792,7 @@ type ListCoursesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PageSize      int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	PageToken     string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	Query         string                 `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1828,6 +1837,13 @@ func (x *ListCoursesRequest) GetPageSize() int32 {
 func (x *ListCoursesRequest) GetPageToken() string {
 	if x != nil {
 		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListCoursesRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
 	}
 	return ""
 }
@@ -3026,11 +3042,12 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\"#\n" +
 	"\x11GetProgramRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"Q\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"g\n" +
 	"\x13ListProgramsRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x02 \x01(\tR\tpageToken\"o\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\x12\x14\n" +
+	"\x05query\x18\x03 \x01(\tR\x05query\"o\n" +
 	"\x14ListProgramsResponse\x12/\n" +
 	"\bprograms\x18\x01 \x03(\v2\x13.catalog.v1.ProgramR\bprograms\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"&\n" +
@@ -3047,11 +3064,12 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x18\n" +
 	"\acredits\x18\x04 \x01(\x05R\acredits\"\"\n" +
 	"\x10GetCourseRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"P\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"f\n" +
 	"\x12ListCoursesRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x02 \x01(\tR\tpageToken\"k\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\x12\x14\n" +
+	"\x05query\x18\x03 \x01(\tR\x05query\"k\n" +
 	"\x13ListCoursesResponse\x12,\n" +
 	"\acourses\x18\x01 \x03(\v2\x12.catalog.v1.CourseR\acourses\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"%\n" +

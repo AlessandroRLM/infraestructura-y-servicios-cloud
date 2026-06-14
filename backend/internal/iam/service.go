@@ -46,13 +46,10 @@ var validRoles = map[string]struct{}{
 }
 
 // escapeLikePattern escapes LIKE/ILIKE metacharacters so a caller-supplied search
-// string is matched literally rather than as a wildcard. Backslash is escaped
-// first to avoid double-escaping; the SQL pairs this with an explicit ESCAPE '\'.
+// string is matched literally rather than as a wildcard. Delegates to the shared
+// pagination.EscapeLikePattern helper to keep the implementation in one place.
 func escapeLikePattern(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, "%", `\%`)
-	s = strings.ReplaceAll(s, "_", `\_`)
-	return s
+	return pagination.EscapeLikePattern(s)
 }
 
 // Service implements the iam domain use cases: ListUsers, GetUser, AssignRole, RevokeRole.

@@ -210,6 +210,7 @@ message GetProgramRequest {
 message ListProgramsRequest {
   int32  page_size  = 1;
   string page_token = 2;
+  string query      = 3;
 }
 
 message ListProgramsResponse {
@@ -245,6 +246,7 @@ message GetCourseRequest {
 message ListCoursesRequest {
   int32  page_size  = 1;
   string page_token = 2;
+  string query      = 3;
 }
 
 message ListCoursesResponse {

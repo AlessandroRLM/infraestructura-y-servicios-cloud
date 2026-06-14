@@ -554,17 +554,21 @@ const listCourses = `-- name: ListCourses :many
 SELECT id, code, name, credits, created_at, updated_at, deleted_at, created_by, updated_by FROM courses
 WHERE deleted_at IS NULL
   AND ($1::uuid IS NULL OR id < $1::uuid)
+  AND ($2::text IS NULL
+       OR code ILIKE '%' || $2 || '%' ESCAPE '\'
+       OR name ILIKE '%' || $2 || '%' ESCAPE '\')
 ORDER BY id DESC
-LIMIT $2::int
+LIMIT $3::int
 `
 
 type ListCoursesParams struct {
 	PageToken pgtype.UUID
+	Query     pgtype.Text
 	RowLimit  int32
 }
 
 func (q *Queries) ListCourses(ctx context.Context, arg ListCoursesParams) ([]Course, error) {
-	rows, err := q.db.Query(ctx, listCourses, arg.PageToken, arg.RowLimit)
+	rows, err := q.db.Query(ctx, listCourses, arg.PageToken, arg.Query, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -701,17 +705,21 @@ const listPrograms = `-- name: ListPrograms :many
 SELECT id, code, name, created_at, updated_at, deleted_at, created_by, updated_by FROM programs
 WHERE deleted_at IS NULL
   AND ($1::uuid IS NULL OR id < $1::uuid)
+  AND ($2::text IS NULL
+       OR code ILIKE '%' || $2 || '%' ESCAPE '\'
+       OR name ILIKE '%' || $2 || '%' ESCAPE '\')
 ORDER BY id DESC
-LIMIT $2::int
+LIMIT $3::int
 `
 
 type ListProgramsParams struct {
 	PageToken pgtype.UUID
+	Query     pgtype.Text
 	RowLimit  int32
 }
 
 func (q *Queries) ListPrograms(ctx context.Context, arg ListProgramsParams) ([]Program, error) {
-	rows, err := q.db.Query(ctx, listPrograms, arg.PageToken, arg.RowLimit)
+	rows, err := q.db.Query(ctx, listPrograms, arg.PageToken, arg.Query, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}

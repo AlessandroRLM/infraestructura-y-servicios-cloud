@@ -183,3 +183,31 @@ func TestTokenOf_EmptyPageReturnsEmpty(t *testing.T) {
 		t.Errorf("TokenOf returned %q, want \"\" for empty page", token)
 	}
 }
+
+// --- EscapeLikePattern ---
+
+func TestEscapeLikePattern(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"plain string unchanged", "ada", "ada"},
+		{"percent escaped", "50%", `50\%`},
+		{"underscore escaped", "a_b", `a\_b`},
+		{"backslash escaped", `a\b`, `a\\b`},
+		{"combined backslash percent underscore", `1_0%\`, `1\_0\%\\`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := pagination.EscapeLikePattern(tc.input)
+			if got != tc.want {
+				t.Errorf("EscapeLikePattern(%q) = %q, want %q", tc.input, got, tc.want)
+			}
+		})
+	}
+}

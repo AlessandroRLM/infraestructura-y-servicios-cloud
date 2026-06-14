@@ -19,6 +19,9 @@ WHERE id = $1 AND deleted_at IS NULL;
 SELECT * FROM programs
 WHERE deleted_at IS NULL
   AND (sqlc.narg('page_token')::uuid IS NULL OR id < sqlc.narg('page_token')::uuid)
+  AND (sqlc.narg('query')::text IS NULL
+       OR code ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\'
+       OR name ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\')
 ORDER BY id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
@@ -61,6 +64,9 @@ WHERE id = $1 AND deleted_at IS NULL;
 SELECT * FROM courses
 WHERE deleted_at IS NULL
   AND (sqlc.narg('page_token')::uuid IS NULL OR id < sqlc.narg('page_token')::uuid)
+  AND (sqlc.narg('query')::text IS NULL
+       OR code ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\'
+       OR name ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\')
 ORDER BY id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
