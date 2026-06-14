@@ -16,7 +16,7 @@ type Querier interface {
 	GetStudentProfile(ctx context.Context, userID pgtype.UUID) (StudentProfile, error)
 	GetTeacherProfile(ctx context.Context, userID pgtype.UUID) (TeacherProfile, error)
 	GetUserProfile(ctx context.Context, userID pgtype.UUID) (UserProfile, error)
-	ListTeacherQualifications(ctx context.Context, teacherID pgtype.UUID) ([]TeacherQualification, error)
+	ListTeacherQualifications(ctx context.Context, arg ListTeacherQualificationsParams) ([]TeacherQualification, error)
 	UpsertOwnProfile(ctx context.Context, arg UpsertOwnProfileParams) (UserProfile, error)
 	UpsertStudentProfile(ctx context.Context, arg UpsertStudentProfileParams) (StudentProfile, error)
 	UpsertTeacherProfile(ctx context.Context, arg UpsertTeacherProfileParams) (TeacherProfile, error)

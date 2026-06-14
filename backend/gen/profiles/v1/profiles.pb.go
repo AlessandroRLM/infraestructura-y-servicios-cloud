@@ -888,6 +888,8 @@ func (x *AddTeacherQualificationRequest) GetYear() int32 {
 type ListTeacherQualificationsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TeacherId     string                 `protobuf:"bytes,1,opt,name=teacher_id,json=teacherId,proto3" json:"teacher_id,omitempty"`
+	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string                 `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -929,9 +931,24 @@ func (x *ListTeacherQualificationsRequest) GetTeacherId() string {
 	return ""
 }
 
+func (x *ListTeacherQualificationsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListTeacherQualificationsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
 type ListTeacherQualificationsResponse struct {
 	state          protoimpl.MessageState  `protogen:"open.v1"`
 	Qualifications []*TeacherQualification `protobuf:"bytes,1,rep,name=qualifications,proto3" json:"qualifications,omitempty"`
+	NextPageToken  string                  `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -971,6 +988,13 @@ func (x *ListTeacherQualificationsResponse) GetQualifications() []*TeacherQualif
 		return x.Qualifications
 	}
 	return nil
+}
+
+func (x *ListTeacherQualificationsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
 }
 
 // GetOwnProfileRequest intentionally has no user_id field.
@@ -1269,12 +1293,16 @@ const file_profiles_v1_profiles_proto_rawDesc = "" +
 	"\n" +
 	"teacher_id\x18\x01 \x01(\tR\tteacherId\x12\x16\n" +
 	"\x06degree\x18\x02 \x01(\tR\x06degree\x12\x12\n" +
-	"\x04year\x18\x03 \x01(\x05R\x04year\"A\n" +
+	"\x04year\x18\x03 \x01(\x05R\x04year\"}\n" +
 	" ListTeacherQualificationsRequest\x12\x1d\n" +
 	"\n" +
-	"teacher_id\x18\x01 \x01(\tR\tteacherId\"n\n" +
+	"teacher_id\x18\x01 \x01(\tR\tteacherId\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\"\x96\x01\n" +
 	"!ListTeacherQualificationsResponse\x12I\n" +
-	"\x0equalifications\x18\x01 \x03(\v2!.profiles.v1.TeacherQualificationR\x0equalifications\"\x16\n" +
+	"\x0equalifications\x18\x01 \x03(\v2!.profiles.v1.TeacherQualificationR\x0equalifications\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\x16\n" +
 	"\x14GetOwnProfileRequest\"\x82\x05\n" +
 	"\x17UpsertOwnProfileRequest\x12\"\n" +
 	"\n" +

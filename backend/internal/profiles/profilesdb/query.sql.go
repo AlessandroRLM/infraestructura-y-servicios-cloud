@@ -181,11 +181,19 @@ SELECT id, teacher_id, degree, year, created_at, updated_at, deleted_at, created
 FROM teacher_qualifications
 WHERE teacher_id = $1
   AND deleted_at IS NULL
-ORDER BY year, created_at
+  AND ($2::uuid IS NULL OR id < $2::uuid)
+ORDER BY id DESC
+LIMIT $3::int
 `
 
-func (q *Queries) ListTeacherQualifications(ctx context.Context, teacherID pgtype.UUID) ([]TeacherQualification, error) {
-	rows, err := q.db.Query(ctx, listTeacherQualifications, teacherID)
+type ListTeacherQualificationsParams struct {
+	TeacherID pgtype.UUID
+	PageToken pgtype.UUID
+	RowLimit  int32
+}
+
+func (q *Queries) ListTeacherQualifications(ctx context.Context, arg ListTeacherQualificationsParams) ([]TeacherQualification, error) {
+	rows, err := q.db.Query(ctx, listTeacherQualifications, arg.TeacherID, arg.PageToken, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
