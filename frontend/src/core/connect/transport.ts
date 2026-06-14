@@ -1,8 +1,9 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { env } from "@/core/config/env";
 
+// Same-origin: the API is served from the page's own origin (the Ingress routes
+// Connect paths to the api service). No build-time API URL needed.
 export const transport = createConnectTransport({
-  baseUrl: env.VITE_API_URL,
+  baseUrl: window.location.origin,
   useBinaryFormat: import.meta.env.PROD,
   // Include cookies (httpOnly session) with every request
   fetch: (input, init) =>
