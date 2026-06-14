@@ -11,24 +11,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { hasPermission, useSession } from "@/features/auth";
-import type { Program } from "@/gen/catalog/v1/catalog_pb";
-import { usePrograms } from "../hooks/usePrograms";
-import { DeleteProgramDialog } from "./DeleteProgramDialog";
-import { ProgramDialog } from "./ProgramDialog";
+import type { Course } from "@/gen/catalog/v1/catalog_pb";
+import { useCourses } from "../hooks/useCourses";
+import { CourseDialog } from "./CourseDialog";
+import { DeleteCourseDialog } from "./DeleteCourseDialog";
 
-interface ProgramsTableProps {
+interface CoursesTableProps {
   onCreateClick?: () => void;
 }
 
-export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
+export function CoursesTable({ onCreateClick }: CoursesTableProps) {
   const session = useSession();
   const canManage = hasPermission(session, "catalog.manage");
-  const { programs, isLoading, isError, refetch } = usePrograms();
+  const { courses, isLoading, isError, refetch } = useCourses();
 
-  const [editProgram, setEditProgram] = useState<Program | undefined>(
-    undefined,
-  );
-  const [deleteProgram, setDeleteProgram] = useState<Program | undefined>(
+  const [editCourse, setEditCourse] = useState<Course | undefined>(undefined);
+  const [deleteCourse, setDeleteCourse] = useState<Course | undefined>(
     undefined,
   );
 
@@ -38,7 +36,7 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
         role="status"
         className="space-y-2"
         aria-busy="true"
-        aria-label="Cargando carreras"
+        aria-label="Cargando asignaturas"
       >
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-10 w-full" />
@@ -51,7 +49,7 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
     return (
       <div className="rounded-md border border-destructive/50 p-4" role="alert">
         <p className="text-destructive text-sm font-medium">
-          No se pudo cargar la lista de carreras.
+          No se pudo cargar la lista de asignaturas.
         </p>
         <Button
           variant="outline"
@@ -66,14 +64,16 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
     );
   }
 
-  if (programs.length === 0) {
+  if (courses.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-md border border-dashed p-12 text-center">
-        <p className="text-muted-foreground text-sm">Todavía no hay carreras</p>
+        <p className="text-muted-foreground text-sm">
+          Todavía no hay asignaturas
+        </p>
         {canManage && (
           <Button onClick={onCreateClick} className="gap-2">
             <Plus className="size-4" aria-hidden />
-            Crear carrera
+            Crear asignatura
           </Button>
         )}
       </div>
@@ -88,18 +88,20 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
             <TableRow>
               <TableHead>Código</TableHead>
               <TableHead>Nombre</TableHead>
+              <TableHead>Créditos</TableHead>
               <TableHead>Creado</TableHead>
               {canManage && <TableHead className="w-[120px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {programs.map((program) => (
-              <TableRow key={program.id}>
-                <TableCell className="font-medium">{program.code}</TableCell>
-                <TableCell>{program.name}</TableCell>
+            {courses.map((course) => (
+              <TableRow key={course.id}>
+                <TableCell className="font-medium">{course.code}</TableCell>
+                <TableCell>{course.name}</TableCell>
+                <TableCell>{course.credits}</TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {program.createdAt
-                    ? new Date(program.createdAt).toLocaleDateString("es-CL")
+                  {course.createdAt
+                    ? new Date(course.createdAt).toLocaleDateString("es-CL")
                     : "—"}
                 </TableCell>
                 {canManage && (
@@ -108,8 +110,8 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
                       variant="ghost"
                       size="sm"
                       className="gap-1"
-                      onClick={() => setEditProgram(program)}
-                      aria-label={`Editar ${program.code}`}
+                      onClick={() => setEditCourse(course)}
+                      aria-label={`Editar ${course.code}`}
                     >
                       <Pencil className="size-4" aria-hidden />
                       Editar
@@ -118,8 +120,8 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
                       variant="ghost"
                       size="sm"
                       className="gap-1 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteProgram(program)}
-                      aria-label={`Eliminar ${program.code}`}
+                      onClick={() => setDeleteCourse(course)}
+                      aria-label={`Eliminar ${course.code}`}
                     >
                       <Trash2 className="size-4" aria-hidden />
                       Eliminar
@@ -132,23 +134,23 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
         </Table>
       </div>
 
-      {editProgram && (
-        <ProgramDialog
+      {editCourse && (
+        <CourseDialog
           open={true}
           onOpenChange={(open) => {
-            if (!open) setEditProgram(undefined);
+            if (!open) setEditCourse(undefined);
           }}
-          program={editProgram}
+          course={editCourse}
         />
       )}
 
-      {deleteProgram && (
-        <DeleteProgramDialog
+      {deleteCourse && (
+        <DeleteCourseDialog
           open={true}
           onOpenChange={(open) => {
-            if (!open) setDeleteProgram(undefined);
+            if (!open) setDeleteCourse(undefined);
           }}
-          program={deleteProgram}
+          course={deleteCourse}
         />
       )}
     </>

@@ -7,8 +7,8 @@ import { describe, expect, it, vi } from "vitest";
 import { makeStubTransport } from "@/core/test";
 import {
   CatalogService,
-  DeleteProgramResponseSchema,
-  ProgramSchema,
+  CourseSchema,
+  DeleteCourseResponseSchema,
 } from "@/gen/catalog/v1/catalog_pb";
 import { renderWithProviders } from "@/test";
 
@@ -20,19 +20,20 @@ vi.mock("sonner", () => ({
   toast: { success: toastSuccess, error: toastError },
 }));
 
-const mockProgram = create(ProgramSchema, {
-  id: "prog-1",
-  code: "ING-01",
-  name: "Ingeniería de Software",
+const mockCourse = create(CourseSchema, {
+  id: "course-1",
+  code: "CS-101",
+  name: "Cálculo",
+  credits: 5,
   createdAt: "2024-01-01",
   updatedAt: "2024-01-01",
 });
 
 type CatalogImpl = Partial<ServiceImpl<typeof CatalogService>>;
 
-async function renderWithProgram(handlers: CatalogImpl) {
+async function renderWithCourse(handlers: CatalogImpl) {
   renderWithProviders({
-    route: "/academics",
+    route: "/academics?tab=courses",
     transport: makeStubTransport([CatalogService, handlers]),
     session: {
       status: "authenticated",
@@ -42,19 +43,19 @@ async function renderWithProgram(handlers: CatalogImpl) {
       permissions: ["catalog.manage"],
     },
   });
-  await screen.findByText("ING-01");
+  await screen.findByText("CS-101");
 }
 
-describe("DeleteProgramDialog", () => {
-  it("S-12: cancel closes dialog without calling mutation", async () => {
+describe("DeleteCourseDialog", () => {
+  it("SC-21: cancel closes dialog without calling mutation", async () => {
     const user = userEvent.setup();
-    const deleteProgram = vi.fn(async () =>
-      create(DeleteProgramResponseSchema, {}),
+    const deleteCourse = vi.fn(async () =>
+      create(DeleteCourseResponseSchema, {}),
     );
 
-    await renderWithProgram({
-      listPrograms: async () => ({ programs: [mockProgram] }),
-      deleteProgram,
+    await renderWithCourse({
+      listCourses: async () => ({ courses: [mockCourse] }),
+      deleteCourse,
     });
 
     const deleteButtons = screen.getAllByRole("button", { name: /eliminar/i });
@@ -65,18 +66,18 @@ describe("DeleteProgramDialog", () => {
     await waitFor(() =>
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
     );
-    expect(deleteProgram).not.toHaveBeenCalled();
+    expect(deleteCourse).not.toHaveBeenCalled();
   });
 
-  it("S-13: success closes dialog and shows success toast", async () => {
+  it("SC-22: success closes dialog and shows success toast", async () => {
     const user = userEvent.setup();
-    const deleteProgram = vi.fn(async () =>
-      create(DeleteProgramResponseSchema, {}),
+    const deleteCourse = vi.fn(async () =>
+      create(DeleteCourseResponseSchema, {}),
     );
 
-    await renderWithProgram({
-      listPrograms: async () => ({ programs: [mockProgram] }),
-      deleteProgram,
+    await renderWithCourse({
+      listCourses: async () => ({ courses: [mockCourse] }),
+      deleteCourse,
     });
 
     const deleteButtons = screen.getAllByRole("button", { name: /eliminar/i });
@@ -86,22 +87,22 @@ describe("DeleteProgramDialog", () => {
     await user.click(screen.getByRole("button", { name: "Eliminar" }));
 
     await waitFor(() =>
-      expect(toastSuccess).toHaveBeenCalledWith("Carrera eliminada"),
+      expect(toastSuccess).toHaveBeenCalledWith("Asignatura eliminada"),
     );
     await waitFor(() =>
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
     );
   });
 
-  it("S-14: FailedPrecondition shows in-dialog message, no toast, dialog stays open", async () => {
+  it("SC-23: FailedPrecondition shows in-dialog message, no toast, dialog stays open", async () => {
     const user = userEvent.setup();
-    const deleteProgram = vi.fn(async () => {
+    const deleteCourse = vi.fn(async () => {
       throw new ConnectError("has dependents", Code.FailedPrecondition);
     });
 
-    await renderWithProgram({
-      listPrograms: async () => ({ programs: [mockProgram] }),
-      deleteProgram,
+    await renderWithCourse({
+      listCourses: async () => ({ courses: [mockCourse] }),
+      deleteCourse,
     });
 
     const deleteButtons = screen.getAllByRole("button", { name: /eliminar/i });
@@ -111,25 +112,22 @@ describe("DeleteProgramDialog", () => {
     await user.click(screen.getByRole("button", { name: "Eliminar" }));
 
     await waitFor(() =>
-      expect(
-        screen.getByText(
-          /No se puede eliminar: la carrera tiene asignaturas o cupos asociados\. Quita esas asociaciones primero\./,
-        ),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/la asignatura está en uso/)).toBeInTheDocument(),
     );
+    expect(screen.queryByText(/FailedPrecondition/)).not.toBeInTheDocument();
     expect(toastError).not.toHaveBeenCalled();
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   });
 
-  it("S-15: other transport error shows in-dialog error, no toast, dialog stays open", async () => {
+  it("SC-24: transport error shows in-dialog message, no toast, dialog stays open", async () => {
     const user = userEvent.setup();
-    const deleteProgram = vi.fn(async () => {
+    const deleteCourse = vi.fn(async () => {
       throw new ConnectError("internal", Code.Internal);
     });
 
-    await renderWithProgram({
-      listPrograms: async () => ({ programs: [mockProgram] }),
-      deleteProgram,
+    await renderWithCourse({
+      listCourses: async () => ({ courses: [mockCourse] }),
+      deleteCourse,
     });
 
     const deleteButtons = screen.getAllByRole("button", { name: /eliminar/i });
@@ -140,7 +138,7 @@ describe("DeleteProgramDialog", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/No se pudo eliminar la carrera/),
+        screen.getByText(/No se pudo eliminar la asignatura/),
       ).toBeInTheDocument(),
     );
     expect(toastError).not.toHaveBeenCalled();
