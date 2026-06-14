@@ -2,11 +2,14 @@ package iam
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
 
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/iam/iamdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pagination"
 )
@@ -36,7 +39,14 @@ type ListUsersResult struct {
 	NextPageToken string
 }
 
-// Service implements the iam domain use cases: ListUsers and GetUser.
+// validRoles is the set of role names accepted by AssignRole and RevokeRole.
+var validRoles = map[string]struct{}{
+	"admin":   {},
+	"teacher": {},
+	"student": {},
+}
+
+// Service implements the iam domain use cases: ListUsers, GetUser, AssignRole, RevokeRole.
 type Service struct {
 	repo Repository
 }
@@ -115,6 +125,108 @@ func (s *Service) GetUser(ctx context.Context, userID uuid.UUID) (UserSummary, e
 	}
 	summary.DisplayName = deriveDisplayName(row.GivenNames.String, row.LastNamePaternal.String, row.GivenNames.Valid && row.LastNamePaternal.Valid, row.Email)
 	return summary, nil
+}
+
+// AssignRole assigns a role to a user. The operation is idempotent: if the user
+// already has the role, it succeeds without creating a duplicate row. An audit
+// entry is written on every call regardless of whether a new row was inserted
+// (EC-05: audit documents intent, not state change).
+//
+// Validation order: (1) role name valid, (2) target user exists, (3) execute.
+func (s *Service) AssignRole(ctx context.Context, targetUserID uuid.UUID, roleName string) (UserSummary, error) {
+	if _, ok := validRoles[roleName]; !ok {
+		return UserSummary{}, fmt.Errorf("%w: role %q is not valid (must be admin, teacher, or student)", ErrInvalidInput, roleName)
+	}
+
+	// Verify target user exists before inserting.
+	// Spec A-3: non-existent user_id → CodeInvalidArgument (ErrInvalidInput).
+	if _, err := s.repo.GetUserByID(ctx, targetUserID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return UserSummary{}, fmt.Errorf("%w: user %s does not exist", ErrInvalidInput, targetUserID)
+		}
+		return UserSummary{}, err
+	}
+
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return UserSummary{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+	}
+
+	// Insert (idempotent). n == 0 means role already existed.
+	if _, err := s.repo.AssignRole(ctx, AssignRoleParams{
+		UserID:   targetUserID,
+		RoleName: roleName,
+		Actor:    callerID,
+	}); err != nil {
+		return UserSummary{}, err
+	}
+
+	// Write audit entry on EVERY call, including no-op re-assign (EC-05).
+	detail, err := json.Marshal(map[string]string{"role": roleName})
+	if err != nil {
+		return UserSummary{}, fmt.Errorf("iam: AssignRole marshal detail: %w", err)
+	}
+	if err := s.repo.InsertAuditLog(ctx, AuditLogParams{
+		ActorID:  callerID,
+		Action:   "role.assign",
+		Entity:   "users",
+		EntityID: targetUserID,
+		Detail:   detail,
+	}); err != nil {
+		return UserSummary{}, err
+	}
+
+	return s.GetUser(ctx, targetUserID)
+}
+
+// RevokeRole removes a role from a user with privilege-escalation guards.
+//
+// Guard order (EC-06): self-demotion check FIRST, then last-admin check, then DELETE.
+//   - Self-demotion: if role == "admin" AND caller == target → ErrSelfDemotion.
+//   - Last-admin: if role == "admin" AND CountAdmins() <= 1 → ErrLastAdmin.
+//
+// The hard DELETE and audit entry are performed atomically via RevokeRoleTx.
+func (s *Service) RevokeRole(ctx context.Context, targetUserID uuid.UUID, roleName string) (UserSummary, error) {
+	if _, ok := validRoles[roleName]; !ok {
+		return UserSummary{}, fmt.Errorf("%w: role %q is not valid (must be admin, teacher, or student)", ErrInvalidInput, roleName)
+	}
+
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return UserSummary{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+	}
+
+	// Verify target user exists.
+	if _, err := s.repo.GetUserByID(ctx, targetUserID); err != nil {
+		return UserSummary{}, err
+	}
+
+	if roleName == "admin" {
+		// Self-demotion guard (EC-06: checked first).
+		if targetUserID == callerID {
+			return UserSummary{}, fmt.Errorf("%w", ErrSelfDemotion)
+		}
+
+		// Last-admin guard.
+		n, err := s.repo.CountAdmins(ctx)
+		if err != nil {
+			return UserSummary{}, err
+		}
+		if n <= 1 {
+			return UserSummary{}, fmt.Errorf("%w", ErrLastAdmin)
+		}
+	}
+
+	// Atomic DELETE + audit in one transaction.
+	if err := s.repo.RevokeRoleTx(ctx, RevokeRoleParams{
+		UserID:   targetUserID,
+		RoleName: roleName,
+		Actor:    callerID,
+	}); err != nil {
+		return UserSummary{}, err
+	}
+
+	return s.GetUser(ctx, targetUserID)
 }
 
 // rowToUserSummary converts a ListUsersRow to a UserSummary, handling the

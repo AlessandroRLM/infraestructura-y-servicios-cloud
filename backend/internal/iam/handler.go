@@ -16,6 +16,8 @@ import (
 type iamService interface {
 	ListUsers(ctx context.Context, pageSize int32, pageToken string, query string) (ListUsersResult, error)
 	GetUser(ctx context.Context, userID uuid.UUID) (UserSummary, error)
+	AssignRole(ctx context.Context, targetUserID uuid.UUID, roleName string) (UserSummary, error)
+	RevokeRole(ctx context.Context, targetUserID uuid.UUID, roleName string) (UserSummary, error)
 }
 
 // Compile-time proof that *Service satisfies iamService.
@@ -74,6 +76,46 @@ func (h *Handler) GetUser(
 	}
 
 	return connect.NewResponse(&iamv1.GetUserResponse{
+		User: userSummaryToProto(summary),
+	}), nil
+}
+
+// AssignRole parses the user_id UUID, validates the role, and delegates to the service.
+func (h *Handler) AssignRole(
+	ctx context.Context,
+	req *connect.Request[iamv1.AssignRoleRequest],
+) (*connect.Response[iamv1.AssignRoleResponse], error) {
+	userID, err := parseIAMUUID("user_id", req.Msg.GetUserId())
+	if err != nil {
+		return nil, err
+	}
+
+	summary, err := h.svc.AssignRole(ctx, userID, req.Msg.GetRole())
+	if err != nil {
+		return nil, MapError(ctx, err)
+	}
+
+	return connect.NewResponse(&iamv1.AssignRoleResponse{
+		User: userSummaryToProto(summary),
+	}), nil
+}
+
+// RevokeRole parses the user_id UUID, validates the role, and delegates to the service.
+func (h *Handler) RevokeRole(
+	ctx context.Context,
+	req *connect.Request[iamv1.RevokeRoleRequest],
+) (*connect.Response[iamv1.RevokeRoleResponse], error) {
+	userID, err := parseIAMUUID("user_id", req.Msg.GetUserId())
+	if err != nil {
+		return nil, err
+	}
+
+	summary, err := h.svc.RevokeRole(ctx, userID, req.Msg.GetRole())
+	if err != nil {
+		return nil, MapError(ctx, err)
+	}
+
+	return connect.NewResponse(&iamv1.RevokeRoleResponse{
 		User: userSummaryToProto(summary),
 	}), nil
 }
