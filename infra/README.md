@@ -28,6 +28,7 @@ infra/
 ├── iam.tf                      # service accounts + service agents + bindings IAM
 ├── vms.tf                      # bastion + ops (startup-script del cron de backup)
 ├── gke.tf                      # cluster + node pool
+├── registry.tf                 # Artifact Registry (Docker, CMEK)
 ├── storage.tf                  # buckets GCS + bucket S3 (DR) + IAM AWS
 ├── snapshots.tf                # política de snapshot diario (disco postgres)
 ├── monitoring.tf               # dashboards, alertas, uptime check, budget

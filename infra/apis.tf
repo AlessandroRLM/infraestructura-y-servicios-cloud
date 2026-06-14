@@ -8,6 +8,7 @@ locals {
     "monitoring.googleapis.com",
     "iam.googleapis.com",
     "serviceusage.googleapis.com",
+    "artifactregistry.googleapis.com",
   ]
 }
 
