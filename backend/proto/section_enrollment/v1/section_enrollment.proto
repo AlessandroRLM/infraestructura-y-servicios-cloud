@@ -64,7 +64,14 @@ message EnrollOwnSectionRequest {
   string program_id = 2;
 }
 
-message ListOwnSectionEnrollmentsRequest {}
+// ListOwnSectionEnrollmentsRequest supports AIP-158 keyset pagination.
+message ListOwnSectionEnrollmentsRequest {
+  // Maximum number of inscriptions to return. Clamped to [20, 200]; zero → 20.
+  int32 page_size = 1;
+  // Opaque cursor returned by a previous ListOwnSectionEnrollments call.
+  // Empty string returns the first page.
+  string page_token = 2;
+}
 
 message GetOwnSectionEnrollmentRequest {
   string id = 1;
@@ -85,7 +92,8 @@ message GetSectionEnrollmentRequest {
   string id = 1;
 }
 
-// ListSectionEnrollmentsRequest supports optional filters.
+// ListSectionEnrollmentsRequest supports optional filters and AIP-158 keyset pagination.
+// An empty request returns the first page of all live inscriptions.
 message ListSectionEnrollmentsRequest {
   // Optional UUID filter. Empty string means unfiltered.
   string section_id = 1;
@@ -93,8 +101,16 @@ message ListSectionEnrollmentsRequest {
   string enrollment_id = 2;
   // Optional status filter ("in_progress", "withdrawn", etc.). Empty string means unfiltered.
   string status = 3;
+  // Maximum number of inscriptions to return. Clamped to [20, 200]; zero → 20.
+  int32 page_size = 4;
+  // Opaque cursor returned by a previous ListSectionEnrollments call.
+  // Empty string returns the first page.
+  string page_token = 5;
 }
 
 message ListSectionEnrollmentsResponse {
   repeated SectionEnrollment section_enrollments = 1;
+  // Opaque cursor for the next page. Empty when this is the last page.
+  // Used by both ListSectionEnrollments and ListOwnSectionEnrollments (shared response).
+  string next_page_token = 2;
 }

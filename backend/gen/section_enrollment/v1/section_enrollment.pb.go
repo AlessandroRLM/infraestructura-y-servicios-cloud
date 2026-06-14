@@ -191,8 +191,14 @@ func (x *EnrollOwnSectionRequest) GetProgramId() string {
 	return ""
 }
 
+// ListOwnSectionEnrollmentsRequest supports AIP-158 keyset pagination.
 type ListOwnSectionEnrollmentsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Maximum number of inscriptions to return. Clamped to [20, 200]; zero → 20.
+	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Opaque cursor returned by a previous ListOwnSectionEnrollments call.
+	// Empty string returns the first page.
+	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -225,6 +231,20 @@ func (x *ListOwnSectionEnrollmentsRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListOwnSectionEnrollmentsRequest.ProtoReflect.Descriptor instead.
 func (*ListOwnSectionEnrollmentsRequest) Descriptor() ([]byte, []int) {
 	return file_section_enrollment_v1_section_enrollment_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ListOwnSectionEnrollmentsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListOwnSectionEnrollmentsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
 }
 
 type GetOwnSectionEnrollmentRequest struct {
@@ -447,7 +467,8 @@ func (x *GetSectionEnrollmentRequest) GetId() string {
 	return ""
 }
 
-// ListSectionEnrollmentsRequest supports optional filters.
+// ListSectionEnrollmentsRequest supports optional filters and AIP-158 keyset pagination.
+// An empty request returns the first page of all live inscriptions.
 type ListSectionEnrollmentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Optional UUID filter. Empty string means unfiltered.
@@ -455,7 +476,12 @@ type ListSectionEnrollmentsRequest struct {
 	// Optional UUID filter. Empty string means unfiltered.
 	EnrollmentId string `protobuf:"bytes,2,opt,name=enrollment_id,json=enrollmentId,proto3" json:"enrollment_id,omitempty"`
 	// Optional status filter ("in_progress", "withdrawn", etc.). Empty string means unfiltered.
-	Status        string `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	Status string `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	// Maximum number of inscriptions to return. Clamped to [20, 200]; zero → 20.
+	PageSize int32 `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Opaque cursor returned by a previous ListSectionEnrollments call.
+	// Empty string returns the first page.
+	PageToken     string `protobuf:"bytes,5,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -511,11 +537,28 @@ func (x *ListSectionEnrollmentsRequest) GetStatus() string {
 	return ""
 }
 
+func (x *ListSectionEnrollmentsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListSectionEnrollmentsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
 type ListSectionEnrollmentsResponse struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	SectionEnrollments []*SectionEnrollment   `protobuf:"bytes,1,rep,name=section_enrollments,json=sectionEnrollments,proto3" json:"section_enrollments,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Opaque cursor for the next page. Empty when this is the last page.
+	// Used by both ListSectionEnrollments and ListOwnSectionEnrollments (shared response).
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListSectionEnrollmentsResponse) Reset() {
@@ -555,6 +598,13 @@ func (x *ListSectionEnrollmentsResponse) GetSectionEnrollments() []*SectionEnrol
 	return nil
 }
 
+func (x *ListSectionEnrollmentsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
 var File_section_enrollment_v1_section_enrollment_proto protoreflect.FileDescriptor
 
 const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
@@ -580,8 +630,11 @@ const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"\n" +
 	"section_id\x18\x01 \x01(\tR\tsectionId\x12\x1d\n" +
 	"\n" +
-	"program_id\x18\x02 \x01(\tR\tprogramId\"\"\n" +
-	" ListOwnSectionEnrollmentsRequest\"0\n" +
+	"program_id\x18\x02 \x01(\tR\tprogramId\"^\n" +
+	" ListOwnSectionEnrollmentsRequest\x12\x1b\n" +
+	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\"0\n" +
 	"\x1eGetOwnSectionEnrollmentRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"Z\n" +
 	"\x14EnrollSectionRequest\x12#\n" +
@@ -592,14 +645,18 @@ const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x19\n" +
 	"\x17WithdrawSectionResponse\"-\n" +
 	"\x1bGetSectionEnrollmentRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"{\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xb7\x01\n" +
 	"\x1dListSectionEnrollmentsRequest\x12\x1d\n" +
 	"\n" +
 	"section_id\x18\x01 \x01(\tR\tsectionId\x12#\n" +
 	"\renrollment_id\x18\x02 \x01(\tR\fenrollmentId\x12\x16\n" +
-	"\x06status\x18\x03 \x01(\tR\x06status\"{\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x05 \x01(\tR\tpageToken\"\xa3\x01\n" +
 	"\x1eListSectionEnrollmentsResponse\x12Y\n" +
-	"\x13section_enrollments\x18\x01 \x03(\v2(.section_enrollment.v1.SectionEnrollmentR\x12sectionEnrollments2\xea\x06\n" +
+	"\x13section_enrollments\x18\x01 \x03(\v2(.section_enrollment.v1.SectionEnrollmentR\x12sectionEnrollments\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xea\x06\n" +
 	"\x18SectionEnrollmentService\x12l\n" +
 	"\x10EnrollOwnSection\x12..section_enrollment.v1.EnrollOwnSectionRequest\x1a(.section_enrollment.v1.SectionEnrollment\x12\x8b\x01\n" +
 	"\x19ListOwnSectionEnrollments\x127.section_enrollment.v1.ListOwnSectionEnrollmentsRequest\x1a5.section_enrollment.v1.ListSectionEnrollmentsResponse\x12z\n" +

@@ -99,21 +99,23 @@ func (h *Handler) EnrollOwnSection(
 	return connect.NewResponse(sectionEnrollmentToProto(row)), nil
 }
 
-// ListOwnSectionEnrollments returns all live inscriptions for the authenticated student.
+// ListOwnSectionEnrollments returns a paginated page of live inscriptions for the authenticated student.
+// The student identity is injected from context; the request carries no student_id field.
 func (h *Handler) ListOwnSectionEnrollments(
 	ctx context.Context,
-	_ *connect.Request[section_enrollmentv1.ListOwnSectionEnrollmentsRequest],
+	req *connect.Request[section_enrollmentv1.ListOwnSectionEnrollmentsRequest],
 ) (*connect.Response[section_enrollmentv1.ListSectionEnrollmentsResponse], error) {
-	rows, err := h.svc.ListOwnSectionEnrollments(ctx)
+	result, err := h.svc.ListOwnSectionEnrollments(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken())
 	if err != nil {
 		return nil, MapError(err)
 	}
-	protos := make([]*section_enrollmentv1.SectionEnrollment, 0, len(rows))
-	for _, r := range rows {
+	protos := make([]*section_enrollmentv1.SectionEnrollment, 0, len(result.SectionEnrollments))
+	for _, r := range result.SectionEnrollments {
 		protos = append(protos, sectionEnrollmentToProto(r))
 	}
 	return connect.NewResponse(&section_enrollmentv1.ListSectionEnrollmentsResponse{
 		SectionEnrollments: protos,
+		NextPageToken:      result.NextPageToken,
 	}), nil
 }
 
@@ -167,7 +169,7 @@ func (h *Handler) GetSectionEnrollment(
 	return connect.NewResponse(sectionEnrollmentToProto(row)), nil
 }
 
-// ListSectionEnrollments returns live inscriptions, optionally filtered.
+// ListSectionEnrollments returns a paginated page of live inscriptions, optionally filtered.
 func (h *Handler) ListSectionEnrollments(
 	ctx context.Context,
 	req *connect.Request[section_enrollmentv1.ListSectionEnrollmentsRequest],
@@ -192,16 +194,17 @@ func (h *Handler) ListSectionEnrollments(
 		f.Status = &s
 	}
 
-	rows, err := h.svc.ListSectionEnrollments(ctx, f)
+	result, err := h.svc.ListSectionEnrollments(ctx, f, req.Msg.GetPageSize(), req.Msg.GetPageToken())
 	if err != nil {
 		return nil, MapError(err)
 	}
-	protos := make([]*section_enrollmentv1.SectionEnrollment, 0, len(rows))
-	for _, r := range rows {
+	protos := make([]*section_enrollmentv1.SectionEnrollment, 0, len(result.SectionEnrollments))
+	for _, r := range result.SectionEnrollments {
 		protos = append(protos, sectionEnrollmentToProto(r))
 	}
 	return connect.NewResponse(&section_enrollmentv1.ListSectionEnrollmentsResponse{
 		SectionEnrollments: protos,
+		NextPageToken:      result.NextPageToken,
 	}), nil
 }
 
