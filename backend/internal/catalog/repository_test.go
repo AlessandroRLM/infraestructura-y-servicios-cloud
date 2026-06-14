@@ -113,7 +113,7 @@ func (f *fakeQuerier) GetProgram(_ context.Context, _ pgtype.UUID) (catalogdb.Pr
 func (f *fakeQuerier) GetProgramForUpdate(_ context.Context, _ pgtype.UUID) (catalogdb.Program, error) {
 	return f.getProgramRow, f.getProgramErr
 }
-func (f *fakeQuerier) ListPrograms(_ context.Context) ([]catalogdb.Program, error) {
+func (f *fakeQuerier) ListPrograms(_ context.Context, _ catalogdb.ListProgramsParams) ([]catalogdb.Program, error) {
 	return f.listProgramsRows, f.listProgramsErr
 }
 func (f *fakeQuerier) SoftDeleteProgram(_ context.Context, _ catalogdb.SoftDeleteProgramParams) (int64, error) {
@@ -137,7 +137,7 @@ func (f *fakeQuerier) GetCourse(_ context.Context, _ pgtype.UUID) (catalogdb.Cou
 func (f *fakeQuerier) GetCourseForUpdate(_ context.Context, _ pgtype.UUID) (catalogdb.Course, error) {
 	return f.getCourseRow, f.getCourseErr
 }
-func (f *fakeQuerier) ListCourses(_ context.Context) ([]catalogdb.Course, error) {
+func (f *fakeQuerier) ListCourses(_ context.Context, _ catalogdb.ListCoursesParams) ([]catalogdb.Course, error) {
 	return f.listCoursesRows, f.listCoursesErr
 }
 func (f *fakeQuerier) SoftDeleteCourse(_ context.Context, _ catalogdb.SoftDeleteCourseParams) (int64, error) {

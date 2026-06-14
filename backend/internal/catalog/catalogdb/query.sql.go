@@ -553,11 +553,18 @@ func (q *Queries) ListAcademicPeriods(ctx context.Context) ([]AcademicPeriod, er
 const listCourses = `-- name: ListCourses :many
 SELECT id, code, name, credits, created_at, updated_at, deleted_at, created_by, updated_by FROM courses
 WHERE deleted_at IS NULL
-ORDER BY created_at
+  AND ($1::uuid IS NULL OR id < $1::uuid)
+ORDER BY id DESC
+LIMIT $2::int
 `
 
-func (q *Queries) ListCourses(ctx context.Context) ([]Course, error) {
-	rows, err := q.db.Query(ctx, listCourses)
+type ListCoursesParams struct {
+	PageToken pgtype.UUID
+	RowLimit  int32
+}
+
+func (q *Queries) ListCourses(ctx context.Context, arg ListCoursesParams) ([]Course, error) {
+	rows, err := q.db.Query(ctx, listCourses, arg.PageToken, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -693,11 +700,18 @@ func (q *Queries) ListProgramQuotas(ctx context.Context, programID pgtype.UUID) 
 const listPrograms = `-- name: ListPrograms :many
 SELECT id, code, name, created_at, updated_at, deleted_at, created_by, updated_by FROM programs
 WHERE deleted_at IS NULL
-ORDER BY created_at
+  AND ($1::uuid IS NULL OR id < $1::uuid)
+ORDER BY id DESC
+LIMIT $2::int
 `
 
-func (q *Queries) ListPrograms(ctx context.Context) ([]Program, error) {
-	rows, err := q.db.Query(ctx, listPrograms)
+type ListProgramsParams struct {
+	PageToken pgtype.UUID
+	RowLimit  int32
+}
+
+func (q *Queries) ListPrograms(ctx context.Context, arg ListProgramsParams) ([]Program, error) {
+	rows, err := q.db.Query(ctx, listPrograms, arg.PageToken, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -754,18 +768,27 @@ func (q *Queries) ListSectionTeachers(ctx context.Context, sectionID pgtype.UUID
 const listSections = `-- name: ListSections :many
 SELECT id, course_id, academic_period_id, capacity, created_at, updated_at, deleted_at, created_by, updated_by FROM sections
 WHERE deleted_at IS NULL
-  AND ($1::uuid IS NULL OR course_id = $1::uuid)
-  AND ($2::uuid IS NULL OR academic_period_id = $2::uuid)
-ORDER BY created_at
+  AND ($1::uuid IS NULL OR id < $1::uuid)
+  AND ($2::uuid IS NULL OR course_id = $2::uuid)
+  AND ($3::uuid IS NULL OR academic_period_id = $3::uuid)
+ORDER BY id DESC
+LIMIT $4::int
 `
 
 type ListSectionsParams struct {
+	PageToken        pgtype.UUID
 	CourseID         pgtype.UUID
 	AcademicPeriodID pgtype.UUID
+	RowLimit         int32
 }
 
 func (q *Queries) ListSections(ctx context.Context, arg ListSectionsParams) ([]Section, error) {
-	rows, err := q.db.Query(ctx, listSections, arg.CourseID, arg.AcademicPeriodID)
+	rows, err := q.db.Query(ctx, listSections,
+		arg.PageToken,
+		arg.CourseID,
+		arg.AcademicPeriodID,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
