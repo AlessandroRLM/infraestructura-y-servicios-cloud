@@ -3,13 +3,9 @@ import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
 import { CATALOG_PAGE_SIZE } from "../constants";
 
 /**
- * Cursor-paginated list of Programs with optional search filter.
- *
- * Calls connect-query's useInfiniteQuery directly with the concrete listPrograms
- * descriptor — at a concrete call site the request type is known, so pageParamKey
- * and the input type check exactly with no casts. Splits the initial-load error
- * (no data yet → inline error + retry) from a fetchNextPage error (existing pages
- * remain visible).
+ * Cursor-paginated list of Programs with optional search filter. `isError`
+ * reflects only the initial load; a failed "load more" surfaces via
+ * `isFetchNextPageError` while the loaded pages stay visible.
  */
 export function usePrograms(query = "", pageSize: number = CATALOG_PAGE_SIZE) {
   const result = useInfiniteQuery(
