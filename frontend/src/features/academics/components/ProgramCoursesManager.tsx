@@ -132,7 +132,7 @@ export function ProgramCoursesManager({
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-4 px-4 pb-4">
       {/* Add Combobox */}
       <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
         <PopoverTrigger asChild>
