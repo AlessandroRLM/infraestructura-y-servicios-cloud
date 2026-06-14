@@ -156,9 +156,10 @@ func (s *Service) RemoveCourseFromProgram(ctx context.Context, programID, course
 	return s.repo.RemoveCourseFromProgram(ctx, programID, courseID)
 }
 
-// ListProgramCourses returns all course associations for the given program.
-func (s *Service) ListProgramCourses(ctx context.Context, programID uuid.UUID) ([]catalogdb.ProgramCourse, error) {
-	return s.repo.ListProgramCourses(ctx, programID)
+// ListProgramCourses returns all live course associations for the given program with the
+// embedded Course populated. Associations pointing to soft-deleted courses are excluded.
+func (s *Service) ListProgramCourses(ctx context.Context, programID uuid.UUID) ([]catalogdb.ListProgramCoursesWithCourseRow, error) {
+	return s.repo.ListProgramCoursesWithCourse(ctx, programID)
 }
 
 // --- Academic periods ---

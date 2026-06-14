@@ -42,7 +42,7 @@ type Querier interface {
 	InsertSectionTeacher(ctx context.Context, arg InsertSectionTeacherParams) (SectionTeacher, error)
 	ListAcademicPeriods(ctx context.Context) ([]AcademicPeriod, error)
 	ListCourses(ctx context.Context) ([]Course, error)
-	ListProgramCourses(ctx context.Context, programID pgtype.UUID) ([]ProgramCourse, error)
+	ListProgramCoursesWithCourse(ctx context.Context, programID pgtype.UUID) ([]ListProgramCoursesWithCourseRow, error)
 	ListProgramQuotas(ctx context.Context, programID pgtype.UUID) ([]ProgramQuota, error)
 	ListPrograms(ctx context.Context) ([]Program, error)
 	ListSectionTeachers(ctx context.Context, sectionID pgtype.UUID) ([]SectionTeacher, error)
