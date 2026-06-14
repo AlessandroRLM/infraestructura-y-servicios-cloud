@@ -24,7 +24,7 @@ export {
   type GuardedRoute,
   ROUTE_PERMISSIONS,
   routePermissions,
-} from "./route-permissions";
+} from "./routePermissions";
 export { loginSearchSchema } from "./schemas/search";
 export type {
   AuthenticatedSession,

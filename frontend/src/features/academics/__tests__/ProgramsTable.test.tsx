@@ -6,7 +6,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { makeStubTransport } from "@/core/test";
 import { CatalogService, ProgramSchema } from "@/gen/catalog/v1/catalog_pb";
-import { renderWithProviders } from "@/test";
+import { renderComponent, renderWithProviders } from "@/test";
+import { ProgramsTable } from "../components/ProgramsTable";
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -30,10 +31,7 @@ const program2 = create(ProgramSchema, {
 
 type CatalogImpl = Partial<ServiceImpl<typeof CatalogService>>;
 
-function renderPage(
-  handlers: CatalogImpl,
-  permissions: string[] = ["catalog.manage"],
-) {
+function renderPage(handlers: CatalogImpl) {
   return renderWithProviders({
     route: "/academics",
     transport: makeStubTransport([CatalogService, handlers]),
@@ -42,7 +40,7 @@ function renderPage(
       userId: "1",
       email: "admin@test.com",
       roles: ["admin"],
-      permissions,
+      permissions: ["catalog.manage"],
     },
   });
 }
@@ -124,5 +122,35 @@ describe("ProgramsTable", () => {
     await user.click(screen.getByRole("button", { name: /reintentar/i }));
 
     await screen.findByText("ING-01");
+  });
+
+  // The route guard keeps non-catalog.manage users off /academics, so this state
+  // is unreachable in the app. The component-level check is defense-in-depth;
+  // render the table directly (no route, no guard) to keep it covered.
+  it("S-16: hides Crear/Editar/Eliminar when the session lacks catalog.manage", async () => {
+    renderComponent(<ProgramsTable />, {
+      transport: makeStubTransport([
+        CatalogService,
+        { listPrograms: async () => ({ programs: [program1] }) },
+      ]),
+      session: {
+        status: "authenticated",
+        userId: "1",
+        email: "student@test.com",
+        roles: ["student"],
+        permissions: [],
+      },
+    });
+
+    await screen.findByText("ING-01");
+    expect(
+      screen.queryByRole("button", { name: /editar/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /eliminar/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /crear carrera/i }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -6,7 +6,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { makeStubTransport } from "@/core/test";
 import { CatalogService, CourseSchema } from "@/gen/catalog/v1/catalog_pb";
-import { renderWithProviders } from "@/test";
+import { renderComponent, renderWithProviders } from "@/test";
+import { CoursesTable } from "../components/CoursesTable";
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -32,10 +33,7 @@ const course2 = create(CourseSchema, {
 
 type CatalogImpl = Partial<ServiceImpl<typeof CatalogService>>;
 
-function renderCoursesTab(
-  handlers: CatalogImpl,
-  permissions: string[] = ["catalog.manage"],
-) {
+function renderCoursesTab(handlers: CatalogImpl) {
   return renderWithProviders({
     route: "/academics?tab=courses",
     transport: makeStubTransport([CatalogService, handlers]),
@@ -44,7 +42,7 @@ function renderCoursesTab(
       userId: "1",
       email: "admin@test.com",
       roles: ["admin"],
-      permissions,
+      permissions: ["catalog.manage"],
     },
   });
 }
@@ -128,5 +126,35 @@ describe("CoursesTable", () => {
     await user.click(screen.getByRole("button", { name: /reintentar/i }));
 
     await screen.findByText("CS-101");
+  });
+
+  // The route guard keeps non-catalog.manage users off /academics, so this state
+  // is unreachable in the app. The component-level check is defense-in-depth;
+  // render the table directly (no route, no guard) to keep it covered.
+  it("SC-12: hides Crear/Editar/Eliminar when the session lacks catalog.manage", async () => {
+    renderComponent(<CoursesTable />, {
+      transport: makeStubTransport([
+        CatalogService,
+        { listCourses: async () => ({ courses: [course1] }) },
+      ]),
+      session: {
+        status: "authenticated",
+        userId: "1",
+        email: "student@test.com",
+        roles: ["student"],
+        permissions: [],
+      },
+    });
+
+    await screen.findByText("CS-101");
+    expect(
+      screen.queryByRole("button", { name: /editar/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /eliminar/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /crear asignatura/i }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -1,7 +1,8 @@
 import { redirect } from "@tanstack/react-router";
+import { hasPermission } from "./hooks/useSession";
 import type { Permission } from "./permissions";
-import { type GuardedRoute, ROUTE_PERMISSIONS } from "./route-permissions";
-import type { AuthenticatedSession } from "./types";
+import { type GuardedRoute, ROUTE_PERMISSIONS } from "./routePermissions";
+import type { AuthenticatedSession, SessionState } from "./types";
 
 /**
  * Route-level authorization primitive. UX only — the backend enforces
@@ -19,9 +20,10 @@ export function requireAnyPermission(
   session: AuthenticatedSession,
   permissions: readonly Permission[],
 ): void {
-  if (
-    permissions.some((permission) => session.permissions.includes(permission))
-  ) {
+  // Reuse the single membership check rather than re-reading session.permissions
+  // here, so both the guards and useSession consumers stay in sync.
+  const state: SessionState = { status: "authenticated", ...session };
+  if (permissions.some((permission) => hasPermission(state, permission))) {
     return;
   }
   throw redirect({ to: "/forbidden" });

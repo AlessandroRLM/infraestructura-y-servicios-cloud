@@ -10,6 +10,10 @@ import type { Permission } from "./permissions";
  * from this map (`/`, `/profile`, `/forbidden`) require no permission.
  *
  * This is UX only — the backend enforces authorization per RPC (fail-closed).
+ *
+ * The value type is a non-empty tuple: an empty list would make
+ * `requireAnyPermission` reject every session, locking all users out of the
+ * route. A guarded route must require at least one permission.
  */
 export const ROUTE_PERMISSIONS = {
   "/academics": ["catalog.manage"],
@@ -19,7 +23,7 @@ export const ROUTE_PERMISSIONS = {
   "/reports": ["reports.read"],
   "/users": ["users.manage"],
   "/access-control": ["users.manage"],
-} as const satisfies Record<string, readonly Permission[]>;
+} as const satisfies Record<string, readonly [Permission, ...Permission[]]>;
 
 export type GuardedRoute = keyof typeof ROUTE_PERMISSIONS;
 

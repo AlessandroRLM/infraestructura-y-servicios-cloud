@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { StatusScreen } from "@/components/StatusScreen";
+import { Button } from "@/components/ui/button";
 import type { SessionSource } from "@/features/auth";
 
 interface RouterContext {
@@ -21,16 +22,21 @@ function NotFoundScreen() {
 }
 
 // Infra failures thrown from beforeLoad land here, distinct from the clean
-// logged-out redirect which never reaches the error boundary.
+// logged-out redirect which never reaches the error boundary. Reuses
+// StatusScreen for a consistent terminal-state look, with a reload action
+// instead of the default home link.
 function AppError() {
   return (
     <div data-testid="app-error">
-      <p>
-        Algo salió mal. El servicio podría no estar disponible temporalmente.
-      </p>
-      <button type="button" onClick={() => window.location.reload()}>
-        Reintentar
-      </button>
+      <StatusScreen
+        title="Algo salió mal"
+        description="El servicio podría no estar disponible temporalmente."
+        action={
+          <Button type="button" onClick={() => window.location.reload()}>
+            Reintentar
+          </Button>
+        }
+      />
     </div>
   );
 }
