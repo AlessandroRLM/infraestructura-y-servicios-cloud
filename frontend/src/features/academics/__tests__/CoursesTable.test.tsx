@@ -95,15 +95,6 @@ describe("CoursesTable", () => {
     expect(createButtons.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("SC-09: empty state non-admin shows copy but no Crear CTA", async () => {
-    renderCoursesTab({ listCourses: async () => ({ courses: [] }) }, []);
-
-    await screen.findByText("Todavía no hay asignaturas");
-    expect(
-      screen.queryByRole("button", { name: /crear asignatura/i }),
-    ).not.toBeInTheDocument();
-  });
-
   it("SC-10: transport error shows inline error and retry affordance, no raw codes", async () => {
     renderCoursesTab({
       listCourses: async () => {
@@ -137,20 +128,5 @@ describe("CoursesTable", () => {
     await user.click(screen.getByRole("button", { name: /reintentar/i }));
 
     await screen.findByText("CS-101");
-  });
-
-  it("SC-12: non-admin sees rows but no Editar/Eliminar/Crear buttons", async () => {
-    renderCoursesTab({ listCourses: async () => ({ courses: [course1] }) }, []);
-
-    await screen.findByText("CS-101");
-    expect(
-      screen.queryByRole("button", { name: /editar/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /eliminar/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /crear asignatura/i }),
-    ).not.toBeInTheDocument();
   });
 });

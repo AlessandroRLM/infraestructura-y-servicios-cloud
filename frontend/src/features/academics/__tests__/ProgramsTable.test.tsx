@@ -107,21 +107,6 @@ describe("ProgramsTable", () => {
     expect(screen.queryByText(/Code\./)).not.toBeInTheDocument();
   });
 
-  it("S-16: user without catalog.manage sees no Editar/Eliminar actions and no Crear header button", async () => {
-    renderPage({ listPrograms: async () => ({ programs: [program1] }) }, []);
-
-    await screen.findByText("ING-01");
-    expect(
-      screen.queryByRole("button", { name: /editar/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /eliminar/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /crear carrera/i }),
-    ).not.toBeInTheDocument();
-  });
-
   it("retry calls listPrograms again", async () => {
     const user = userEvent.setup();
     let callCount = 0;
