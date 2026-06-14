@@ -16,9 +16,6 @@ type Querier interface {
 	// returns 0 affected rows without error. The service layer writes an audit
 	// entry on every call (including the 0-row no-op) per EC-05.
 	AssignRole(ctx context.Context, arg AssignRoleParams) (int64, error)
-	// Counts how many users currently hold the admin role.
-	// Used by the privilege-escalation guard to prevent removing the last admin.
-	CountAdmins(ctx context.Context) (int32, error)
 	// Returns identity and profile columns for a single non-deleted user by UUID.
 	// LEFT JOIN user_profiles so users without a profile row still return.
 	GetUserByID(ctx context.Context, userID pgtype.UUID) (GetUserByIDRow, error)
@@ -31,6 +28,10 @@ type Querier interface {
 	// Ordered newest-first (id DESC, UUIDv7 = reverse chronological). display_name
 	// derived via LEFT JOIN to user_profiles; roles aggregated in-query (no N+1).
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)
+	// Locks the admin user_roles rows FOR UPDATE so the last-admin count and the
+	// subsequent DELETE are serialized within one transaction (closes the TOCTOU
+	// where two concurrent revokes could each see >1 admin and both delete).
+	LockAdminUserRoles(ctx context.Context) ([]pgtype.UUID, error)
 	// Hard-deletes the user_roles row for the given user and role name.
 	// Returns 0 rows affected when the user does not have the role (→ ErrNotFound).
 	RevokeRole(ctx context.Context, arg RevokeRoleParams) (int64, error)

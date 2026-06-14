@@ -51,32 +51,17 @@ type Repository interface {
 	GetUserByID(ctx context.Context, userID uuid.UUID) (iamdb.GetUserByIDRow, error)
 	// GetUserRoles returns role names for a user, sorted alphabetically.
 	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
-	// AssignRole inserts a user_roles row (idempotent). Returns (rowsInserted, error).
-	// rowsInserted is 0 for an idempotent re-assign, 1 for a new assignment.
-	AssignRole(ctx context.Context, params AssignRoleParams) (int64, error)
+	// AssignRoleTx inserts a user_roles row (idempotent) and writes an audit_logs
+	// entry atomically inside a single transaction. Audit is guaranteed on every
+	// call including no-op re-assigns (EC-05).
+	AssignRoleTx(ctx context.Context, params AssignRoleParams) error
 	// RevokeRoleTx hard-deletes the user_roles row and writes an audit_logs entry
-	// atomically inside a single transaction. Returns ErrNotFound when the user
-	// does not have the specified role (0 rows deleted).
+	// atomically inside a single transaction. For admin roles it acquires
+	// SELECT ... FOR UPDATE locks on the admin user_roles rows before the DELETE
+	// to enforce the last-admin guard atomically (closes the TOCTOU race).
+	// Returns ErrNotFound when the user does not have the specified role (0 rows
+	// deleted), and ErrLastAdmin when the DELETE would remove the last admin.
 	RevokeRoleTx(ctx context.Context, params RevokeRoleParams) error
-	// CountAdmins returns the current number of users holding the admin role.
-	CountAdmins(ctx context.Context) (int32, error)
-	// InsertAuditLog writes a role mutation audit event. Used by AssignRole
-	// to record the audit outside the transaction.
-	InsertAuditLog(ctx context.Context, params AuditLogParams) error
-}
-
-// AuditLogParams holds the fields for an audit_logs entry.
-type AuditLogParams struct {
-	// ActorID is the UUID of the user performing the action.
-	ActorID uuid.UUID
-	// Action is the event name (e.g. "role.assign", "role.revoke").
-	Action string
-	// Entity is the entity type (e.g. "users").
-	Entity string
-	// EntityID is the UUID of the affected entity.
-	EntityID uuid.UUID
-	// Detail is the JSON payload (e.g. {"role": "admin"}).
-	Detail json.RawMessage
 }
 
 // postgresRepository wraps iamdb.Querier and implements Repository.
@@ -135,21 +120,52 @@ func (r *postgresRepository) GetUserRoles(ctx context.Context, userID uuid.UUID)
 	return roles, nil
 }
 
-// AssignRole inserts a user_roles row with ON CONFLICT DO NOTHING.
-// Returns (rowsInserted, nil); rowsInserted == 0 means the role already existed.
-func (r *postgresRepository) AssignRole(ctx context.Context, params AssignRoleParams) (int64, error) {
-	n, err := r.q.AssignRole(ctx, iamdb.AssignRoleParams{
+// AssignRoleTx inserts a user_roles row (ON CONFLICT DO NOTHING) and writes an
+// audit_logs entry atomically. Audit is written on every call, including no-op
+// re-assigns, per EC-05.
+func (r *postgresRepository) AssignRoleTx(ctx context.Context, params AssignRoleParams) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return TranslatePgError(err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	q := iamdb.New(tx)
+
+	// INSERT (idempotent). ON CONFLICT DO NOTHING — ignore rows count.
+	if _, err := q.AssignRole(ctx, iamdb.AssignRoleParams{
 		UserID:   pgtype.UUID{Bytes: params.UserID, Valid: true},
 		RoleName: params.RoleName,
-	})
-	if err != nil {
-		return 0, TranslatePgError(err)
+	}); err != nil {
+		return TranslatePgError(err)
 	}
-	return n, nil
+
+	detail, err := json.Marshal(map[string]string{"role": params.RoleName})
+	if err != nil {
+		return fmt.Errorf("iam: marshal audit detail: %w", err)
+	}
+	if err := q.InsertAuditLog(ctx, iamdb.InsertAuditLogParams{
+		ActorID:  pgtype.UUID{Bytes: params.Actor, Valid: true},
+		Action:   "role.assign",
+		Entity:   "users",
+		EntityID: pgtype.UUID{Bytes: params.UserID, Valid: true},
+		Detail:   detail,
+	}); err != nil {
+		return fmt.Errorf("iam: AssignRoleTx audit: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return TranslatePgError(err)
+	}
+	return nil
 }
 
 // RevokeRoleTx hard-deletes the user_roles row and inserts an audit_logs entry
-// atomically. Returns ErrNotFound when the DELETE affects 0 rows (role not held).
+// atomically. For admin roles it first acquires SELECT ... FOR UPDATE locks on
+// all admin user_roles rows, then checks the count; if only one admin row exists
+// it returns ErrLastAdmin (the deferred rollback releases the locks). This makes
+// the count read and the DELETE atomic, closing the TOCTOU race.
+// Returns ErrNotFound when the DELETE affects 0 rows (role not held).
 func (r *postgresRepository) RevokeRoleTx(ctx context.Context, params RevokeRoleParams) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -158,6 +174,17 @@ func (r *postgresRepository) RevokeRoleTx(ctx context.Context, params RevokeRole
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	q := iamdb.New(tx)
+
+	// For admin revokes: lock admin rows and enforce last-admin guard atomically.
+	if params.RoleName == "admin" {
+		admins, err := q.LockAdminUserRoles(ctx)
+		if err != nil {
+			return TranslatePgError(err)
+		}
+		if len(admins) <= 1 {
+			return fmt.Errorf("%w", ErrLastAdmin)
+		}
+	}
 
 	n, err := q.RevokeRole(ctx, iamdb.RevokeRoleParams{
 		UserID:   pgtype.UUID{Bytes: params.UserID, Valid: true},
@@ -190,25 +217,3 @@ func (r *postgresRepository) RevokeRoleTx(ctx context.Context, params RevokeRole
 	return nil
 }
 
-// CountAdmins returns how many users currently hold the admin role.
-func (r *postgresRepository) CountAdmins(ctx context.Context) (int32, error) {
-	n, err := r.q.CountAdmins(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("iam: CountAdmins: %w", err)
-	}
-	return n, nil
-}
-
-// InsertAuditLog writes a role mutation audit event.
-func (r *postgresRepository) InsertAuditLog(ctx context.Context, params AuditLogParams) error {
-	if err := r.q.InsertAuditLog(ctx, iamdb.InsertAuditLogParams{
-		ActorID:  pgtype.UUID{Bytes: params.ActorID, Valid: true},
-		Action:   params.Action,
-		Entity:   params.Entity,
-		EntityID: pgtype.UUID{Bytes: params.EntityID, Valid: true},
-		Detail:   params.Detail,
-	}); err != nil {
-		return fmt.Errorf("iam: InsertAuditLog: %w", err)
-	}
-	return nil
-}

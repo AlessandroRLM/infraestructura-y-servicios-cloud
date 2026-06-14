@@ -34,21 +34,6 @@ func (q *Queries) AssignRole(ctx context.Context, arg AssignRoleParams) (int64, 
 	return result.RowsAffected(), nil
 }
 
-const countAdmins = `-- name: CountAdmins :one
-SELECT COUNT(*)::int FROM user_roles ur
-JOIN roles r ON r.id = ur.role_id
-WHERE r.name = 'admin'
-`
-
-// Counts how many users currently hold the admin role.
-// Used by the privilege-escalation guard to prevent removing the last admin.
-func (q *Queries) CountAdmins(ctx context.Context) (int32, error) {
-	row := q.db.QueryRow(ctx, countAdmins)
-	var column_1 int32
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
 const getUserByID = `-- name: GetUserByID :one
 SELECT u.id, u.email, u.disabled_at,
        p.given_names, p.last_name_paternal
@@ -190,6 +175,36 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockAdminUserRoles = `-- name: LockAdminUserRoles :many
+SELECT ur.user_id FROM user_roles ur
+JOIN roles r ON r.id = ur.role_id
+WHERE r.name = 'admin'
+FOR UPDATE OF ur
+`
+
+// Locks the admin user_roles rows FOR UPDATE so the last-admin count and the
+// subsequent DELETE are serialized within one transaction (closes the TOCTOU
+// where two concurrent revokes could each see >1 admin and both delete).
+func (q *Queries) LockAdminUserRoles(ctx context.Context) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, lockAdminUserRoles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var user_id pgtype.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

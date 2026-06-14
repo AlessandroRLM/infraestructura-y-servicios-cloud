@@ -51,12 +51,14 @@ WHERE ur.role_id = r.id
   AND ur.user_id = sqlc.arg('user_id')
   AND r.name = sqlc.arg('role_name');
 
--- name: CountAdmins :one
--- Counts how many users currently hold the admin role.
--- Used by the privilege-escalation guard to prevent removing the last admin.
-SELECT COUNT(*)::int FROM user_roles ur
+-- name: LockAdminUserRoles :many
+-- Locks the admin user_roles rows FOR UPDATE so the last-admin count and the
+-- subsequent DELETE are serialized within one transaction (closes the TOCTOU
+-- where two concurrent revokes could each see >1 admin and both delete).
+SELECT ur.user_id FROM user_roles ur
 JOIN roles r ON r.id = ur.role_id
-WHERE r.name = 'admin';
+WHERE r.name = 'admin'
+FOR UPDATE OF ur;
 
 -- name: InsertAuditLog :exec
 -- Records a role mutation audit event (role.assign or role.revoke).

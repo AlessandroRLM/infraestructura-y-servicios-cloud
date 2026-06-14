@@ -2,7 +2,6 @@ package iam
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -129,8 +128,9 @@ func (s *Service) GetUser(ctx context.Context, userID uuid.UUID) (UserSummary, e
 
 // AssignRole assigns a role to a user. The operation is idempotent: if the user
 // already has the role, it succeeds without creating a duplicate row. An audit
-// entry is written on every call regardless of whether a new row was inserted
-// (EC-05: audit documents intent, not state change).
+// entry is written atomically with the insert on every call regardless of whether
+// a new row was inserted (EC-05: audit documents intent, not state change).
+// AssignRoleTx guarantees the insert and audit are committed together or not at all.
 //
 // Validation order: (1) role name valid, (2) target user exists, (3) execute.
 func (s *Service) AssignRole(ctx context.Context, targetUserID uuid.UUID, roleName string) (UserSummary, error) {
@@ -152,26 +152,11 @@ func (s *Service) AssignRole(ctx context.Context, targetUserID uuid.UUID, roleNa
 		return UserSummary{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
 	}
 
-	// Insert (idempotent). n == 0 means role already existed.
-	if _, err := s.repo.AssignRole(ctx, AssignRoleParams{
+	// Atomic insert + audit (idempotent on insert, audit on every call per EC-05).
+	if err := s.repo.AssignRoleTx(ctx, AssignRoleParams{
 		UserID:   targetUserID,
 		RoleName: roleName,
 		Actor:    callerID,
-	}); err != nil {
-		return UserSummary{}, err
-	}
-
-	// Write audit entry on EVERY call, including no-op re-assign (EC-05).
-	detail, err := json.Marshal(map[string]string{"role": roleName})
-	if err != nil {
-		return UserSummary{}, fmt.Errorf("iam: AssignRole marshal detail: %w", err)
-	}
-	if err := s.repo.InsertAuditLog(ctx, AuditLogParams{
-		ActorID:  callerID,
-		Action:   "role.assign",
-		Entity:   "users",
-		EntityID: targetUserID,
-		Detail:   detail,
 	}); err != nil {
 		return UserSummary{}, err
 	}
@@ -181,9 +166,14 @@ func (s *Service) AssignRole(ctx context.Context, targetUserID uuid.UUID, roleNa
 
 // RevokeRole removes a role from a user with privilege-escalation guards.
 //
-// Guard order (EC-06): self-demotion check FIRST, then last-admin check, then DELETE.
-//   - Self-demotion: if role == "admin" AND caller == target → ErrSelfDemotion.
-//   - Last-admin: if role == "admin" AND CountAdmins() <= 1 → ErrLastAdmin.
+// Guard order (EC-06): self-demotion is checked first in the service (no DB
+// race possible). The last-admin guard is enforced atomically inside
+// RevokeRoleTx via SELECT ... FOR UPDATE on admin user_roles rows; if the
+// DELETE would leave zero admins, RevokeRoleTx returns ErrLastAdmin.
+//
+//   - Self-demotion: if role == "admin" AND caller == target → ErrSelfDemotion
+//     (checked here, short-circuits before any DB call).
+//   - Last-admin: enforced atomically inside RevokeRoleTx → ErrLastAdmin.
 //
 // The hard DELETE and audit entry are performed atomically via RevokeRoleTx.
 func (s *Service) RevokeRole(ctx context.Context, targetUserID uuid.UUID, roleName string) (UserSummary, error) {
@@ -202,22 +192,14 @@ func (s *Service) RevokeRole(ctx context.Context, targetUserID uuid.UUID, roleNa
 	}
 
 	if roleName == "admin" {
-		// Self-demotion guard (EC-06: checked first).
+		// Self-demotion guard (EC-06: checked first, no DB round-trip needed).
 		if targetUserID == callerID {
 			return UserSummary{}, fmt.Errorf("%w", ErrSelfDemotion)
-		}
-
-		// Last-admin guard.
-		n, err := s.repo.CountAdmins(ctx)
-		if err != nil {
-			return UserSummary{}, err
-		}
-		if n <= 1 {
-			return UserSummary{}, fmt.Errorf("%w", ErrLastAdmin)
 		}
 	}
 
 	// Atomic DELETE + audit in one transaction.
+	// For admin roles, RevokeRoleTx enforces the last-admin guard atomically.
 	if err := s.repo.RevokeRoleTx(ctx, RevokeRoleParams{
 		UserID:   targetUserID,
 		RoleName: roleName,
