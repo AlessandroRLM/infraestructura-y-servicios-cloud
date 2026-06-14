@@ -377,6 +377,11 @@ func TestCatalog_ProgramCourses_Enriched(t *testing.T) {
 	}
 	courseID2 := cResp2.Msg.GetId()
 	t.Cleanup(func() { cleanupCourse(t, courseID2) })
+	// Clean up program_courses for progID1 before the parent course/program rows are deleted.
+	t.Cleanup(func() {
+		t.Helper()
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM program_courses WHERE program_id = $1`, progID1)
+	})
 
 	// Add both associations (small sleep to ensure created_at ordering is deterministic).
 	add1 := connect.NewRequest(&catalogv1.AddCourseToProgramRequest{ProgramId: progID1, CourseId: courseID1})
@@ -384,7 +389,7 @@ func TestCatalog_ProgramCourses_Enriched(t *testing.T) {
 	if _, err := client.AddCourseToProgram(ctx, add1); err != nil {
 		t.Fatalf("AddCourseToProgram 1: %v", err)
 	}
-	time.Sleep(2 * time.Millisecond) // guarantee created_at ordering
+	time.Sleep(10 * time.Millisecond) // guarantee created_at ordering
 	add2 := connect.NewRequest(&catalogv1.AddCourseToProgramRequest{ProgramId: progID1, CourseId: courseID2})
 	add2.Header().Set("Cookie", "sid="+adminSID)
 	if _, err := client.AddCourseToProgram(ctx, add2); err != nil {
@@ -476,6 +481,11 @@ func TestCatalog_ProgramCourses_Enriched(t *testing.T) {
 	}
 	liveCrsID := liveResp.Msg.GetId()
 	t.Cleanup(func() { cleanupCourse(t, liveCrsID) })
+	// Clean up program_courses for progID2 before the parent course/program rows are deleted.
+	t.Cleanup(func() {
+		t.Helper()
+		_, _ = pgxPool.Exec(context.Background(), `DELETE FROM program_courses WHERE program_id = $1`, progID2)
+	})
 
 	// Soft-deleted course: create then delete via API.
 	delCrsCode := "DEL-CRS-" + uuid.New().String()[:8]
@@ -583,5 +593,3 @@ func TestCatalog_NoRegression(t *testing.T) {
 	}
 }
 
-// Ensure time package is used (for timeout contexts if needed).
-var _ = time.Hour
