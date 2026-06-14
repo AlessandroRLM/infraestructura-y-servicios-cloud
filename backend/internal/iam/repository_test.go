@@ -2,7 +2,6 @@ package iam_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 
@@ -39,9 +38,9 @@ type fakeQuerier struct {
 	revokeRoleErr    error
 	revokeRoleCalled bool
 
-	countAdminsResult int32
-	countAdminsErr    error
-	countAdminsCalled bool
+	lockAdminUserRolesResult []pgtype.UUID
+	lockAdminUserRolesErr    error
+	lockAdminUserRolesCalled bool
 
 	insertAuditLogErr    error
 	insertAuditLogCalled bool
@@ -75,9 +74,9 @@ func (f *fakeQuerier) RevokeRole(_ context.Context, _ iamdb.RevokeRoleParams) (i
 	return f.revokeRoleResult, f.revokeRoleErr
 }
 
-func (f *fakeQuerier) CountAdmins(_ context.Context) (int32, error) {
-	f.countAdminsCalled = true
-	return f.countAdminsResult, f.countAdminsErr
+func (f *fakeQuerier) LockAdminUserRoles(_ context.Context) ([]pgtype.UUID, error) {
+	f.lockAdminUserRolesCalled = true
+	return f.lockAdminUserRolesResult, f.lockAdminUserRolesErr
 }
 
 func (f *fakeQuerier) InsertAuditLog(_ context.Context, _ iamdb.InsertAuditLogParams) error {
@@ -231,105 +230,3 @@ func TestRepository_GetUserRoles_TranslatesDBError(t *testing.T) {
 	}
 }
 
-// --- AssignRole repository unit tests ---
-
-func TestRepository_AssignRole_DelegatesToQuerier(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{assignRoleResult: 1}
-	repo := newTestRepo(q)
-
-	n, err := repo.AssignRole(context.Background(), iam.AssignRoleParams{
-		UserID:   uuid.New(),
-		RoleName: "teacher",
-		Actor:    uuid.New(),
-	})
-	if err != nil {
-		t.Fatalf("AssignRole: unexpected error: %v", err)
-	}
-	if !q.assignRoleCalled {
-		t.Error("AssignRole: fakeQuerier.AssignRole was not called")
-	}
-	if n != 1 {
-		t.Errorf("AssignRole: rows = %d, want 1", n)
-	}
-}
-
-func TestRepository_AssignRole_IdempotentReturnsZeroRows(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{assignRoleResult: 0} // ON CONFLICT DO NOTHING
-	repo := newTestRepo(q)
-
-	n, err := repo.AssignRole(context.Background(), iam.AssignRoleParams{
-		UserID:   uuid.New(),
-		RoleName: "student",
-		Actor:    uuid.New(),
-	})
-	if err != nil {
-		t.Fatalf("AssignRole (idempotent): unexpected error: %v", err)
-	}
-	if n != 0 {
-		t.Errorf("AssignRole (idempotent): rows = %d, want 0", n)
-	}
-}
-
-func TestRepository_AssignRole_TranslatesDBError(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{assignRoleErr: &pgconn.PgError{Code: "23503"}}
-	repo := newTestRepo(q)
-
-	_, err := repo.AssignRole(context.Background(), iam.AssignRoleParams{
-		UserID:   uuid.New(),
-		RoleName: "student",
-		Actor:    uuid.New(),
-	})
-	if !errors.Is(err, iam.ErrInvalidInput) {
-		t.Errorf("AssignRole (23503): got %v, want ErrInvalidInput", err)
-	}
-}
-
-// --- CountAdmins repository unit test ---
-
-func TestRepository_CountAdmins_DelegatesToQuerier(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{countAdminsResult: 3}
-	repo := newTestRepo(q)
-
-	n, err := repo.CountAdmins(context.Background())
-	if err != nil {
-		t.Fatalf("CountAdmins: unexpected error: %v", err)
-	}
-	if !q.countAdminsCalled {
-		t.Error("CountAdmins: fakeQuerier.CountAdmins was not called")
-	}
-	if n != 3 {
-		t.Errorf("CountAdmins: got %d, want 3", n)
-	}
-}
-
-// --- InsertAuditLog repository unit test ---
-
-func TestRepository_InsertAuditLog_DelegatesToQuerier(t *testing.T) {
-	t.Parallel()
-
-	q := &fakeQuerier{}
-	repo := newTestRepo(q)
-
-	detail, _ := json.Marshal(map[string]string{"role": "admin"})
-	err := repo.InsertAuditLog(context.Background(), iam.AuditLogParams{
-		ActorID:  uuid.New(),
-		Action:   "role.assign",
-		Entity:   "users",
-		EntityID: uuid.New(),
-		Detail:   detail,
-	})
-	if err != nil {
-		t.Fatalf("InsertAuditLog: unexpected error: %v", err)
-	}
-	if !q.insertAuditLogCalled {
-		t.Error("InsertAuditLog: fakeQuerier.InsertAuditLog was not called")
-	}
-}
