@@ -15,6 +15,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedSectionEnrollmentsRouteImport } from './routes/_authenticated/section-enrollments'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
 import { Route as AuthenticatedEnrollmentsRouteImport } from './routes/_authenticated/enrollments'
 import { Route as AuthenticatedAccessControlRouteImport } from './routes/_authenticated/access-control'
@@ -50,6 +51,11 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedGradesRoute = AuthenticatedGradesRouteImport.update({
   id: '/grades',
   path: '/grades',
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/access-control': typeof AuthenticatedAccessControlRoute
   '/enrollments': typeof AuthenticatedEnrollmentsRoute
   '/grades': typeof AuthenticatedGradesRoute
+  '/profile': typeof AuthenticatedProfileRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/section-enrollments': typeof AuthenticatedSectionEnrollmentsRoute
   '/users': typeof AuthenticatedUsersRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/access-control': typeof AuthenticatedAccessControlRoute
   '/enrollments': typeof AuthenticatedEnrollmentsRoute
   '/grades': typeof AuthenticatedGradesRoute
+  '/profile': typeof AuthenticatedProfileRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/section-enrollments': typeof AuthenticatedSectionEnrollmentsRoute
   '/users': typeof AuthenticatedUsersRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/_authenticated/access-control': typeof AuthenticatedAccessControlRoute
   '/_authenticated/enrollments': typeof AuthenticatedEnrollmentsRoute
   '/_authenticated/grades': typeof AuthenticatedGradesRoute
+  '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/section-enrollments': typeof AuthenticatedSectionEnrollmentsRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/access-control'
     | '/enrollments'
     | '/grades'
+    | '/profile'
     | '/reports'
     | '/section-enrollments'
     | '/users'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/access-control'
     | '/enrollments'
     | '/grades'
+    | '/profile'
     | '/reports'
     | '/section-enrollments'
     | '/users'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/_authenticated/access-control'
     | '/_authenticated/enrollments'
     | '/_authenticated/grades'
+    | '/_authenticated/profile'
     | '/_authenticated/reports'
     | '/_authenticated/section-enrollments'
     | '/_authenticated/users'
@@ -194,6 +206,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/grades': {
       id: '/_authenticated/grades'
       path: '/grades'
@@ -230,6 +249,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccessControlRoute: typeof AuthenticatedAccessControlRoute
   AuthenticatedEnrollmentsRoute: typeof AuthenticatedEnrollmentsRoute
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSectionEnrollmentsRoute: typeof AuthenticatedSectionEnrollmentsRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
@@ -241,6 +261,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccessControlRoute: AuthenticatedAccessControlRoute,
   AuthenticatedEnrollmentsRoute: AuthenticatedEnrollmentsRoute,
   AuthenticatedGradesRoute: AuthenticatedGradesRoute,
+  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSectionEnrollmentsRoute: AuthenticatedSectionEnrollmentsRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,

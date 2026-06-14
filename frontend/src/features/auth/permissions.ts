@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   "grades.read",
   "grades.view_own",
   "grades.write",
+  "profile.edit_own",
   "profile.view_own",
   "reports.read",
   "section_enrollment.view_own",
