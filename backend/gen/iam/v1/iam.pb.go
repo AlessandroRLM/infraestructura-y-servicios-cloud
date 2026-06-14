@@ -366,6 +366,210 @@ func (x *GetUserResponse) GetUser() *UserSummary {
 	return nil
 }
 
+// AssignRoleRequest is the request message for AssignRole.
+type AssignRoleRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// user_id is the UUID of the user to assign the role to.
+	UserId string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// role is the role name to assign: admin, teacher, or student.
+	Role          string `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssignRoleRequest) Reset() {
+	*x = AssignRoleRequest{}
+	mi := &file_iam_v1_iam_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignRoleRequest) ProtoMessage() {}
+
+func (x *AssignRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_v1_iam_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignRoleRequest.ProtoReflect.Descriptor instead.
+func (*AssignRoleRequest) Descriptor() ([]byte, []int) {
+	return file_iam_v1_iam_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *AssignRoleRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *AssignRoleRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+// AssignRoleResponse is the response message for AssignRole.
+// Returns the updated UserSummary reflecting the post-assign state.
+type AssignRoleResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// user is the updated UserSummary for the target user.
+	User          *UserSummary `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssignRoleResponse) Reset() {
+	*x = AssignRoleResponse{}
+	mi := &file_iam_v1_iam_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssignRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssignRoleResponse) ProtoMessage() {}
+
+func (x *AssignRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_v1_iam_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssignRoleResponse.ProtoReflect.Descriptor instead.
+func (*AssignRoleResponse) Descriptor() ([]byte, []int) {
+	return file_iam_v1_iam_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *AssignRoleResponse) GetUser() *UserSummary {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+// RevokeRoleRequest is the request message for RevokeRole.
+type RevokeRoleRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// user_id is the UUID of the user whose role is being revoked.
+	UserId string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// role is the role name to revoke: admin, teacher, or student.
+	Role          string `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeRoleRequest) Reset() {
+	*x = RevokeRoleRequest{}
+	mi := &file_iam_v1_iam_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeRoleRequest) ProtoMessage() {}
+
+func (x *RevokeRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_v1_iam_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeRoleRequest.ProtoReflect.Descriptor instead.
+func (*RevokeRoleRequest) Descriptor() ([]byte, []int) {
+	return file_iam_v1_iam_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *RevokeRoleRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *RevokeRoleRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+// RevokeRoleResponse is the response message for RevokeRole.
+// Returns the updated UserSummary reflecting the post-revoke state.
+type RevokeRoleResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// user is the updated UserSummary for the target user (post-revoke state).
+	User          *UserSummary `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeRoleResponse) Reset() {
+	*x = RevokeRoleResponse{}
+	mi := &file_iam_v1_iam_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeRoleResponse) ProtoMessage() {}
+
+func (x *RevokeRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iam_v1_iam_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeRoleResponse.ProtoReflect.Descriptor instead.
+func (*RevokeRoleResponse) Descriptor() ([]byte, []int) {
+	return file_iam_v1_iam_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *RevokeRoleResponse) GetUser() *UserSummary {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
 var File_iam_v1_iam_proto protoreflect.FileDescriptor
 
 const file_iam_v1_iam_proto_rawDesc = "" +
@@ -388,16 +592,30 @@ const file_iam_v1_iam_proto_rawDesc = "" +
 	"\x0eGetUserRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\":\n" +
 	"\x0fGetUserResponse\x12'\n" +
+	"\x04user\x18\x01 \x01(\v2\x13.iam.v1.UserSummaryR\x04user\"@\n" +
+	"\x11AssignRoleRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\"=\n" +
+	"\x12AssignRoleResponse\x12'\n" +
+	"\x04user\x18\x01 \x01(\v2\x13.iam.v1.UserSummaryR\x04user\"@\n" +
+	"\x11RevokeRoleRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\"=\n" +
+	"\x12RevokeRoleResponse\x12'\n" +
 	"\x04user\x18\x01 \x01(\v2\x13.iam.v1.UserSummaryR\x04user*[\n" +
 	"\n" +
 	"UserStatus\x12\x1b\n" +
 	"\x17USER_STATUS_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12USER_STATUS_ACTIVE\x10\x01\x12\x18\n" +
-	"\x14USER_STATUS_DISABLED\x10\x022\x8a\x01\n" +
+	"\x14USER_STATUS_DISABLED\x10\x022\x94\x02\n" +
 	"\n" +
 	"IamService\x12@\n" +
 	"\tListUsers\x12\x18.iam.v1.ListUsersRequest\x1a\x19.iam.v1.ListUsersResponse\x12:\n" +
-	"\aGetUser\x12\x16.iam.v1.GetUserRequest\x1a\x17.iam.v1.GetUserResponseBUZSgithub.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/iam/v1;iamv1b\x06proto3"
+	"\aGetUser\x12\x16.iam.v1.GetUserRequest\x1a\x17.iam.v1.GetUserResponse\x12C\n" +
+	"\n" +
+	"AssignRole\x12\x19.iam.v1.AssignRoleRequest\x1a\x1a.iam.v1.AssignRoleResponse\x12C\n" +
+	"\n" +
+	"RevokeRole\x12\x19.iam.v1.RevokeRoleRequest\x1a\x1a.iam.v1.RevokeRoleResponseBUZSgithub.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/iam/v1;iamv1b\x06proto3"
 
 var (
 	file_iam_v1_iam_proto_rawDescOnce sync.Once
@@ -412,28 +630,38 @@ func file_iam_v1_iam_proto_rawDescGZIP() []byte {
 }
 
 var file_iam_v1_iam_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_iam_v1_iam_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_iam_v1_iam_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_iam_v1_iam_proto_goTypes = []any{
-	(UserStatus)(0),           // 0: iam.v1.UserStatus
-	(*UserSummary)(nil),       // 1: iam.v1.UserSummary
-	(*ListUsersRequest)(nil),  // 2: iam.v1.ListUsersRequest
-	(*ListUsersResponse)(nil), // 3: iam.v1.ListUsersResponse
-	(*GetUserRequest)(nil),    // 4: iam.v1.GetUserRequest
-	(*GetUserResponse)(nil),   // 5: iam.v1.GetUserResponse
+	(UserStatus)(0),            // 0: iam.v1.UserStatus
+	(*UserSummary)(nil),        // 1: iam.v1.UserSummary
+	(*ListUsersRequest)(nil),   // 2: iam.v1.ListUsersRequest
+	(*ListUsersResponse)(nil),  // 3: iam.v1.ListUsersResponse
+	(*GetUserRequest)(nil),     // 4: iam.v1.GetUserRequest
+	(*GetUserResponse)(nil),    // 5: iam.v1.GetUserResponse
+	(*AssignRoleRequest)(nil),  // 6: iam.v1.AssignRoleRequest
+	(*AssignRoleResponse)(nil), // 7: iam.v1.AssignRoleResponse
+	(*RevokeRoleRequest)(nil),  // 8: iam.v1.RevokeRoleRequest
+	(*RevokeRoleResponse)(nil), // 9: iam.v1.RevokeRoleResponse
 }
 var file_iam_v1_iam_proto_depIdxs = []int32{
 	0, // 0: iam.v1.UserSummary.status:type_name -> iam.v1.UserStatus
 	1, // 1: iam.v1.ListUsersResponse.users:type_name -> iam.v1.UserSummary
 	1, // 2: iam.v1.GetUserResponse.user:type_name -> iam.v1.UserSummary
-	2, // 3: iam.v1.IamService.ListUsers:input_type -> iam.v1.ListUsersRequest
-	4, // 4: iam.v1.IamService.GetUser:input_type -> iam.v1.GetUserRequest
-	3, // 5: iam.v1.IamService.ListUsers:output_type -> iam.v1.ListUsersResponse
-	5, // 6: iam.v1.IamService.GetUser:output_type -> iam.v1.GetUserResponse
-	5, // [5:7] is the sub-list for method output_type
-	3, // [3:5] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	1, // 3: iam.v1.AssignRoleResponse.user:type_name -> iam.v1.UserSummary
+	1, // 4: iam.v1.RevokeRoleResponse.user:type_name -> iam.v1.UserSummary
+	2, // 5: iam.v1.IamService.ListUsers:input_type -> iam.v1.ListUsersRequest
+	4, // 6: iam.v1.IamService.GetUser:input_type -> iam.v1.GetUserRequest
+	6, // 7: iam.v1.IamService.AssignRole:input_type -> iam.v1.AssignRoleRequest
+	8, // 8: iam.v1.IamService.RevokeRole:input_type -> iam.v1.RevokeRoleRequest
+	3, // 9: iam.v1.IamService.ListUsers:output_type -> iam.v1.ListUsersResponse
+	5, // 10: iam.v1.IamService.GetUser:output_type -> iam.v1.GetUserResponse
+	7, // 11: iam.v1.IamService.AssignRole:output_type -> iam.v1.AssignRoleResponse
+	9, // 12: iam.v1.IamService.RevokeRole:output_type -> iam.v1.RevokeRoleResponse
+	9, // [9:13] is the sub-list for method output_type
+	5, // [5:9] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_iam_v1_iam_proto_init() }
@@ -447,7 +675,7 @@ func file_iam_v1_iam_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_iam_v1_iam_proto_rawDesc), len(file_iam_v1_iam_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   5,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
