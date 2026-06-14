@@ -8,8 +8,18 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pagination"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/profiles/profilesdb"
 )
+
+// profilesClamp enforces the global page-size bounds for all profiles lists.
+var profilesClamp = pagination.Clamp{Min: 20, Max: 200}
+
+// ListTeacherQualificationsResult carries the paginated result for ListTeacherQualifications.
+type ListTeacherQualificationsResult struct {
+	Qualifications []profilesdb.TeacherQualification
+	NextPageToken  string
+}
 
 // Service orchestrates profile business logic: validation, audit-column population, and repo delegation.
 type Service struct {
@@ -135,9 +145,45 @@ func (s *Service) AddTeacherQualification(ctx context.Context, p AddTeacherQuali
 	return s.repo.AddTeacherQualification(ctx, p)
 }
 
-// ListTeacherQualifications returns all non-deleted qualifications for the given teacher.
-func (s *Service) ListTeacherQualifications(ctx context.Context, teacherID uuid.UUID) ([]profilesdb.TeacherQualification, error) {
-	return s.repo.ListTeacherQualifications(ctx, teacherID)
+// ListTeacherQualifications returns a keyset-paginated page of non-deleted qualifications
+// for the given teacher. pageSize is clamped to [20, 200]. An empty pageToken fetches
+// the first page; a non-empty token must be a valid UUID — malformed tokens return
+// ErrInvalidInput.
+func (s *Service) ListTeacherQualifications(
+	ctx context.Context,
+	teacherID uuid.UUID,
+	pageSize int32,
+	pageToken string,
+) (ListTeacherQualificationsResult, error) {
+	clamped := profilesClamp.Apply(pageSize)
+
+	var tok *uuid.UUID
+	if pageToken != "" {
+		parsed, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListTeacherQualificationsResult{}, fmt.Errorf("%w: invalid page_token", ErrInvalidInput)
+		}
+		tok = &parsed
+	}
+
+	rows, err := s.repo.ListTeacherQualifications(ctx, ListTeacherQualificationsRepoParams{
+		TeacherID: &teacherID,
+		PageToken: tok,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListTeacherQualificationsResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r profilesdb.TeacherQualification) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListTeacherQualificationsResult{
+		Qualifications: page.Items,
+		NextPageToken:  nextToken,
+	}, nil
 }
 
 // actorFromContext extracts the authenticated user_id from context and returns a pointer.

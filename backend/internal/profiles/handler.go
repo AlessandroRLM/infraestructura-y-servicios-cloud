@@ -239,7 +239,9 @@ func (h *Handler) AddTeacherQualification(
 	return connect.NewResponse(teacherQualificationToProto(row)), nil
 }
 
-// ListTeacherQualifications returns all non-deleted qualifications for a teacher.
+// ListTeacherQualifications returns a keyset-paginated page of non-deleted qualifications
+// for a teacher. page_size is clamped to [20, 200]. An empty page_token fetches the first
+// page; next_page_token in the response is empty when the last page has been reached.
 func (h *Handler) ListTeacherQualifications(
 	ctx context.Context,
 	req *connect.Request[profilesv1.ListTeacherQualificationsRequest],
@@ -249,18 +251,24 @@ func (h *Handler) ListTeacherQualifications(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid teacher_id"))
 	}
 
-	rows, err := h.svc.ListTeacherQualifications(ctx, teacherID)
+	result, err := h.svc.ListTeacherQualifications(
+		ctx,
+		teacherID,
+		req.Msg.GetPageSize(),
+		req.Msg.GetPageToken(),
+	)
 	if err != nil {
 		return nil, mapError(err)
 	}
 
-	quals := make([]*profilesv1.TeacherQualification, 0, len(rows))
-	for _, r := range rows {
+	quals := make([]*profilesv1.TeacherQualification, 0, len(result.Qualifications))
+	for _, r := range result.Qualifications {
 		quals = append(quals, teacherQualificationToProto(r))
 	}
 
 	return connect.NewResponse(&profilesv1.ListTeacherQualificationsResponse{
 		Qualifications: quals,
+		NextPageToken:  result.NextPageToken,
 	}), nil
 }
 

@@ -14,6 +14,13 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/profiles/profilesdb"
 )
 
+// ListTeacherQualificationsRepoParams carries pagination parameters for ListTeacherQualifications.
+type ListTeacherQualificationsRepoParams struct {
+	TeacherID *uuid.UUID
+	PageToken *uuid.UUID
+	RowLimit  int32
+}
+
 // ErrNotFound is returned by repository methods when the requested row does not exist.
 var ErrNotFound = fmt.Errorf("profiles: not found")
 
@@ -31,7 +38,7 @@ type Repository interface {
 	UpsertTeacherProfile(ctx context.Context, p UpsertTeacherProfileParams) (profilesdb.TeacherProfile, error)
 	GetTeacherProfile(ctx context.Context, userID uuid.UUID) (profilesdb.TeacherProfile, error)
 	AddTeacherQualification(ctx context.Context, p AddTeacherQualificationParams) (profilesdb.TeacherQualification, error)
-	ListTeacherQualifications(ctx context.Context, teacherID uuid.UUID) ([]profilesdb.TeacherQualification, error)
+	ListTeacherQualifications(ctx context.Context, p ListTeacherQualificationsRepoParams) ([]profilesdb.TeacherQualification, error)
 }
 
 // UpsertOwnProfileParams carries the 11 self-editable fields for PATCH updates.
@@ -258,8 +265,16 @@ func (r *postgresRepository) AddTeacherQualification(ctx context.Context, p AddT
 	return row, nil
 }
 
-func (r *postgresRepository) ListTeacherQualifications(ctx context.Context, teacherID uuid.UUID) ([]profilesdb.TeacherQualification, error) {
-	rows, err := r.q.ListTeacherQualifications(ctx, pgtype.UUID{Bytes: teacherID, Valid: true})
+func (r *postgresRepository) ListTeacherQualifications(ctx context.Context, p ListTeacherQualificationsRepoParams) ([]profilesdb.TeacherQualification, error) {
+	var teacherUUID pgtype.UUID
+	if p.TeacherID != nil {
+		teacherUUID = pgtype.UUID{Bytes: *p.TeacherID, Valid: true}
+	}
+	rows, err := r.q.ListTeacherQualifications(ctx, profilesdb.ListTeacherQualificationsParams{
+		TeacherID: teacherUUID,
+		PageToken: optionalUUID(p.PageToken),
+		RowLimit:  p.RowLimit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("profiles: ListTeacherQualifications: %w", err)
 	}

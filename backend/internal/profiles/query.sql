@@ -113,9 +113,11 @@ RETURNING *;
 -- name: ListTeacherQualifications :many
 SELECT *
 FROM teacher_qualifications
-WHERE teacher_id = $1
+WHERE teacher_id = sqlc.arg('teacher_id')
   AND deleted_at IS NULL
-ORDER BY year, created_at;
+  AND (sqlc.narg('page_token')::uuid IS NULL OR id < sqlc.narg('page_token')::uuid)
+ORDER BY id DESC
+LIMIT sqlc.arg('row_limit')::int;
 
 -- name: UpsertOwnProfile :one
 UPDATE user_profiles SET

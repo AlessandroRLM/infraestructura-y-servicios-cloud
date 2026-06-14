@@ -39,8 +39,10 @@ type fakeRepository struct {
 	addTeacherQualificationErr    error
 	addTeacherQualificationCalled bool
 
-	listTeacherQualificationsResult []profilesdb.TeacherQualification
-	listTeacherQualificationsErr    error
+	listTeacherQualificationsResult  []profilesdb.TeacherQualification
+	listTeacherQualificationsErr     error
+	listTeacherQualificationsCalled  bool
+	listTeacherQualificationsParams  profiles.ListTeacherQualificationsRepoParams
 }
 
 func (f *fakeRepository) UpsertUserProfile(_ context.Context, p profiles.UpsertUserProfileParams) (profilesdb.UserProfile, error) {
@@ -89,7 +91,9 @@ func (f *fakeRepository) AddTeacherQualification(_ context.Context, _ profiles.A
 	return profilesdb.TeacherQualification{}, f.addTeacherQualificationErr
 }
 
-func (f *fakeRepository) ListTeacherQualifications(_ context.Context, _ uuid.UUID) ([]profilesdb.TeacherQualification, error) {
+func (f *fakeRepository) ListTeacherQualifications(_ context.Context, p profiles.ListTeacherQualificationsRepoParams) ([]profilesdb.TeacherQualification, error) {
+	f.listTeacherQualificationsCalled = true
+	f.listTeacherQualificationsParams = p
 	return f.listTeacherQualificationsResult, f.listTeacherQualificationsErr
 }
 
@@ -450,6 +454,156 @@ func TestService_GetOwnProfile_PropagatesNotFound(t *testing.T) {
 	_, err := svc.GetOwnProfile(ctx)
 	if !errors.Is(err, profiles.ErrNotFound) {
 		t.Errorf("GetOwnProfile: got %v, want ErrNotFound", err)
+	}
+}
+
+// --- ListTeacherQualifications pagination unit tests ---
+
+// TestService_ListTeacherQualifications_ClampMin verifies page_size=0 is clamped to 20.
+func TestService_ListTeacherQualifications_ClampMin(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{listTeacherQualificationsResult: nil}
+	svc := profiles.NewService(repo)
+
+	_, err := svc.ListTeacherQualifications(context.Background(), uuid.New(), 0, "")
+	if err != nil {
+		t.Fatalf("ListTeacherQualifications(page_size=0): unexpected error: %v", err)
+	}
+	if !repo.listTeacherQualificationsCalled {
+		t.Fatal("repo not called")
+	}
+	// RowLimit must be clamped min (20) + 1 = 21.
+	if repo.listTeacherQualificationsParams.RowLimit != 21 {
+		t.Errorf("RowLimit = %d, want 21 (clamped 20 + 1)", repo.listTeacherQualificationsParams.RowLimit)
+	}
+}
+
+// TestService_ListTeacherQualifications_ClampMax verifies page_size=999 is clamped to 200.
+func TestService_ListTeacherQualifications_ClampMax(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{listTeacherQualificationsResult: nil}
+	svc := profiles.NewService(repo)
+
+	_, err := svc.ListTeacherQualifications(context.Background(), uuid.New(), 999, "")
+	if err != nil {
+		t.Fatalf("ListTeacherQualifications(page_size=999): unexpected error: %v", err)
+	}
+	// RowLimit must be clamped max (200) + 1 = 201.
+	if repo.listTeacherQualificationsParams.RowLimit != 201 {
+		t.Errorf("RowLimit = %d, want 201 (clamped 200 + 1)", repo.listTeacherQualificationsParams.RowLimit)
+	}
+}
+
+// TestService_ListTeacherQualifications_ValidToken verifies a valid UUID page_token is
+// forwarded to the repo as a *uuid.UUID.
+func TestService_ListTeacherQualifications_ValidToken(t *testing.T) {
+	t.Parallel()
+
+	tokenID := uuid.New()
+	repo := &fakeRepository{listTeacherQualificationsResult: nil}
+	svc := profiles.NewService(repo)
+
+	_, err := svc.ListTeacherQualifications(context.Background(), uuid.New(), 20, tokenID.String())
+	if err != nil {
+		t.Fatalf("ListTeacherQualifications(valid token): unexpected error: %v", err)
+	}
+	if repo.listTeacherQualificationsParams.PageToken == nil {
+		t.Fatal("PageToken should be non-nil for valid token")
+	}
+	if *repo.listTeacherQualificationsParams.PageToken != tokenID {
+		t.Errorf("PageToken = %v, want %v", *repo.listTeacherQualificationsParams.PageToken, tokenID)
+	}
+}
+
+// TestService_ListTeacherQualifications_EmptyToken verifies an empty page_token results
+// in a nil PageToken (first page).
+func TestService_ListTeacherQualifications_EmptyToken(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{listTeacherQualificationsResult: nil}
+	svc := profiles.NewService(repo)
+
+	_, err := svc.ListTeacherQualifications(context.Background(), uuid.New(), 20, "")
+	if err != nil {
+		t.Fatalf("ListTeacherQualifications(empty token): unexpected error: %v", err)
+	}
+	if repo.listTeacherQualificationsParams.PageToken != nil {
+		t.Errorf("PageToken should be nil for empty token, got %v",
+			*repo.listTeacherQualificationsParams.PageToken)
+	}
+}
+
+// TestService_ListTeacherQualifications_InvalidToken verifies a malformed page_token
+// returns ErrInvalidInput without calling the repo.
+func TestService_ListTeacherQualifications_InvalidToken(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := profiles.NewService(repo)
+
+	_, err := svc.ListTeacherQualifications(context.Background(), uuid.New(), 20, "not-a-uuid")
+	if !errors.Is(err, profiles.ErrInvalidInput) {
+		t.Errorf("malformed token: got %v, want ErrInvalidInput", err)
+	}
+	if repo.listTeacherQualificationsCalled {
+		t.Error("repo was called despite invalid page_token")
+	}
+}
+
+// TestService_ListTeacherQualifications_LastPage verifies that when the repo returns
+// exactly clampedSize rows, HasNext is false and NextPageToken is empty.
+func TestService_ListTeacherQualifications_LastPage(t *testing.T) {
+	t.Parallel()
+
+	// Return exactly 20 rows — no HasNext.
+	rows := make([]profilesdb.TeacherQualification, 20)
+	for i := range rows {
+		rows[i].ID.Bytes = uuid.New()
+		rows[i].ID.Valid = true
+	}
+
+	repo := &fakeRepository{listTeacherQualificationsResult: rows}
+	svc := profiles.NewService(repo)
+
+	result, err := svc.ListTeacherQualifications(context.Background(), uuid.New(), 20, "")
+	if err != nil {
+		t.Fatalf("ListTeacherQualifications(last page): unexpected error: %v", err)
+	}
+	if len(result.Qualifications) != 20 {
+		t.Errorf("got %d qualifications, want 20", len(result.Qualifications))
+	}
+	if result.NextPageToken != "" {
+		t.Errorf("NextPageToken = %q, want \"\" on last page", result.NextPageToken)
+	}
+}
+
+// TestService_ListTeacherQualifications_HasNext verifies that when the repo returns
+// clampedSize+1 rows, HasNext is true and NextPageToken is non-empty.
+func TestService_ListTeacherQualifications_HasNext(t *testing.T) {
+	t.Parallel()
+
+	// Return 21 rows — triggers HasNext (clamped=20, fetched=21).
+	rows := make([]profilesdb.TeacherQualification, 21)
+	for i := range rows {
+		rows[i].ID.Bytes = uuid.New()
+		rows[i].ID.Valid = true
+	}
+
+	repo := &fakeRepository{listTeacherQualificationsResult: rows}
+	svc := profiles.NewService(repo)
+
+	result, err := svc.ListTeacherQualifications(context.Background(), uuid.New(), 20, "")
+	if err != nil {
+		t.Fatalf("ListTeacherQualifications(has-next): unexpected error: %v", err)
+	}
+	// Must return only 20 items (over-fetch trimmed).
+	if len(result.Qualifications) != 20 {
+		t.Errorf("got %d qualifications, want 20 (over-fetch trimmed)", len(result.Qualifications))
+	}
+	if result.NextPageToken == "" {
+		t.Error("NextPageToken should be non-empty when HasNext is true")
 	}
 }
 
