@@ -1,4 +1,8 @@
-import type { CoursesSource, ProgramsSource } from "./rpc";
+import type {
+  CoursesSource,
+  ProgramCoursesSource,
+  ProgramsSource,
+} from "./rpc";
 
 export function stubProgramsSource(
   overrides?: Partial<ProgramsSource>,
@@ -14,6 +18,15 @@ export function stubCoursesSource(
 ): CoursesSource {
   return {
     listCourses: async () => [],
+    ...overrides,
+  };
+}
+
+export function stubProgramCoursesSource(
+  overrides?: Partial<ProgramCoursesSource>,
+): ProgramCoursesSource {
+  return {
+    listProgramCourses: async () => [],
     ...overrides,
   };
 }

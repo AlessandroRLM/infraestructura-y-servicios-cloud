@@ -155,8 +155,8 @@ describe("ProgramDialog — edit mode error paths (S-11)", () => {
     await renderAcademicsPage({ updateProgram, listPrograms });
     await screen.findByText("ING-01");
 
-    const editButtons = screen.getAllByRole("button", { name: /editar/i });
-    await user.click(editButtons[0]);
+    await user.click(screen.getByRole("button", { name: "Acciones ING-01" }));
+    await user.click(screen.getByRole("menuitem", { name: /editar/i }));
     await screen.findByRole("dialog");
 
     const dialog = screen.getByRole("dialog");
@@ -183,8 +183,8 @@ describe("ProgramDialog — edit mode error paths (S-11)", () => {
     await renderAcademicsPage({ updateProgram, listPrograms });
     await screen.findByText("ING-01");
 
-    const editButtons = screen.getAllByRole("button", { name: /editar/i });
-    await user.click(editButtons[0]);
+    await user.click(screen.getByRole("button", { name: "Acciones ING-01" }));
+    await user.click(screen.getByRole("menuitem", { name: /editar/i }));
     await screen.findByRole("dialog");
 
     const dialog = screen.getByRole("dialog");
@@ -207,8 +207,8 @@ describe("ProgramDialog — edit mode", () => {
 
     await screen.findByText("ING-01");
 
-    const editButtons = screen.getAllByRole("button", { name: /editar/i });
-    await user.click(editButtons[0]);
+    await user.click(screen.getByRole("button", { name: "Acciones ING-01" }));
+    await user.click(screen.getByRole("menuitem", { name: /editar/i }));
 
     await screen.findByRole("dialog");
     const dialog = screen.getByRole("dialog");
