@@ -57,12 +57,12 @@ func (f *fakeRepository) GetEnrollment(_ context.Context, _ uuid.UUID) (enrollme
 	return f.getEnrollmentResult, f.getEnrollmentErr
 }
 
-func (f *fakeRepository) ListEnrollments(_ context.Context, _ ListEnrollmentsFilter) ([]enrollmentdb.Enrollment, error) {
+func (f *fakeRepository) ListEnrollments(_ context.Context, _ ListEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error) {
 	f.listCalled = true
 	return f.listResult, f.listErr
 }
 
-func (f *fakeRepository) ListOwnEnrollments(_ context.Context, _ uuid.UUID) ([]enrollmentdb.Enrollment, error) {
+func (f *fakeRepository) ListOwnEnrollments(_ context.Context, _ ListOwnEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error) {
 	f.listOwnCalled = true
 	return f.listOwnResult, f.listOwnErr
 }
@@ -173,7 +173,7 @@ func TestListOwnEnrollments_InjectsContextUser(t *testing.T) {
 	svc := NewService(repo)
 	ctx := ctxWithUser(userID)
 
-	_, err := svc.ListOwnEnrollments(ctx)
+	_, err := svc.ListOwnEnrollments(ctx, 0, "")
 	if err != nil {
 		t.Fatalf("ListOwnEnrollments: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestListOwnEnrollments_NoCtxUser(t *testing.T) {
 	repo := &fakeRepository{}
 	svc := NewService(repo)
 
-	_, err := svc.ListOwnEnrollments(context.Background())
+	_, err := svc.ListOwnEnrollments(context.Background(), 0, "")
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("no ctx user: want ErrNotFound, got %v", err)
 	}
@@ -250,5 +250,158 @@ func TestGetOwnEnrollment_NoCtxUser(t *testing.T) {
 	_, err := svc.GetOwnEnrollment(context.Background(), uuid.New().String())
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("no ctx user: want ErrNotFound, got %v", err)
+	}
+}
+
+// ---- ListEnrollments pagination unit tests ----
+
+// TestListEnrollments_ClampMin verifies page_size=0 is clamped to 20 (min).
+func TestListEnrollments_ClampMin(t *testing.T) {
+	repo := &fakeRepository{listResult: []enrollmentdb.Enrollment{}}
+	svc := NewService(repo)
+
+	_, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 0, "")
+	if err != nil {
+		t.Fatalf("ListEnrollments(pageSize=0): %v", err)
+	}
+	if !repo.listCalled {
+		t.Error("repo.ListEnrollments was not called")
+	}
+}
+
+// TestListEnrollments_ClampMax verifies page_size=999 is clamped to 200 (max).
+func TestListEnrollments_ClampMax(t *testing.T) {
+	repo := &fakeRepository{listResult: []enrollmentdb.Enrollment{}}
+	svc := NewService(repo)
+
+	_, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 999, "")
+	if err != nil {
+		t.Fatalf("ListEnrollments(pageSize=999): %v", err)
+	}
+}
+
+// TestListEnrollments_ValidToken verifies a well-formed page_token is parsed and
+// passed to the repository without error.
+func TestListEnrollments_ValidToken(t *testing.T) {
+	token := uuid.New().String()
+	repo := &fakeRepository{listResult: []enrollmentdb.Enrollment{}}
+	svc := NewService(repo)
+
+	_, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 20, token)
+	if err != nil {
+		t.Fatalf("ListEnrollments(valid token): %v", err)
+	}
+}
+
+// TestListEnrollments_InvalidToken verifies a malformed page_token returns ErrInvalidInput.
+func TestListEnrollments_InvalidToken(t *testing.T) {
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	_, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 20, "not-a-uuid")
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("malformed token: want ErrInvalidInput, got %v", err)
+	}
+	if repo.listCalled {
+		t.Error("malformed token: repo.ListEnrollments must not be called")
+	}
+}
+
+// TestListEnrollments_NextTokenSetWhenHasNext verifies that when the repository returns
+// clampedSize+1 rows (HasNext=true), a non-empty next_page_token is produced.
+func TestListEnrollments_NextTokenSetWhenHasNext(t *testing.T) {
+	// Build 21 fake rows (clamp=20, so 21 > clamped → HasNext=true).
+	rows := make([]enrollmentdb.Enrollment, 21)
+	for i := range rows {
+		rows[i] = enrollmentdb.Enrollment{ID: pgUUID(uuid.New())}
+	}
+	repo := &fakeRepository{listResult: rows}
+	svc := NewService(repo)
+
+	result, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 20, "")
+	if err != nil {
+		t.Fatalf("ListEnrollments: %v", err)
+	}
+	if result.NextPageToken == "" {
+		t.Error("next_page_token must be non-empty when more rows exist")
+	}
+	if len(result.Enrollments) != 20 {
+		t.Errorf("got %d enrollments, want 20 (clamped)", len(result.Enrollments))
+	}
+}
+
+// TestListEnrollments_EmptyTokenOnLastPage verifies that when the repository returns
+// ≤ clampedSize rows (HasNext=false), next_page_token is empty.
+func TestListEnrollments_EmptyTokenOnLastPage(t *testing.T) {
+	rows := make([]enrollmentdb.Enrollment, 5)
+	for i := range rows {
+		rows[i] = enrollmentdb.Enrollment{ID: pgUUID(uuid.New())}
+	}
+	repo := &fakeRepository{listResult: rows}
+	svc := NewService(repo)
+
+	result, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 20, "")
+	if err != nil {
+		t.Fatalf("ListEnrollments: %v", err)
+	}
+	if result.NextPageToken != "" {
+		t.Errorf("next_page_token must be empty on last page, got %q", result.NextPageToken)
+	}
+	if len(result.Enrollments) != 5 {
+		t.Errorf("got %d enrollments, want 5", len(result.Enrollments))
+	}
+}
+
+// ---- ListOwnEnrollments pagination unit tests ----
+
+// TestListOwnEnrollments_ClampMin verifies page_size=0 is clamped to 20 (min).
+func TestListOwnEnrollments_ClampMin(t *testing.T) {
+	userID := uuid.New()
+	repo := &fakeRepository{listOwnResult: []enrollmentdb.Enrollment{}}
+	svc := NewService(repo)
+	ctx := ctxWithUser(userID)
+
+	_, err := svc.ListOwnEnrollments(ctx, 0, "")
+	if err != nil {
+		t.Fatalf("ListOwnEnrollments(pageSize=0): %v", err)
+	}
+}
+
+// TestListOwnEnrollments_InvalidToken verifies a malformed page_token returns ErrInvalidInput.
+func TestListOwnEnrollments_InvalidToken(t *testing.T) {
+	userID := uuid.New()
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+	ctx := ctxWithUser(userID)
+
+	_, err := svc.ListOwnEnrollments(ctx, 20, "not-a-uuid")
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("malformed token: want ErrInvalidInput, got %v", err)
+	}
+	if repo.listOwnCalled {
+		t.Error("malformed token: repo.ListOwnEnrollments must not be called")
+	}
+}
+
+// TestListOwnEnrollments_NextTokenSetWhenHasNext verifies that 21 rows → non-empty token.
+func TestListOwnEnrollments_NextTokenSetWhenHasNext(t *testing.T) {
+	userID := uuid.New()
+	rows := make([]enrollmentdb.Enrollment, 21)
+	for i := range rows {
+		rows[i] = enrollmentdb.Enrollment{ID: pgUUID(uuid.New())}
+	}
+	repo := &fakeRepository{listOwnResult: rows}
+	svc := NewService(repo)
+	ctx := ctxWithUser(userID)
+
+	result, err := svc.ListOwnEnrollments(ctx, 20, "")
+	if err != nil {
+		t.Fatalf("ListOwnEnrollments: %v", err)
+	}
+	if result.NextPageToken == "" {
+		t.Error("next_page_token must be non-empty when more rows exist")
+	}
+	if len(result.Enrollments) != 20 {
+		t.Errorf("got %d enrollments, want 20 (clamped)", len(result.Enrollments))
 	}
 }
