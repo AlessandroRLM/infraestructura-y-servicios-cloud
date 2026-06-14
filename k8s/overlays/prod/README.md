@@ -8,6 +8,26 @@ Production overlay (namespace `academico-prod`) targeting GKE. Differs from `dev
 - **Imágenes:** tags inmutables (`:1.0.0`), no `:dev`.
 - **ResourceQuota:** límites de namespace dimensionados para el HPA de la API (hasta 6 réplicas).
 
+## Imágenes
+
+Las imágenes en `kustomization.yaml` referencian el Artifact Registry. La URL base proviene del output de Terraform `artifact_registry_url`. Antes de desplegar a producción, reemplazar `PROJECT_ID` (y la región si no es `us-central1`) en `kustomization.yaml`, o usar `kustomize edit set image`:
+
+```bash
+cd k8s/overlays/prod
+kustomize edit set image academico/api=$(terraform -chdir=../../../infra output -raw artifact_registry_url)/api:1.0.0
+kustomize edit set image academico/web=$(terraform -chdir=../../../infra output -raw artifact_registry_url)/web:1.0.0
+```
+
+Flujo de build y push (requiere `gcloud auth configure-docker us-central1-docker.pkg.dev` previo):
+
+```bash
+docker tag academico/api:dev <artifact_registry_url>/api:1.0.0
+docker push <artifact_registry_url>/api:1.0.0
+
+docker tag academico/web:dev <artifact_registry_url>/web:1.0.0
+docker push <artifact_registry_url>/web:1.0.0
+```
+
 ## Placeholders a definir antes de aplicar
 
 | Qué | Dónde | Valor actual (placeholder) |

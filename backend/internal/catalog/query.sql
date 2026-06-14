@@ -18,7 +18,9 @@ WHERE id = $1 AND deleted_at IS NULL;
 -- name: ListPrograms :many
 SELECT * FROM programs
 WHERE deleted_at IS NULL
-ORDER BY created_at;
+  AND (sqlc.narg('page_token')::uuid IS NULL OR id < sqlc.narg('page_token')::uuid)
+ORDER BY id DESC
+LIMIT sqlc.arg('row_limit')::int;
 
 -- name: SoftDeleteProgram :execrows
 UPDATE programs
@@ -58,7 +60,9 @@ WHERE id = $1 AND deleted_at IS NULL;
 -- name: ListCourses :many
 SELECT * FROM courses
 WHERE deleted_at IS NULL
-ORDER BY created_at;
+  AND (sqlc.narg('page_token')::uuid IS NULL OR id < sqlc.narg('page_token')::uuid)
+ORDER BY id DESC
+LIMIT sqlc.arg('row_limit')::int;
 
 -- name: GetCourseForUpdate :one
 SELECT * FROM courses
@@ -188,9 +192,11 @@ WHERE id = $1 AND deleted_at IS NULL;
 -- name: ListSections :many
 SELECT * FROM sections
 WHERE deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR id < sqlc.narg('page_token')::uuid)
   AND (sqlc.narg('course_id')::uuid IS NULL OR course_id = sqlc.narg('course_id')::uuid)
   AND (sqlc.narg('academic_period_id')::uuid IS NULL OR academic_period_id = sqlc.narg('academic_period_id')::uuid)
-ORDER BY created_at;
+ORDER BY id DESC
+LIMIT sqlc.arg('row_limit')::int;
 
 -- name: GetSectionForUpdate :one
 SELECT * FROM sections

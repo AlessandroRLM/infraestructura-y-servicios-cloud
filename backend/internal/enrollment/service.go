@@ -8,7 +8,33 @@ import (
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/enrollment/enrollmentdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pagination"
 )
+
+const (
+	// enrollmentPageSizeMin is the minimum effective page size for enrollment list operations.
+	enrollmentPageSizeMin = 20
+	// enrollmentPageSizeMax is the maximum effective page size for enrollment list operations.
+	enrollmentPageSizeMax = 200
+)
+
+// enrollmentClamp is the shared page-size clamp for enrollment list operations.
+var enrollmentClamp = pagination.Clamp{Min: enrollmentPageSizeMin, Max: enrollmentPageSizeMax}
+
+// ListEnrollmentsResult holds the paginated result for ListEnrollments.
+type ListEnrollmentsResult struct {
+	Enrollments   []enrollmentdb.Enrollment
+	NextPageToken string
+}
+
+// ListEnrollmentsFilter holds optional filter parameters for ListEnrollments.
+// A nil pointer means the filter is not applied.
+type ListEnrollmentsFilter struct {
+	StudentID *uuid.UUID
+	ProgramID *uuid.UUID
+	Year      *int32
+	Status    *string
+}
 
 // Service orchestrates enrollment business logic: validation, audit-column population,
 // self-scope enforcement, and delegation to the Repository.
@@ -72,19 +98,85 @@ func (s *Service) GetEnrollment(ctx context.Context, idStr string) (enrollmentdb
 	return s.repo.GetEnrollment(ctx, id)
 }
 
-// ListEnrollments returns live enrollments matching the optional filter.
-func (s *Service) ListEnrollments(ctx context.Context, f ListEnrollmentsFilter) ([]enrollmentdb.Enrollment, error) {
-	return s.repo.ListEnrollments(ctx, f)
+// ListEnrollments returns a paginated page of live enrollments ordered by id DESC.
+// pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// Returns ErrInvalidInput when the token cannot be parsed as a UUID.
+// All optional filters (student_id, program_id, year, status) are preserved alongside
+// the keyset cursor.
+func (s *Service) ListEnrollments(ctx context.Context, f ListEnrollmentsFilter, pageSize int32, pageToken string) (ListEnrollmentsResult, error) {
+	clamped := enrollmentClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListEnrollmentsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListEnrollments(ctx, ListEnrollmentsRepoParams{
+		PageToken: tokenUUID,
+		StudentID: f.StudentID,
+		ProgramID: f.ProgramID,
+		Year:      f.Year,
+		Status:    f.Status,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListEnrollmentsResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r enrollmentdb.Enrollment) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListEnrollmentsResult{
+		Enrollments:   page.Items,
+		NextPageToken: nextToken,
+	}, nil
 }
 
-// ListOwnEnrollments injects the calling user's ID from context as the student filter.
+// ListOwnEnrollments returns a paginated page of live enrollments for the authenticated
+// student. The student identity is injected from context; pageSize and pageToken follow
+// the same AIP-158 keyset rules as ListEnrollments.
 // Returns ErrNotFound when no authenticated user is present (fail-closed).
-func (s *Service) ListOwnEnrollments(ctx context.Context) ([]enrollmentdb.Enrollment, error) {
+func (s *Service) ListOwnEnrollments(ctx context.Context, pageSize int32, pageToken string) (ListEnrollmentsResult, error) {
 	userID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		return nil, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+		return ListEnrollmentsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
 	}
-	return s.repo.ListOwnEnrollments(ctx, userID)
+
+	clamped := enrollmentClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListEnrollmentsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListOwnEnrollments(ctx, ListOwnEnrollmentsRepoParams{
+		StudentID: userID,
+		PageToken: tokenUUID,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListEnrollmentsResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r enrollmentdb.Enrollment) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListEnrollmentsResult{
+		Enrollments:   page.Items,
+		NextPageToken: nextToken,
+	}, nil
 }
 
 // GetOwnEnrollment fetches the enrollment by id and verifies that it belongs to the

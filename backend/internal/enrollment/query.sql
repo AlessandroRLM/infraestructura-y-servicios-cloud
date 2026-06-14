@@ -42,13 +42,17 @@ SELECT * FROM enrollments WHERE id = $1 AND deleted_at IS NULL;
 -- name: ListEnrollments :many
 SELECT * FROM enrollments
 WHERE deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR id < sqlc.narg('page_token')::uuid)
   AND (sqlc.narg('student_id')::uuid IS NULL OR student_id = sqlc.narg('student_id')::uuid)
   AND (sqlc.narg('program_id')::uuid IS NULL OR program_id = sqlc.narg('program_id')::uuid)
   AND (sqlc.narg('year')::int IS NULL OR year = sqlc.narg('year')::int)
   AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status')::text)
-ORDER BY created_at;
+ORDER BY id DESC
+LIMIT sqlc.arg('row_limit')::int;
 
 -- name: ListOwnEnrollments :many
 SELECT * FROM enrollments
-WHERE student_id = $1 AND deleted_at IS NULL
-ORDER BY created_at;
+WHERE student_id = sqlc.arg('student_id')::uuid AND deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR id < sqlc.narg('page_token')::uuid)
+ORDER BY id DESC
+LIMIT sqlc.arg('row_limit')::int;

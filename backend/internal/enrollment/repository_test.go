@@ -100,7 +100,7 @@ func (f *fakeQuerier) ListEnrollments(_ context.Context, _ enrollmentdb.ListEnro
 	return f.listResult, f.listErr
 }
 
-func (f *fakeQuerier) ListOwnEnrollments(_ context.Context, _ pgtype.UUID) ([]enrollmentdb.Enrollment, error) {
+func (f *fakeQuerier) ListOwnEnrollments(_ context.Context, _ enrollmentdb.ListOwnEnrollmentsParams) ([]enrollmentdb.Enrollment, error) {
 	return f.listOwnResult, f.listOwnErr
 }
 
@@ -271,7 +271,7 @@ func TestListEnrollments_DelegatesWithFilter(t *testing.T) {
 	want := []enrollmentdb.Enrollment{{Status: "pending"}}
 	q := &fakeQuerier{listResult: want}
 	repo := &postgresRepository{q: q}
-	got, err := repo.ListEnrollments(context.Background(), ListEnrollmentsFilter{})
+	got, err := repo.ListEnrollments(context.Background(), ListEnrollmentsRepoParams{RowLimit: 21})
 	if err != nil {
 		t.Fatalf("ListEnrollments: %v", err)
 	}
@@ -291,11 +291,66 @@ func TestListOwnEnrollments_Delegates(t *testing.T) {
 	want := []enrollmentdb.Enrollment{{StudentID: pgUUID(studentID)}}
 	q := &fakeQuerier{listOwnResult: want}
 	repo := &postgresRepository{q: q}
-	got, err := repo.ListOwnEnrollments(context.Background(), studentID)
+	got, err := repo.ListOwnEnrollments(context.Background(), ListOwnEnrollmentsRepoParams{StudentID: studentID, RowLimit: 21})
 	if err != nil {
 		t.Fatalf("ListOwnEnrollments: %v", err)
 	}
 	if len(got) != len(want) {
 		t.Errorf("ListOwnEnrollments: got %d rows, want %d", len(got), len(want))
+	}
+}
+
+// ---- ListEnrollments pagination repo unit tests ----
+
+// TestListEnrollments_RowLimitPropagated verifies that the RowLimit from the params
+// is forwarded to the querier.
+func TestListEnrollments_RowLimitPropagated(t *testing.T) {
+	want := []enrollmentdb.Enrollment{{Status: "pending"}}
+	q := &fakeQuerier{listResult: want}
+	repo := &postgresRepository{q: q}
+
+	_, err := repo.ListEnrollments(context.Background(), ListEnrollmentsRepoParams{RowLimit: 21})
+	if err != nil {
+		t.Fatalf("ListEnrollments: %v", err)
+	}
+	if !q.listCalled {
+		t.Error("querier.ListEnrollments was not called")
+	}
+}
+
+// TestListEnrollments_TokenTranslation verifies that a *uuid.UUID PageToken is
+// translated to a valid pgtype.UUID in the querier call.
+func TestListEnrollments_TokenTranslation(t *testing.T) {
+	token := uuid.New()
+	q := &fakeQuerier{listResult: []enrollmentdb.Enrollment{}}
+	repo := &postgresRepository{q: q}
+
+	_, err := repo.ListEnrollments(context.Background(), ListEnrollmentsRepoParams{
+		PageToken: &token,
+		RowLimit:  21,
+	})
+	if err != nil {
+		t.Fatalf("ListEnrollments with token: %v", err)
+	}
+	if !q.listCalled {
+		t.Error("querier.ListEnrollments was not called")
+	}
+}
+
+// TestListOwnEnrollments_TokenTranslation verifies that a *uuid.UUID PageToken is
+// translated to a valid pgtype.UUID for the own-enrollments query.
+func TestListOwnEnrollments_TokenTranslation(t *testing.T) {
+	studentID := uuid.New()
+	token := uuid.New()
+	q := &fakeQuerier{listOwnResult: []enrollmentdb.Enrollment{}}
+	repo := &postgresRepository{q: q}
+
+	_, err := repo.ListOwnEnrollments(context.Background(), ListOwnEnrollmentsRepoParams{
+		StudentID: studentID,
+		PageToken: &token,
+		RowLimit:  21,
+	})
+	if err != nil {
+		t.Fatalf("ListOwnEnrollments with token: %v", err)
 	}
 }

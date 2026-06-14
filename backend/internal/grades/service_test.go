@@ -58,6 +58,18 @@ type fakeRepository struct {
 	listForSectionByTeacherRows   []gradesdb.Grade
 	listForSectionByTeacherErr    error
 
+	listForSectionPagedCalled bool
+	listForSectionPagedRows   []gradesdb.Grade
+	listForSectionPagedErr    error
+
+	listForSectionByTeacherPagedCalled bool
+	listForSectionByTeacherPagedRows   []gradesdb.Grade
+	listForSectionByTeacherPagedErr    error
+
+	listOwnPagedCalled bool
+	listOwnPagedRows   []gradesdb.Grade
+	listOwnPagedErr    error
+
 	getGradeCalled bool
 	getGradeResult gradesdb.Grade
 	getGradeErr    error
@@ -103,6 +115,21 @@ func (f *fakeRepository) ListGradesForSection(_ context.Context, _ uuid.UUID) ([
 func (f *fakeRepository) ListGradesForSectionByTeacher(_ context.Context, _, _ uuid.UUID) ([]gradesdb.Grade, error) {
 	f.listForSectionByTeacherCalled = true
 	return f.listForSectionByTeacherRows, f.listForSectionByTeacherErr
+}
+
+func (f *fakeRepository) ListGradesForSectionPaged(_ context.Context, _ ListGradesForSectionRepoParams) ([]gradesdb.Grade, error) {
+	f.listForSectionPagedCalled = true
+	return f.listForSectionPagedRows, f.listForSectionPagedErr
+}
+
+func (f *fakeRepository) ListGradesForSectionByTeacherPaged(_ context.Context, _ ListGradesForSectionByTeacherRepoParams) ([]gradesdb.Grade, error) {
+	f.listForSectionByTeacherPagedCalled = true
+	return f.listForSectionByTeacherPagedRows, f.listForSectionByTeacherPagedErr
+}
+
+func (f *fakeRepository) ListOwnGradesPaged(_ context.Context, _ ListOwnGradesRepoParams) ([]gradesdb.Grade, error) {
+	f.listOwnPagedCalled = true
+	return f.listOwnPagedRows, f.listOwnPagedErr
 }
 
 func (f *fakeRepository) GetGrade(_ context.Context, _ uuid.UUID) (gradesdb.Grade, error) {
@@ -438,6 +465,194 @@ func TestService_OverrideGrade_Delegates(t *testing.T) {
 
 	if !repo.recordGradeCalled {
 		t.Error("OverrideGrade must delegate to RecordGradeTx")
+	}
+}
+
+// =====================================================================================
+// ListGradesForSection pagination — service unit tests
+// =====================================================================================
+
+func TestService_ListGradesForSection_InvalidToken_DoesNotCallRepo(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListGradesForSection(ctx, uuid.New().String(), 20, "not-a-uuid")
+	if repo.listForSectionPagedCalled || repo.listForSectionByTeacherPagedCalled {
+		t.Error("repository must not be called when page_token is invalid")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("ListGradesForSection(bad token) = %v; want ErrInvalidInput", err)
+	}
+}
+
+func TestService_ListGradesForSection_InvalidSectionID_DoesNotCallRepo(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListGradesForSection(ctx, "not-a-uuid", 20, "")
+	if repo.listForSectionPagedCalled || repo.listForSectionByTeacherPagedCalled {
+		t.Error("repository must not be called when section_id is invalid")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("ListGradesForSection(bad section_id) = %v; want ErrInvalidInput", err)
+	}
+}
+
+func TestService_ListGradesForSection_NoUser_DoesNotCallRepo(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	// No user in context (non-admin path requires a user).
+	_, err := svc.ListGradesForSection(context.Background(), uuid.New().String(), 20, "")
+	if repo.listForSectionByTeacherPagedCalled {
+		t.Error("repository must not be called when user is absent from context (non-admin)")
+	}
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("ListGradesForSection(no user) = %v; want ErrNotFound", err)
+	}
+}
+
+func TestService_ListGradesForSection_ClampMin_AppliedBeforeRepoCall(t *testing.T) {
+	t.Parallel()
+
+	rows := make([]gradesdb.Grade, 25)
+	for i := range rows {
+		rows[i] = gradesdb.Grade{}
+	}
+	repo := &fakeRepository{listForSectionByTeacherPagedRows: rows}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	result, err := svc.ListGradesForSection(ctx, uuid.New().String(), 0, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repo.listForSectionByTeacherPagedCalled {
+		t.Fatal("ListGradesForSectionByTeacherPaged must be called")
+	}
+	// With 25 rows returned and page_size=0 clamped to 20, HasNext=true and Items=20.
+	if len(result.Grades) != 20 {
+		t.Errorf("got %d grades, want 20 (clamped min)", len(result.Grades))
+	}
+	if result.NextPageToken == "" {
+		t.Error("next_page_token must be non-empty when HasNext=true")
+	}
+}
+
+func TestService_ListGradesForSection_LastPage_EmptyToken(t *testing.T) {
+	t.Parallel()
+
+	rows := make([]gradesdb.Grade, 5)
+	repo := &fakeRepository{listForSectionByTeacherPagedRows: rows}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	result, err := svc.ListGradesForSection(ctx, uuid.New().String(), 20, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.NextPageToken != "" {
+		t.Errorf("next_page_token should be empty on last page, got %q", result.NextPageToken)
+	}
+}
+
+// =====================================================================================
+// ListOwnGrades pagination — service unit tests
+// =====================================================================================
+
+func TestService_ListOwnGrades_InvalidToken_DoesNotCallRepo(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListOwnGrades(ctx, 20, "not-a-uuid")
+	if repo.listOwnPagedCalled {
+		t.Error("repository must not be called when page_token is invalid")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("ListOwnGrades(bad token) = %v; want ErrInvalidInput", err)
+	}
+}
+
+func TestService_ListOwnGrades_NoUser_DoesNotCallRepo(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	_, err := svc.ListOwnGrades(context.Background(), 20, "")
+	if repo.listOwnPagedCalled {
+		t.Error("repository must not be called when user is absent from context")
+	}
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("ListOwnGrades(no user) = %v; want ErrNotFound", err)
+	}
+}
+
+func TestService_ListOwnGrades_ClampMin_AppliedBeforeRepoCall(t *testing.T) {
+	t.Parallel()
+
+	rows := make([]gradesdb.Grade, 25)
+	repo := &fakeRepository{listOwnPagedRows: rows}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	result, err := svc.ListOwnGrades(ctx, 0, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repo.listOwnPagedCalled {
+		t.Fatal("ListOwnGradesPaged must be called")
+	}
+	if len(result.Grades) != 20 {
+		t.Errorf("got %d grades, want 20 (clamped min)", len(result.Grades))
+	}
+	if result.NextPageToken == "" {
+		t.Error("next_page_token must be non-empty when HasNext=true")
+	}
+}
+
+func TestService_ListOwnGrades_LastPage_EmptyToken(t *testing.T) {
+	t.Parallel()
+
+	rows := make([]gradesdb.Grade, 3)
+	repo := &fakeRepository{listOwnPagedRows: rows}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	result, err := svc.ListOwnGrades(ctx, 20, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.NextPageToken != "" {
+		t.Errorf("next_page_token should be empty on last page, got %q", result.NextPageToken)
+	}
+}
+
+func TestService_ListOwnGrades_ValidToken_ForwardedToRepo(t *testing.T) {
+	t.Parallel()
+
+	token := uuid.New()
+	repo := &fakeRepository{listOwnPagedRows: []gradesdb.Grade{}}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListOwnGrades(ctx, 20, token.String())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repo.listOwnPagedCalled {
+		t.Fatal("ListOwnGradesPaged must be called with a valid token")
 	}
 }
 

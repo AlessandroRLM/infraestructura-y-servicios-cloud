@@ -32,11 +32,13 @@ type Repository interface {
 	// GetEnrollment returns a live enrollment by id. Soft-deleted rows return ErrNotFound.
 	GetEnrollment(ctx context.Context, id uuid.UUID) (enrollmentdb.Enrollment, error)
 
-	// ListEnrollments returns live enrollments matching the optional filter.
-	ListEnrollments(ctx context.Context, f ListEnrollmentsFilter) ([]enrollmentdb.Enrollment, error)
+	// ListEnrollments returns a page of live enrollments matching the optional filter.
+	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
+	ListEnrollments(ctx context.Context, p ListEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error)
 
-	// ListOwnEnrollments returns all live enrollments for the given student.
-	ListOwnEnrollments(ctx context.Context, studentID uuid.UUID) ([]enrollmentdb.Enrollment, error)
+	// ListOwnEnrollments returns a page of live enrollments for the given student.
+	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
+	ListOwnEnrollments(ctx context.Context, p ListOwnEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error)
 }
 
 // CreateEnrollmentParams holds the validated inputs for a new enrollment.
@@ -46,13 +48,31 @@ type CreateEnrollmentParams struct {
 	Year      int32
 }
 
-// ListEnrollmentsFilter holds optional filter parameters for ListEnrollments.
-// A nil pointer means the filter is not applied.
-type ListEnrollmentsFilter struct {
+// ListEnrollmentsRepoParams holds keyset pagination and optional filter parameters
+// for ListEnrollments.
+type ListEnrollmentsRepoParams struct {
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// StudentID optionally filters by student; nil = all students.
 	StudentID *uuid.UUID
+	// ProgramID optionally filters by program; nil = all programs.
 	ProgramID *uuid.UUID
-	Year      *int32
-	Status    *string
+	// Year optionally filters by enrollment year; nil = all years.
+	Year *int32
+	// Status optionally filters by status string; nil = all statuses.
+	Status *string
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
+}
+
+// ListOwnEnrollmentsRepoParams holds keyset pagination parameters for ListOwnEnrollments.
+type ListOwnEnrollmentsRepoParams struct {
+	// StudentID is the owner of the enrollments to return (required).
+	StudentID uuid.UUID
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
 }
 
 // postgresRepository is the production implementation backed by a sqlc Querier and a
@@ -216,20 +236,26 @@ func (r *postgresRepository) GetEnrollment(ctx context.Context, id uuid.UUID) (e
 	return row, nil
 }
 
-// ListEnrollments returns live enrollments filtered by optional criteria.
-func (r *postgresRepository) ListEnrollments(ctx context.Context, f ListEnrollmentsFilter) ([]enrollmentdb.Enrollment, error) {
-	params := enrollmentdb.ListEnrollmentsParams{}
-	if f.StudentID != nil {
-		params.StudentID = pgtype.UUID{Bytes: *f.StudentID, Valid: true}
+// ListEnrollments returns a page of live enrollments matching the optional filter.
+// The keyset cursor (PageToken) is translated to a pgtype.UUID for the sqlc query.
+func (r *postgresRepository) ListEnrollments(ctx context.Context, p ListEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error) {
+	params := enrollmentdb.ListEnrollmentsParams{
+		RowLimit: p.RowLimit,
 	}
-	if f.ProgramID != nil {
-		params.ProgramID = pgtype.UUID{Bytes: *f.ProgramID, Valid: true}
+	if p.PageToken != nil {
+		params.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
 	}
-	if f.Year != nil {
-		params.Year = pgtype.Int4{Int32: *f.Year, Valid: true}
+	if p.StudentID != nil {
+		params.StudentID = pgtype.UUID{Bytes: *p.StudentID, Valid: true}
 	}
-	if f.Status != nil {
-		params.Status = pgtype.Text{String: *f.Status, Valid: true}
+	if p.ProgramID != nil {
+		params.ProgramID = pgtype.UUID{Bytes: *p.ProgramID, Valid: true}
+	}
+	if p.Year != nil {
+		params.Year = pgtype.Int4{Int32: *p.Year, Valid: true}
+	}
+	if p.Status != nil {
+		params.Status = pgtype.Text{String: *p.Status, Valid: true}
 	}
 	rows, err := r.q.ListEnrollments(ctx, params)
 	if err != nil {
@@ -238,9 +264,17 @@ func (r *postgresRepository) ListEnrollments(ctx context.Context, f ListEnrollme
 	return rows, nil
 }
 
-// ListOwnEnrollments returns all live enrollments for the given student.
-func (r *postgresRepository) ListOwnEnrollments(ctx context.Context, studentID uuid.UUID) ([]enrollmentdb.Enrollment, error) {
-	rows, err := r.q.ListOwnEnrollments(ctx, pgtype.UUID{Bytes: studentID, Valid: true})
+// ListOwnEnrollments returns a page of live enrollments for the given student.
+// The keyset cursor (PageToken) is translated to a pgtype.UUID for the sqlc query.
+func (r *postgresRepository) ListOwnEnrollments(ctx context.Context, p ListOwnEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error) {
+	params := enrollmentdb.ListOwnEnrollmentsParams{
+		StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
+		RowLimit:  p.RowLimit,
+	}
+	if p.PageToken != nil {
+		params.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListOwnEnrollments(ctx, params)
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}

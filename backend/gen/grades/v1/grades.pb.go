@@ -861,8 +861,14 @@ func (x *OverrideGradeResponse) GetGrade() *Grade {
 }
 
 type ListGradesForSectionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SectionId     string                 `protobuf:"bytes,1,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	SectionId string                 `protobuf:"bytes,1,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
+	// page_size controls the maximum number of grades returned per page.
+	// Values ≤ 0 are clamped to 20; values > 200 are clamped to 200.
+	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// page_token is the opaque cursor from the previous page's next_page_token.
+	// Omit or leave empty to start from the most recent grades.
+	PageToken     string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -904,9 +910,26 @@ func (x *ListGradesForSectionRequest) GetSectionId() string {
 	return ""
 }
 
+func (x *ListGradesForSectionRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListGradesForSectionRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
 type ListGradesForSectionResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Grades        []*Grade               `protobuf:"bytes,1,rep,name=grades,proto3" json:"grades,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Grades []*Grade               `protobuf:"bytes,1,rep,name=grades,proto3" json:"grades,omitempty"`
+	// next_page_token is non-empty when additional pages exist.
+	// Pass it as page_token in the next request to continue.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -946,6 +969,13 @@ func (x *ListGradesForSectionResponse) GetGrades() []*Grade {
 		return x.Grades
 	}
 	return nil
+}
+
+func (x *ListGradesForSectionResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
 }
 
 type GetGradeRequest struct {
@@ -1037,7 +1067,13 @@ func (x *GetGradeResponse) GetGrade() *Grade {
 }
 
 type ListOwnGradesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// page_size controls the maximum number of grades returned per page.
+	// Values ≤ 0 are clamped to 20; values > 200 are clamped to 200.
+	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// page_token is the opaque cursor from the previous page's next_page_token.
+	// Omit or leave empty to start from the most recent grades.
+	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1072,9 +1108,26 @@ func (*ListOwnGradesRequest) Descriptor() ([]byte, []int) {
 	return file_grades_v1_grades_proto_rawDescGZIP(), []int{18}
 }
 
+func (x *ListOwnGradesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListOwnGradesRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
 type ListOwnGradesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Grades        []*OwnGrade            `protobuf:"bytes,1,rep,name=grades,proto3" json:"grades,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Grades []*OwnGrade            `protobuf:"bytes,1,rep,name=grades,proto3" json:"grades,omitempty"`
+	// next_page_token is non-empty when additional pages exist.
+	// Pass it as page_token in the next request to continue.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1114,6 +1167,13 @@ func (x *ListOwnGradesResponse) GetGrades() []*OwnGrade {
 		return x.Grades
 	}
 	return nil
+}
+
+func (x *ListOwnGradesResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
 }
 
 var File_grades_v1_grades_proto protoreflect.FileDescriptor
@@ -1183,19 +1243,27 @@ const file_grades_v1_grades_proto_rawDesc = "" +
 	"\x10expected_version\x18\x04 \x01(\x05H\x00R\x0fexpectedVersion\x88\x01\x01B\x13\n" +
 	"\x11_expected_version\"?\n" +
 	"\x15OverrideGradeResponse\x12&\n" +
-	"\x05grade\x18\x01 \x01(\v2\x10.grades.v1.GradeR\x05grade\"<\n" +
+	"\x05grade\x18\x01 \x01(\v2\x10.grades.v1.GradeR\x05grade\"x\n" +
 	"\x1bListGradesForSectionRequest\x12\x1d\n" +
 	"\n" +
-	"section_id\x18\x01 \x01(\tR\tsectionId\"H\n" +
+	"section_id\x18\x01 \x01(\tR\tsectionId\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\"p\n" +
 	"\x1cListGradesForSectionResponse\x12(\n" +
-	"\x06grades\x18\x01 \x03(\v2\x10.grades.v1.GradeR\x06grades\"!\n" +
+	"\x06grades\x18\x01 \x03(\v2\x10.grades.v1.GradeR\x06grades\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"!\n" +
 	"\x0fGetGradeRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\":\n" +
 	"\x10GetGradeResponse\x12&\n" +
-	"\x05grade\x18\x01 \x01(\v2\x10.grades.v1.GradeR\x05grade\"\x16\n" +
-	"\x14ListOwnGradesRequest\"D\n" +
+	"\x05grade\x18\x01 \x01(\v2\x10.grades.v1.GradeR\x05grade\"R\n" +
+	"\x14ListOwnGradesRequest\x12\x1b\n" +
+	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\"l\n" +
 	"\x15ListOwnGradesResponse\x12+\n" +
-	"\x06grades\x18\x01 \x03(\v2\x13.grades.v1.OwnGradeR\x06grades2\xf1\x05\n" +
+	"\x06grades\x18\x01 \x03(\v2\x13.grades.v1.OwnGradeR\x06grades\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xf1\x05\n" +
 	"\rGradesService\x12m\n" +
 	"\x16CreateEvaluationScheme\x12(.grades.v1.CreateEvaluationSchemeRequest\x1a).grades.v1.CreateEvaluationSchemeResponse\x12s\n" +
 	"\x18RecreateEvaluationScheme\x12*.grades.v1.RecreateEvaluationSchemeRequest\x1a+.grades.v1.RecreateEvaluationSchemeResponse\x12X\n" +

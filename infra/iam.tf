@@ -36,6 +36,7 @@ locals {
   container_engine_robot_sa = "service-${data.google_project.project.number}@container-engine-robot.iam.gserviceaccount.com"
   gcs_service_agent_sa      = "service-${data.google_project.project.number}@gs-project-accounts.iam.gserviceaccount.com"
   compute_service_agent_sa  = "service-${data.google_project.project.number}@compute-system.iam.gserviceaccount.com"
+  artifact_registry_sa      = "service-${data.google_project.project.number}@gcp-sa-artifactregistry.iam.gserviceaccount.com"
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -60,10 +61,12 @@ resource "google_project_iam_member" "gke_node_monitoring_viewer" {
   member  = "serviceAccount:${google_service_account.gke_node.email}"
 }
 
-resource "google_project_iam_member" "gke_node_ar_reader" {
-  project = var.project_id
-  role    = "roles/artifactregistry.reader"
-  member  = "serviceAccount:${google_service_account.gke_node.email}"
+resource "google_artifact_registry_repository_iam_member" "gke_node_ar_reader" {
+  location   = google_artifact_registry_repository.academico.location
+  repository = google_artifact_registry_repository.academico.name
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${google_service_account.gke_node.email}"
+  project    = var.project_id
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -92,6 +95,15 @@ resource "google_storage_bucket_iam_member" "ops_gcs_writer" {
   member = "serviceAccount:${google_service_account.ops.email}"
 }
 
+# container.developer is the minimal standard role that allows pods/exec on the cluster.
+# AWS S3 credentials for the ops VM are provisioned out-of-band (Secret Manager →
+# injected at boot) and must NOT be managed in Terraform state. (C-1)
+resource "google_project_iam_member" "ops_container_developer" {
+  project = var.project_id
+  role    = "roles/container.developer"
+  member  = "serviceAccount:${google_service_account.ops.email}"
+}
+
 # ────────────────────────────────────────────────────────────────────────────
 # KMS IAM — GKE etcd CMEK
 # ────────────────────────────────────────────────────────────────────────────
@@ -110,6 +122,16 @@ resource "google_kms_crypto_key_iam_member" "gcs_sa_encrypt_decrypt" {
   crypto_key_id = google_kms_crypto_key.storage.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   member        = "serviceAccount:${local.gcs_service_agent_sa}"
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# KMS IAM — Artifact Registry CMEK
+# ────────────────────────────────────────────────────────────────────────────
+
+resource "google_kms_crypto_key_iam_member" "ar_sa_encrypt_decrypt" {
+  crypto_key_id = google_kms_crypto_key.storage.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  member        = "serviceAccount:${local.artifact_registry_sa}"
 }
 
 # ────────────────────────────────────────────────────────────────────────────

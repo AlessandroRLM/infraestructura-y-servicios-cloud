@@ -10,7 +10,36 @@ import (
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog/catalogdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pagination"
 )
+
+const (
+	// catalogPageSizeMin is the minimum effective page size for catalog list operations.
+	catalogPageSizeMin = 20
+	// catalogPageSizeMax is the maximum effective page size for catalog list operations.
+	catalogPageSizeMax = 200
+)
+
+// catalogClamp is the shared page-size clamp for catalog list operations.
+var catalogClamp = pagination.Clamp{Min: catalogPageSizeMin, Max: catalogPageSizeMax}
+
+// ListProgramsResult holds the paginated result for ListPrograms.
+type ListProgramsResult struct {
+	Programs      []catalogdb.Program
+	NextPageToken string
+}
+
+// ListCoursesResult holds the paginated result for ListCourses.
+type ListCoursesResult struct {
+	Courses       []catalogdb.Course
+	NextPageToken string
+}
+
+// ListSectionsResult holds the paginated result for ListSections.
+type ListSectionsResult struct {
+	Sections      []catalogdb.Section
+	NextPageToken string
+}
 
 // Service orchestrates catalog business logic: validation, audit-column population,
 // dependent-blocking soft-delete enforcement, and repository delegation.
@@ -85,9 +114,38 @@ func (s *Service) GetProgram(ctx context.Context, id uuid.UUID) (catalogdb.Progr
 	return s.repo.GetProgram(ctx, id)
 }
 
-// ListPrograms returns all live programs.
-func (s *Service) ListPrograms(ctx context.Context) ([]catalogdb.Program, error) {
-	return s.repo.ListPrograms(ctx)
+// ListPrograms returns a paginated page of live programs ordered by id DESC.
+// pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// Returns ErrInvalidInput when the token cannot be parsed as a UUID.
+func (s *Service) ListPrograms(ctx context.Context, pageSize int32, pageToken string) (ListProgramsResult, error) {
+	clamped := catalogClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListProgramsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListPrograms(ctx, ListProgramsRepoParams{
+		PageToken: tokenUUID,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListProgramsResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r catalogdb.Program) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListProgramsResult{
+		Programs:      page.Items,
+		NextPageToken: nextToken,
+	}, nil
 }
 
 // DeleteProgram soft-deletes a program in a single transaction that holds a row lock
@@ -132,9 +190,38 @@ func (s *Service) GetCourse(ctx context.Context, id uuid.UUID) (catalogdb.Course
 	return s.repo.GetCourse(ctx, id)
 }
 
-// ListCourses returns all live courses.
-func (s *Service) ListCourses(ctx context.Context) ([]catalogdb.Course, error) {
-	return s.repo.ListCourses(ctx)
+// ListCourses returns a paginated page of live courses ordered by id DESC.
+// pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// Returns ErrInvalidInput when the token cannot be parsed as a UUID.
+func (s *Service) ListCourses(ctx context.Context, pageSize int32, pageToken string) (ListCoursesResult, error) {
+	clamped := catalogClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListCoursesResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListCourses(ctx, ListCoursesRepoParams{
+		PageToken: tokenUUID,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListCoursesResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r catalogdb.Course) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListCoursesResult{
+		Courses:       page.Items,
+		NextPageToken: nextToken,
+	}, nil
 }
 
 // DeleteCourse soft-deletes a course in a single transaction that holds a row lock
@@ -317,10 +404,41 @@ func (s *Service) GetSection(ctx context.Context, id uuid.UUID) (catalogdb.Secti
 	return s.repo.GetSection(ctx, id)
 }
 
-// ListSections returns live sections, optionally filtered by course or academic period.
-// Nil filters return all live sections.
-func (s *Service) ListSections(ctx context.Context, courseID *uuid.UUID, academicPeriodID *uuid.UUID) ([]catalogdb.Section, error) {
-	return s.repo.ListSections(ctx, courseID, academicPeriodID)
+// ListSections returns a paginated page of live sections ordered by id DESC.
+// courseID and academicPeriodID are optional filters preserved from the original contract.
+// pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// Returns ErrInvalidInput when the token cannot be parsed as a UUID.
+func (s *Service) ListSections(ctx context.Context, courseID *uuid.UUID, academicPeriodID *uuid.UUID, pageSize int32, pageToken string) (ListSectionsResult, error) {
+	clamped := catalogClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListSectionsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListSections(ctx, ListSectionsRepoParams{
+		PageToken:        tokenUUID,
+		CourseID:         courseID,
+		AcademicPeriodID: academicPeriodID,
+		RowLimit:         int32(clamped + 1),
+	})
+	if err != nil {
+		return ListSectionsResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r catalogdb.Section) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListSectionsResult{
+		Sections:      page.Items,
+		NextPageToken: nextToken,
+	}, nil
 }
 
 // DeleteSection soft-deletes a section in a single transaction that holds a row lock

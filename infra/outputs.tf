@@ -38,3 +38,8 @@ output "kms_storage_key_id" {
   description = "KMS crypto key ID for GCS CMEK."
   value       = google_kms_crypto_key.storage.id
 }
+
+output "artifact_registry_url" {
+  description = "Artifact Registry base URL for Docker images (region-docker.pkg.dev/project/repo)."
+  value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.academico.repository_id}"
+}

@@ -13,8 +13,10 @@ resources:
 
 images:
   - name: academico/api
+    newName: us-central1-docker.pkg.dev/PROJECT_ID/academico/api
     newTag: "1.0.0"
   - name: academico/web
+    newName: us-central1-docker.pkg.dev/PROJECT_ID/academico/web
     newTag: "1.0.0"
 
 components:

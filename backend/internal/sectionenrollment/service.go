@@ -9,8 +9,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pagination"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
+
+const (
+	// sectionEnrollmentPageSizeMin is the minimum effective page size for list operations.
+	sectionEnrollmentPageSizeMin = 20
+	// sectionEnrollmentPageSizeMax is the maximum effective page size for list operations.
+	sectionEnrollmentPageSizeMax = 200
+)
+
+// sectionEnrollmentClamp is the shared page-size clamp for section_enrollment list operations.
+var sectionEnrollmentClamp = pagination.Clamp{Min: sectionEnrollmentPageSizeMin, Max: sectionEnrollmentPageSizeMax}
+
+// ListSectionEnrollmentsResult holds the paginated result for ListSectionEnrollments and
+// ListOwnSectionEnrollments.
+type ListSectionEnrollmentsResult struct {
+	SectionEnrollments []sectionenrollmentdb.SectionEnrollment
+	NextPageToken      string
+}
 
 // Service orchestrates section_enrollment business logic: UUID validation, self-scope
 // enforcement, and delegation to the Repository.
@@ -54,14 +72,45 @@ func (s *Service) EnrollOwnSection(ctx context.Context, sectionIDStr, programIDS
 	}, false)
 }
 
-// ListOwnSectionEnrollments returns all live inscriptions for the authenticated student.
-// Student identity is derived exclusively from the context.
-func (s *Service) ListOwnSectionEnrollments(ctx context.Context) ([]sectionenrollmentdb.SectionEnrollment, error) {
+// ListOwnSectionEnrollments returns a paginated page of live inscriptions for the authenticated
+// student. Student identity is derived exclusively from the context.
+// pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// Returns ErrNotFound when no authenticated user is present (fail-closed).
+func (s *Service) ListOwnSectionEnrollments(ctx context.Context, pageSize int32, pageToken string) (ListSectionEnrollmentsResult, error) {
 	callerID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		return nil, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+		return ListSectionEnrollmentsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
 	}
-	return s.repo.ListOwnSectionEnrollments(ctx, callerID)
+
+	clamped := sectionEnrollmentClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListSectionEnrollmentsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListOwnSectionEnrollments(ctx, ListOwnSectionEnrollmentsRepoParams{
+		StudentID: callerID,
+		PageToken: tokenUUID,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListSectionEnrollmentsResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r sectionenrollmentdb.SectionEnrollment) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListSectionEnrollmentsResult{
+		SectionEnrollments: page.Items,
+		NextPageToken:      nextToken,
+	}, nil
 }
 
 // GetOwnSectionEnrollment fetches an inscription by id and verifies ownership.
@@ -83,9 +132,14 @@ func (s *Service) GetOwnSectionEnrollment(ctx context.Context, idStr string) (se
 		return sectionenrollmentdb.SectionEnrollment{}, err
 	}
 
-	// Ownership check: verify the inscription is in the caller's own-scoped list.
-	// Using ListOwnSectionEnrollments to avoid exposing existence to non-owners.
-	ownRows, err := s.repo.ListOwnSectionEnrollments(ctx, callerID)
+	// Ownership check: fetch the first page of the caller's own inscriptions and verify
+	// the fetched row appears in the caller's scope. Using the max page size to avoid
+	// false negatives on students with many inscriptions; the repo-level call avoids
+	// inflating the service result type.
+	ownRows, err := s.repo.ListOwnSectionEnrollments(ctx, ListOwnSectionEnrollmentsRepoParams{
+		StudentID: callerID,
+		RowLimit:  int32(sectionEnrollmentPageSizeMax + 1),
+	})
 	if err != nil {
 		return sectionenrollmentdb.SectionEnrollment{}, err
 	}
@@ -134,9 +188,42 @@ func (s *Service) GetSectionEnrollment(ctx context.Context, idStr string) (secti
 	return s.repo.GetSectionEnrollment(ctx, id)
 }
 
-// ListSectionEnrollments returns live inscriptions with optional filters (admin path).
-func (s *Service) ListSectionEnrollments(ctx context.Context, f ListSectionEnrollmentsFilter) ([]sectionenrollmentdb.SectionEnrollment, error) {
-	return s.repo.ListSectionEnrollments(ctx, f)
+// ListSectionEnrollments returns a paginated page of live inscriptions with optional filters
+// (admin path). pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// Returns ErrInvalidInput when the token cannot be parsed as a UUID.
+// All optional filters (section_id, enrollment_id, status) are preserved alongside the keyset cursor.
+func (s *Service) ListSectionEnrollments(ctx context.Context, f ListSectionEnrollmentsFilter, pageSize int32, pageToken string) (ListSectionEnrollmentsResult, error) {
+	clamped := sectionEnrollmentClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListSectionEnrollmentsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListSectionEnrollments(ctx, ListSectionEnrollmentsRepoParams{
+		PageToken:    tokenUUID,
+		SectionID:    f.SectionID,
+		EnrollmentID: f.EnrollmentID,
+		Status:       f.Status,
+		RowLimit:     int32(clamped + 1),
+	})
+	if err != nil {
+		return ListSectionEnrollmentsResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r sectionenrollmentdb.SectionEnrollment) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListSectionEnrollmentsResult{
+		SectionEnrollments: page.Items,
+		NextPageToken:      nextToken,
+	}, nil
 }
 
 // SetSectionEnrollmentOutcomeTx transitions a section_enrollment to passed or failed

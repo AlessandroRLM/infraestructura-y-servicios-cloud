@@ -38,11 +38,13 @@ type Repository interface {
 	// GetSectionEnrollment returns a live inscription by id. Soft-deleted rows return ErrNotFound.
 	GetSectionEnrollment(ctx context.Context, id uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error)
 
-	// ListSectionEnrollments returns live inscriptions matching the optional filter.
-	ListSectionEnrollments(ctx context.Context, f ListSectionEnrollmentsFilter) ([]sectionenrollmentdb.SectionEnrollment, error)
+	// ListSectionEnrollments returns a page of live inscriptions matching the optional filter.
+	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
+	ListSectionEnrollments(ctx context.Context, p ListSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.SectionEnrollment, error)
 
-	// ListOwnSectionEnrollments returns all live inscriptions for the given student.
-	ListOwnSectionEnrollments(ctx context.Context, studentID uuid.UUID) ([]sectionenrollmentdb.SectionEnrollment, error)
+	// ListOwnSectionEnrollments returns a page of live inscriptions for the given student.
+	// Keyset pagination: results are ordered by se.id DESC; PageToken is the exclusive upper bound.
+	ListOwnSectionEnrollments(ctx context.Context, p ListOwnSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.SectionEnrollment, error)
 
 	// GetOwnSectionEnrollment returns a live inscription by id without the ownership check
 	// (ownership is enforced by the service). It is distinct from GetSectionEnrollment to
@@ -70,6 +72,29 @@ type ListSectionEnrollmentsFilter struct {
 	SectionID    *uuid.UUID
 	EnrollmentID *uuid.UUID
 	Status       *string
+}
+
+// ListSectionEnrollmentsRepoParams holds keyset pagination and optional filter parameters
+// for ListSectionEnrollments.
+type ListSectionEnrollmentsRepoParams struct {
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken    *uuid.UUID
+	SectionID    *uuid.UUID
+	EnrollmentID *uuid.UUID
+	Status       *string
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
+}
+
+// ListOwnSectionEnrollmentsRepoParams holds keyset pagination parameters for
+// ListOwnSectionEnrollments.
+type ListOwnSectionEnrollmentsRepoParams struct {
+	// StudentID is the owner of the inscriptions to return (required).
+	StudentID uuid.UUID
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
 }
 
 // postgresRepository is the production implementation backed by a sqlc Querier and
@@ -328,17 +353,22 @@ func (r *postgresRepository) GetOwnSectionEnrollment(ctx context.Context, id uui
 	return r.GetSectionEnrollment(ctx, id)
 }
 
-// ListSectionEnrollments returns live inscriptions filtered by optional criteria.
-func (r *postgresRepository) ListSectionEnrollments(ctx context.Context, f ListSectionEnrollmentsFilter) ([]sectionenrollmentdb.SectionEnrollment, error) {
-	params := sectionenrollmentdb.ListSectionEnrollmentsParams{}
-	if f.SectionID != nil {
-		params.SectionID = pgtype.UUID{Bytes: *f.SectionID, Valid: true}
+// ListSectionEnrollments returns a page of live inscriptions filtered by optional criteria.
+func (r *postgresRepository) ListSectionEnrollments(ctx context.Context, p ListSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.SectionEnrollment, error) {
+	params := sectionenrollmentdb.ListSectionEnrollmentsParams{
+		RowLimit: p.RowLimit,
 	}
-	if f.EnrollmentID != nil {
-		params.EnrollmentID = pgtype.UUID{Bytes: *f.EnrollmentID, Valid: true}
+	if p.PageToken != nil {
+		params.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
 	}
-	if f.Status != nil {
-		params.Status = pgtype.Text{String: *f.Status, Valid: true}
+	if p.SectionID != nil {
+		params.SectionID = pgtype.UUID{Bytes: *p.SectionID, Valid: true}
+	}
+	if p.EnrollmentID != nil {
+		params.EnrollmentID = pgtype.UUID{Bytes: *p.EnrollmentID, Valid: true}
+	}
+	if p.Status != nil {
+		params.Status = pgtype.Text{String: *p.Status, Valid: true}
 	}
 	rows, err := r.q.ListSectionEnrollments(ctx, params)
 	if err != nil {
@@ -347,9 +377,16 @@ func (r *postgresRepository) ListSectionEnrollments(ctx context.Context, f ListS
 	return rows, nil
 }
 
-// ListOwnSectionEnrollments returns all live inscriptions for the given student.
-func (r *postgresRepository) ListOwnSectionEnrollments(ctx context.Context, studentID uuid.UUID) ([]sectionenrollmentdb.SectionEnrollment, error) {
-	rows, err := r.q.ListOwnSectionEnrollments(ctx, pgtype.UUID{Bytes: studentID, Valid: true})
+// ListOwnSectionEnrollments returns a page of live inscriptions for the given student.
+func (r *postgresRepository) ListOwnSectionEnrollments(ctx context.Context, p ListOwnSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.SectionEnrollment, error) {
+	params := sectionenrollmentdb.ListOwnSectionEnrollmentsParams{
+		StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
+		RowLimit:  p.RowLimit,
+	}
+	if p.PageToken != nil {
+		params.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListOwnSectionEnrollments(ctx, params)
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}

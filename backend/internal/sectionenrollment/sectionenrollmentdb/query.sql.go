@@ -204,14 +204,23 @@ const listOwnSectionEnrollments = `-- name: ListOwnSectionEnrollments :many
 SELECT se.id, se.enrollment_id, se.section_id, se.status, se.registered_at, se.created_at, se.updated_at, se.deleted_at, se.final_grade
 FROM section_enrollments se
 JOIN enrollments e ON e.id = se.enrollment_id
-WHERE e.student_id = $1
+WHERE e.student_id = $1::uuid
   AND se.deleted_at IS NULL
-ORDER BY se.created_at
+  AND ($2::uuid IS NULL OR se.id < $2::uuid)
+ORDER BY se.id DESC
+LIMIT $3::int
 `
 
-// Returns all live inscriptions for a student by joining enrollments on student_id.
-func (q *Queries) ListOwnSectionEnrollments(ctx context.Context, studentID pgtype.UUID) ([]SectionEnrollment, error) {
-	rows, err := q.db.Query(ctx, listOwnSectionEnrollments, studentID)
+type ListOwnSectionEnrollmentsParams struct {
+	StudentID pgtype.UUID
+	PageToken pgtype.UUID
+	RowLimit  int32
+}
+
+// Returns live inscriptions for a student by joining enrollments on student_id.
+// Keyset pagination: results ordered by se.id DESC; page_token is the exclusive upper bound.
+func (q *Queries) ListOwnSectionEnrollments(ctx context.Context, arg ListOwnSectionEnrollmentsParams) ([]SectionEnrollment, error) {
+	rows, err := q.db.Query(ctx, listOwnSectionEnrollments, arg.StudentID, arg.PageToken, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -243,20 +252,30 @@ func (q *Queries) ListOwnSectionEnrollments(ctx context.Context, studentID pgtyp
 const listSectionEnrollments = `-- name: ListSectionEnrollments :many
 SELECT id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at, final_grade FROM section_enrollments
 WHERE deleted_at IS NULL
-  AND ($1::uuid IS NULL   OR section_id   = $1::uuid)
-  AND ($2::uuid IS NULL OR enrollment_id = $2::uuid)
-  AND ($3::text IS NULL        OR status        = $3::text)
-ORDER BY created_at
+  AND ($1::uuid IS NULL    OR id            < $1::uuid)
+  AND ($2::uuid IS NULL    OR section_id    = $2::uuid)
+  AND ($3::uuid IS NULL OR enrollment_id = $3::uuid)
+  AND ($4::text IS NULL        OR status        = $4::text)
+ORDER BY id DESC
+LIMIT $5::int
 `
 
 type ListSectionEnrollmentsParams struct {
+	PageToken    pgtype.UUID
 	SectionID    pgtype.UUID
 	EnrollmentID pgtype.UUID
 	Status       pgtype.Text
+	RowLimit     int32
 }
 
 func (q *Queries) ListSectionEnrollments(ctx context.Context, arg ListSectionEnrollmentsParams) ([]SectionEnrollment, error) {
-	rows, err := q.db.Query(ctx, listSectionEnrollments, arg.SectionID, arg.EnrollmentID, arg.Status)
+	rows, err := q.db.Query(ctx, listSectionEnrollments,
+		arg.PageToken,
+		arg.SectionID,
+		arg.EnrollmentID,
+		arg.Status,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

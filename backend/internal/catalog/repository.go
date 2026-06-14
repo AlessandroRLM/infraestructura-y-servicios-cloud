@@ -18,7 +18,7 @@ type Repository interface {
 	CreateProgram(ctx context.Context, p CreateProgramParams, actor *uuid.UUID) (catalogdb.Program, error)
 	UpdateProgram(ctx context.Context, id uuid.UUID, p UpdateProgramParams, actor *uuid.UUID) (catalogdb.Program, error)
 	GetProgram(ctx context.Context, id uuid.UUID) (catalogdb.Program, error)
-	ListPrograms(ctx context.Context) ([]catalogdb.Program, error)
+	ListPrograms(ctx context.Context, params ListProgramsRepoParams) ([]catalogdb.Program, error)
 	// DeleteProgramTx locks the program row, counts dependents, and soft-deletes atomically
 	// in a single transaction. Returns ErrNotFound when absent and ErrHasDependents when
 	// live program_courses or live program_quotas rows exist.
@@ -30,7 +30,7 @@ type Repository interface {
 	CreateCourse(ctx context.Context, p CreateCourseParams, actor *uuid.UUID) (catalogdb.Course, error)
 	UpdateCourse(ctx context.Context, id uuid.UUID, p UpdateCourseParams, actor *uuid.UUID) (catalogdb.Course, error)
 	GetCourse(ctx context.Context, id uuid.UUID) (catalogdb.Course, error)
-	ListCourses(ctx context.Context) ([]catalogdb.Course, error)
+	ListCourses(ctx context.Context, params ListCoursesRepoParams) ([]catalogdb.Course, error)
 	// DeleteCourseTx locks the course row, counts dependents, and soft-deletes atomically.
 	// Returns ErrNotFound when absent and ErrHasDependents when live program associations
 	// or live sections exist.
@@ -64,7 +64,7 @@ type Repository interface {
 	CreateSection(ctx context.Context, p CreateSectionParams, actor *uuid.UUID) (catalogdb.Section, error)
 	UpdateSection(ctx context.Context, id uuid.UUID, p UpdateSectionParams, actor *uuid.UUID) (catalogdb.Section, error)
 	GetSection(ctx context.Context, id uuid.UUID) (catalogdb.Section, error)
-	ListSections(ctx context.Context, courseID *uuid.UUID, academicPeriodID *uuid.UUID) ([]catalogdb.Section, error)
+	ListSections(ctx context.Context, params ListSectionsRepoParams) ([]catalogdb.Section, error)
 	// DeleteSectionTx locks the section row, counts section_teachers, and soft-deletes
 	// atomically. Returns ErrNotFound when absent and ErrHasDependents when teacher
 	// assignments exist.
@@ -136,6 +136,34 @@ type UpdateProgramQuotaParams struct {
 	Capacity int32
 }
 
+// ListProgramsRepoParams holds keyset pagination parameters for ListPrograms.
+type ListProgramsRepoParams struct {
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
+}
+
+// ListCoursesRepoParams holds keyset pagination parameters for ListCourses.
+type ListCoursesRepoParams struct {
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
+}
+
+// ListSectionsRepoParams holds keyset pagination parameters for ListSections.
+type ListSectionsRepoParams struct {
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// CourseID optionally filters sections by course; nil = all courses.
+	CourseID *uuid.UUID
+	// AcademicPeriodID optionally filters sections by academic period; nil = all periods.
+	AcademicPeriodID *uuid.UUID
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
+}
+
 // CreateSectionParams holds data for inserting a new section.
 type CreateSectionParams struct {
 	CourseID         uuid.UUID
@@ -201,8 +229,14 @@ func (r *postgresRepository) GetProgram(ctx context.Context, id uuid.UUID) (cata
 	return row, nil
 }
 
-func (r *postgresRepository) ListPrograms(ctx context.Context) ([]catalogdb.Program, error) {
-	rows, err := r.q.ListPrograms(ctx)
+func (r *postgresRepository) ListPrograms(ctx context.Context, params ListProgramsRepoParams) ([]catalogdb.Program, error) {
+	p := catalogdb.ListProgramsParams{
+		RowLimit: params.RowLimit,
+	}
+	if params.PageToken != nil {
+		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListPrograms(ctx, p)
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}
@@ -310,8 +344,14 @@ func (r *postgresRepository) GetCourse(ctx context.Context, id uuid.UUID) (catal
 	return row, nil
 }
 
-func (r *postgresRepository) ListCourses(ctx context.Context) ([]catalogdb.Course, error) {
-	rows, err := r.q.ListCourses(ctx)
+func (r *postgresRepository) ListCourses(ctx context.Context, params ListCoursesRepoParams) ([]catalogdb.Course, error) {
+	p := catalogdb.ListCoursesParams{
+		RowLimit: params.RowLimit,
+	}
+	if params.PageToken != nil {
+		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListCourses(ctx, p)
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}
@@ -582,11 +622,16 @@ func (r *postgresRepository) GetSection(ctx context.Context, id uuid.UUID) (cata
 	return row, nil
 }
 
-func (r *postgresRepository) ListSections(ctx context.Context, courseID *uuid.UUID, academicPeriodID *uuid.UUID) ([]catalogdb.Section, error) {
-	rows, err := r.q.ListSections(ctx, catalogdb.ListSectionsParams{
-		CourseID:         optionalUUID(courseID),
-		AcademicPeriodID: optionalUUID(academicPeriodID),
-	})
+func (r *postgresRepository) ListSections(ctx context.Context, params ListSectionsRepoParams) ([]catalogdb.Section, error) {
+	p := catalogdb.ListSectionsParams{
+		CourseID:         optionalUUID(params.CourseID),
+		AcademicPeriodID: optionalUUID(params.AcademicPeriodID),
+		RowLimit:         params.RowLimit,
+	}
+	if params.PageToken != nil {
+		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListSections(ctx, p)
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}

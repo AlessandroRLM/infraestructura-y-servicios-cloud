@@ -15,14 +15,17 @@ import (
 
 // fakeQuerier implements profilesdb.Querier for testing the repository layer.
 type fakeQuerier struct {
-	getUserProfileErr      error
-	getUserProfileResult   profilesdb.UserProfile
-	getOwnProfileErr       error
-	getOwnProfileResult    profilesdb.UserProfile
-	getOwnProfileCalledID  pgtype.UUID
-	upsertUserProfileErr   error
-	upsertUserProfileArgs  profilesdb.UpsertUserProfileParams
-	upsertUserProfileCalls int
+	getUserProfileErr                 error
+	getUserProfileResult              profilesdb.UserProfile
+	getOwnProfileErr                  error
+	getOwnProfileResult               profilesdb.UserProfile
+	getOwnProfileCalledID             pgtype.UUID
+	upsertUserProfileErr              error
+	upsertUserProfileArgs             profilesdb.UpsertUserProfileParams
+	upsertUserProfileCalls            int
+	listTeacherQualificationsArgs     profilesdb.ListTeacherQualificationsParams
+	listTeacherQualificationsCalls    int
+	listTeacherQualificationsResult   []profilesdb.TeacherQualification
 }
 
 func (f *fakeQuerier) GetUserProfile(_ context.Context, _ pgtype.UUID) (profilesdb.UserProfile, error) {
@@ -72,8 +75,10 @@ func (f *fakeQuerier) AddTeacherQualification(_ context.Context, _ profilesdb.Ad
 	return profilesdb.TeacherQualification{}, nil
 }
 
-func (f *fakeQuerier) ListTeacherQualifications(_ context.Context, _ pgtype.UUID) ([]profilesdb.TeacherQualification, error) {
-	return nil, nil
+func (f *fakeQuerier) ListTeacherQualifications(_ context.Context, arg profilesdb.ListTeacherQualificationsParams) ([]profilesdb.TeacherQualification, error) {
+	f.listTeacherQualificationsCalls++
+	f.listTeacherQualificationsArgs = arg
+	return f.listTeacherQualificationsResult, nil
 }
 
 func (f *fakeQuerier) UpsertOwnProfile(_ context.Context, _ profilesdb.UpsertOwnProfileParams) (profilesdb.UserProfile, error) {
@@ -154,5 +159,72 @@ func TestRepository_UpsertUserProfile_PassesAuditFields(t *testing.T) {
 	wantUpdatedBy := pgtype.UUID{Bytes: actorID, Valid: true}
 	if gotUpdatedBy != wantUpdatedBy {
 		t.Errorf("updated_by = %v, want %v", gotUpdatedBy, wantUpdatedBy)
+	}
+}
+
+// TestRepository_ListTeacherQualifications_TokenTranslation verifies that a *uuid.UUID
+// page_token is translated to a valid pgtype.UUID before being passed to the Querier.
+func TestRepository_ListTeacherQualifications_TokenTranslation(t *testing.T) {
+	t.Parallel()
+
+	teacherID := uuid.New()
+	tokenID := uuid.New()
+
+	q := &fakeQuerier{}
+	repo := profiles.NewPostgresRepository(q)
+
+	p := profiles.ListTeacherQualificationsRepoParams{
+		TeacherID: &teacherID,
+		PageToken: &tokenID,
+		RowLimit:  21,
+	}
+	_, err := repo.ListTeacherQualifications(context.Background(), p)
+	if err != nil {
+		t.Fatalf("ListTeacherQualifications: unexpected error: %v", err)
+	}
+
+	if q.listTeacherQualificationsCalls != 1 {
+		t.Fatalf("Querier called %d times, want 1", q.listTeacherQualificationsCalls)
+	}
+
+	gotToken := q.listTeacherQualificationsArgs.PageToken
+	wantToken := pgtype.UUID{Bytes: tokenID, Valid: true}
+	if gotToken != wantToken {
+		t.Errorf("PageToken = %v, want %v", gotToken, wantToken)
+	}
+
+	gotTeacher := q.listTeacherQualificationsArgs.TeacherID
+	wantTeacher := pgtype.UUID{Bytes: teacherID, Valid: true}
+	if gotTeacher != wantTeacher {
+		t.Errorf("TeacherID = %v, want %v", gotTeacher, wantTeacher)
+	}
+
+	if q.listTeacherQualificationsArgs.RowLimit != 21 {
+		t.Errorf("RowLimit = %d, want 21", q.listTeacherQualificationsArgs.RowLimit)
+	}
+}
+
+// TestRepository_ListTeacherQualifications_NilTokenTranslation verifies that a nil
+// page_token becomes an invalid (null) pgtype.UUID, triggering the IS NULL branch in SQL.
+func TestRepository_ListTeacherQualifications_NilTokenTranslation(t *testing.T) {
+	t.Parallel()
+
+	teacherID := uuid.New()
+	q := &fakeQuerier{}
+	repo := profiles.NewPostgresRepository(q)
+
+	p := profiles.ListTeacherQualificationsRepoParams{
+		TeacherID: &teacherID,
+		PageToken: nil, // first page
+		RowLimit:  21,
+	}
+	_, err := repo.ListTeacherQualifications(context.Background(), p)
+	if err != nil {
+		t.Fatalf("ListTeacherQualifications(nil token): unexpected error: %v", err)
+	}
+
+	gotToken := q.listTeacherQualificationsArgs.PageToken
+	if gotToken.Valid {
+		t.Errorf("PageToken.Valid = true, want false (nil token should produce invalid pgtype.UUID)")
 	}
 }

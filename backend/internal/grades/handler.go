@@ -119,16 +119,17 @@ func (h *Handler) ListGradesForSection(
 	ctx context.Context,
 	req *connect.Request[gradesv1.ListGradesForSectionRequest],
 ) (*connect.Response[gradesv1.ListGradesForSectionResponse], error) {
-	grades, err := h.svc.ListGradesForSection(ctx, req.Msg.SectionId)
+	result, err := h.svc.ListGradesForSection(ctx, req.Msg.SectionId, req.Msg.PageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, MapError(ctx, err)
 	}
-	result := make([]*gradesv1.Grade, len(grades))
-	for i, g := range grades {
-		result[i] = gradeToProto(g)
+	grades := make([]*gradesv1.Grade, len(result.Grades))
+	for i, g := range result.Grades {
+		grades[i] = gradeToProto(g)
 	}
 	return connect.NewResponse(&gradesv1.ListGradesForSectionResponse{
-		Grades: result,
+		Grades:        grades,
+		NextPageToken: result.NextPageToken,
 	}), nil
 }
 
@@ -147,18 +148,19 @@ func (h *Handler) GetGrade(
 
 func (h *Handler) ListOwnGrades(
 	ctx context.Context,
-	_ *connect.Request[gradesv1.ListOwnGradesRequest],
+	req *connect.Request[gradesv1.ListOwnGradesRequest],
 ) (*connect.Response[gradesv1.ListOwnGradesResponse], error) {
-	grades, err := h.svc.ListOwnGrades(ctx)
+	result, err := h.svc.ListOwnGrades(ctx, req.Msg.PageSize, req.Msg.PageToken)
 	if err != nil {
 		return nil, MapError(ctx, err)
 	}
-	result := make([]*gradesv1.OwnGrade, len(grades))
-	for i, g := range grades {
-		result[i] = ownGradeToProto(g)
+	grades := make([]*gradesv1.OwnGrade, len(result.Grades))
+	for i, g := range result.Grades {
+		grades[i] = ownGradeToProto(g)
 	}
 	return connect.NewResponse(&gradesv1.ListOwnGradesResponse{
-		Grades: result,
+		Grades:        grades,
+		NextPageToken: result.NextPageToken,
 	}), nil
 }
 

@@ -376,7 +376,8 @@ func (x *GetEnrollmentRequest) GetId() string {
 	return ""
 }
 
-// ListEnrollmentsRequest supports optional filters; an empty request returns all live enrollments.
+// ListEnrollmentsRequest supports optional filters and AIP-158 keyset pagination.
+// An empty request returns the first page of all live enrollments.
 type ListEnrollmentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Optional UUID filter. Empty string means unfiltered.
@@ -386,7 +387,12 @@ type ListEnrollmentsRequest struct {
 	// Optional year filter. Zero means unfiltered.
 	Year int32 `protobuf:"varint,3,opt,name=year,proto3" json:"year,omitempty"`
 	// Optional status filter ("pending", "paid", "cancelled"). Empty string means unfiltered.
-	Status        string `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Status string `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	// Maximum number of enrollments to return. Clamped to [20, 200]; zero → 20.
+	PageSize int32 `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Opaque cursor returned by a previous ListEnrollments or ListOwnEnrollments call.
+	// Empty string returns the first page.
+	PageToken     string `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -449,9 +455,25 @@ func (x *ListEnrollmentsRequest) GetStatus() string {
 	return ""
 }
 
+func (x *ListEnrollmentsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListEnrollmentsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
 type ListEnrollmentsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Enrollments   []*Enrollment          `protobuf:"bytes,1,rep,name=enrollments,proto3" json:"enrollments,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Enrollments []*Enrollment          `protobuf:"bytes,1,rep,name=enrollments,proto3" json:"enrollments,omitempty"`
+	// Opaque cursor for the next page. Empty when this is the last page.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -493,10 +515,22 @@ func (x *ListEnrollmentsResponse) GetEnrollments() []*Enrollment {
 	return nil
 }
 
-// ListOwnEnrollmentsRequest carries no student_id field.
+func (x *ListEnrollmentsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+// ListOwnEnrollmentsRequest carries no student_id field and supports AIP-158 keyset pagination.
 // The service injects the caller's identity from context.
 type ListOwnEnrollmentsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Maximum number of enrollments to return. Clamped to [20, 200]; zero → 20.
+	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Opaque cursor returned by a previous ListOwnEnrollments call.
+	// Empty string returns the first page.
+	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -529,6 +563,20 @@ func (x *ListOwnEnrollmentsRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ListOwnEnrollmentsRequest.ProtoReflect.Descriptor instead.
 func (*ListOwnEnrollmentsRequest) Descriptor() ([]byte, []int) {
 	return file_enrollment_v1_enrollment_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListOwnEnrollmentsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListOwnEnrollmentsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
 }
 
 type GetOwnEnrollmentRequest struct {
@@ -618,17 +666,24 @@ const file_enrollment_v1_enrollment_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x1a\n" +
 	"\x18CancelEnrollmentResponse\"&\n" +
 	"\x14GetEnrollmentRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x82\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xbe\x01\n" +
 	"\x16ListEnrollmentsRequest\x12\x1d\n" +
 	"\n" +
 	"student_id\x18\x01 \x01(\tR\tstudentId\x12\x1d\n" +
 	"\n" +
 	"program_id\x18\x02 \x01(\tR\tprogramId\x12\x12\n" +
 	"\x04year\x18\x03 \x01(\x05R\x04year\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\tR\x06status\"V\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x1b\n" +
+	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x06 \x01(\tR\tpageToken\"~\n" +
 	"\x17ListEnrollmentsResponse\x12;\n" +
-	"\venrollments\x18\x01 \x03(\v2\x19.enrollment.v1.EnrollmentR\venrollments\"\x1b\n" +
-	"\x19ListOwnEnrollmentsRequest\")\n" +
+	"\venrollments\x18\x01 \x03(\v2\x19.enrollment.v1.EnrollmentR\venrollments\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"W\n" +
+	"\x19ListOwnEnrollmentsRequest\x12\x1b\n" +
+	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\")\n" +
 	"\x17GetOwnEnrollmentRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id2\x9c\x05\n" +
 	"\x11EnrollmentService\x12U\n" +

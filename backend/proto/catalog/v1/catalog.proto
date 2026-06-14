@@ -153,10 +153,13 @@ message GetSectionRequest {
 message ListSectionsRequest {
   optional string course_id          = 1;
   optional string academic_period_id = 2;
+  int32           page_size          = 3;
+  string          page_token         = 4;
 }
 
 message ListSectionsResponse {
-  repeated Section sections = 1;
+  repeated Section sections       = 1;
+  string           next_page_token = 2;
 }
 
 message DeleteSectionRequest {
@@ -204,10 +207,14 @@ message GetProgramRequest {
   string id = 1;
 }
 
-message ListProgramsRequest {}
+message ListProgramsRequest {
+  int32  page_size  = 1;
+  string page_token = 2;
+}
 
 message ListProgramsResponse {
-  repeated Program programs = 1;
+  repeated Program programs       = 1;
+  string           next_page_token = 2;
 }
 
 message DeleteProgramRequest {
@@ -235,10 +242,14 @@ message GetCourseRequest {
   string id = 1;
 }
 
-message ListCoursesRequest {}
+message ListCoursesRequest {
+  int32  page_size  = 1;
+  string page_token = 2;
+}
 
 message ListCoursesResponse {
-  repeated Course courses = 1;
+  repeated Course courses         = 1;
+  string          next_page_token = 2;
 }
 
 message DeleteCourseRequest {

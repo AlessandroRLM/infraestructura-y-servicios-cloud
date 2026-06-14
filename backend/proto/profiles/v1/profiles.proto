@@ -119,11 +119,14 @@ message AddTeacherQualificationRequest {
 }
 
 message ListTeacherQualificationsRequest {
-  string teacher_id = 1;
+  string teacher_id  = 1;
+  int32  page_size   = 2;
+  string page_token  = 3;
 }
 
 message ListTeacherQualificationsResponse {
   repeated TeacherQualification qualifications = 1;
+  string                        next_page_token = 2;
 }
 
 // GetOwnProfileRequest intentionally has no user_id field.

@@ -17,7 +17,7 @@ type Querier interface {
 	GetEnrollmentByKeyForUpdate(ctx context.Context, arg GetEnrollmentByKeyForUpdateParams) (Enrollment, error)
 	InsertEnrollment(ctx context.Context, arg InsertEnrollmentParams) (Enrollment, error)
 	ListEnrollments(ctx context.Context, arg ListEnrollmentsParams) ([]Enrollment, error)
-	ListOwnEnrollments(ctx context.Context, studentID pgtype.UUID) ([]Enrollment, error)
+	ListOwnEnrollments(ctx context.Context, arg ListOwnEnrollmentsParams) ([]Enrollment, error)
 	LockProgramQuotaForYear(ctx context.Context, arg LockProgramQuotaForYearParams) (int32, error)
 	MarkEnrollmentPaid(ctx context.Context, arg MarkEnrollmentPaidParams) (Enrollment, error)
 	ReviveEnrollment(ctx context.Context, arg ReviveEnrollmentParams) (Enrollment, error)

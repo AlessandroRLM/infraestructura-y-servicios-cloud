@@ -103,17 +103,20 @@ func (h *Handler) GetProgram(
 
 func (h *Handler) ListPrograms(
 	ctx context.Context,
-	_ *connect.Request[catalogv1.ListProgramsRequest],
+	req *connect.Request[catalogv1.ListProgramsRequest],
 ) (*connect.Response[catalogv1.ListProgramsResponse], error) {
-	rows, err := h.svc.ListPrograms(ctx)
+	result, err := h.svc.ListPrograms(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken())
 	if err != nil {
 		return nil, MapError(err)
 	}
-	protos := make([]*catalogv1.Program, 0, len(rows))
-	for _, r := range rows {
+	protos := make([]*catalogv1.Program, 0, len(result.Programs))
+	for _, r := range result.Programs {
 		protos = append(protos, programToProto(r))
 	}
-	return connect.NewResponse(&catalogv1.ListProgramsResponse{Programs: protos}), nil
+	return connect.NewResponse(&catalogv1.ListProgramsResponse{
+		Programs:      protos,
+		NextPageToken: result.NextPageToken,
+	}), nil
 }
 
 func (h *Handler) DeleteProgram(
@@ -183,17 +186,20 @@ func (h *Handler) GetCourse(
 
 func (h *Handler) ListCourses(
 	ctx context.Context,
-	_ *connect.Request[catalogv1.ListCoursesRequest],
+	req *connect.Request[catalogv1.ListCoursesRequest],
 ) (*connect.Response[catalogv1.ListCoursesResponse], error) {
-	rows, err := h.svc.ListCourses(ctx)
+	result, err := h.svc.ListCourses(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken())
 	if err != nil {
 		return nil, MapError(err)
 	}
-	protos := make([]*catalogv1.Course, 0, len(rows))
-	for _, r := range rows {
+	protos := make([]*catalogv1.Course, 0, len(result.Courses))
+	for _, r := range result.Courses {
 		protos = append(protos, courseToProto(r))
 	}
-	return connect.NewResponse(&catalogv1.ListCoursesResponse{Courses: protos}), nil
+	return connect.NewResponse(&catalogv1.ListCoursesResponse{
+		Courses:       protos,
+		NextPageToken: result.NextPageToken,
+	}), nil
 }
 
 func (h *Handler) DeleteCourse(
@@ -626,15 +632,18 @@ func (h *Handler) ListSections(
 		academicPeriodID = &id
 	}
 
-	rows, err := h.svc.ListSections(ctx, courseID, academicPeriodID)
+	result, err := h.svc.ListSections(ctx, courseID, academicPeriodID, req.Msg.GetPageSize(), req.Msg.GetPageToken())
 	if err != nil {
 		return nil, MapError(err)
 	}
-	protos := make([]*catalogv1.Section, 0, len(rows))
-	for _, r := range rows {
+	protos := make([]*catalogv1.Section, 0, len(result.Sections))
+	for _, r := range result.Sections {
 		protos = append(protos, sectionToProto(r))
 	}
-	return connect.NewResponse(&catalogv1.ListSectionsResponse{Sections: protos}), nil
+	return connect.NewResponse(&catalogv1.ListSectionsResponse{
+		Sections:      protos,
+		NextPageToken: result.NextPageToken,
+	}), nil
 }
 
 func (h *Handler) DeleteSection(

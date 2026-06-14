@@ -60,6 +60,15 @@ resource "google_compute_instance" "ops" {
 
   metadata = {
     enable-oslogin = "TRUE"
+    startup-script = templatefile("${path.module}/scripts/ops-startup.sh.tftpl", {
+      backup_script  = file("${path.module}/scripts/backup.sh")
+      restore_script = file("${path.module}/scripts/restore.sh")
+      gcs_bucket     = google_storage_bucket.backups.name
+      s3_bucket      = aws_s3_bucket.backups_dr.bucket
+      cluster_name   = google_container_cluster.primary.name
+      zone           = var.zone
+      namespace      = "prod"
+    })
   }
 
   # Minimal scopes: storage read/write + logging + monitoring (W-2)
