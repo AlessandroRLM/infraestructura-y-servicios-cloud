@@ -12,4 +12,9 @@ if (typeof window !== "undefined") {
   if (!window.HTMLElement.prototype.setPointerCapture) {
     window.HTMLElement.prototype.setPointerCapture = () => undefined;
   }
+  // Radix Select calls scrollIntoView on highlighted items; happy-dom does not implement it.
+  if (!Element.prototype.scrollIntoView) {
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: intentional no-op polyfill
+    Element.prototype.scrollIntoView = () => {};
+  }
 }

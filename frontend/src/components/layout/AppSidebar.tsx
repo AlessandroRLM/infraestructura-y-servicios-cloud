@@ -15,6 +15,7 @@ import {
   hasPermission,
   LogoutButton,
   type Permission,
+  primaryRoleLabel,
   type SessionState,
   useSession,
 } from "@/features/auth";
@@ -77,14 +78,6 @@ const NAV = [
 
 type NavItem = (typeof NAV)[number];
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Administrador",
-  teacher: "Profesor",
-  student: "Estudiante",
-};
-// Most privileged role first, so a multi-role user shows their highest cargo.
-const ROLE_PRIORITY = ["admin", "teacher", "student"];
-
 function isVisible(session: SessionState, item: NavItem): boolean {
   const permissions = "permissions" in item ? item.permissions : undefined;
   if (!permissions) {
@@ -104,18 +97,13 @@ function initials(name: string): string {
   return raw.toUpperCase();
 }
 
-function roleLabel(roles: string[]): string {
-  const primary = ROLE_PRIORITY.find((r) => roles.includes(r)) ?? roles[0];
-  return primary ? (ROLE_LABELS[primary] ?? primary) : "";
-}
-
 // Same background as the canvas + a border, so the shell reads as one space
 // rather than fragmenting into "sidebar world" vs "content world".
 export function AppSidebar() {
   const session = useSession();
   const isAuth = session.status === "authenticated";
   const name = isAuth ? displayName(session.email) : "";
-  const role = isAuth ? roleLabel(session.roles) : "";
+  const role = isAuth ? primaryRoleLabel(session.roles) : "";
   const items = NAV.filter((item) => isVisible(session, item));
 
   return (

@@ -12,6 +12,13 @@ export { useLogin } from "./hooks/useLogin";
 export { useLogout } from "./hooks/useLogout";
 export { hasPermission, hasRole, useSession } from "./hooks/useSession";
 export { PERMISSIONS, type Permission, ROLES, type Role } from "./permissions";
+export {
+  primaryRoleLabel,
+  ROLE_LABELS,
+  ROLE_PRIORITY,
+  roleLabel,
+  sortRolesByPriority,
+} from "./roles";
 export { loginSearchSchema } from "./schemas/search";
 export type {
   AuthenticatedSession,
