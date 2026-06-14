@@ -103,7 +103,7 @@ func (f *fakeRepository) UpdateProgram(_ context.Context, _ uuid.UUID, _ catalog
 func (f *fakeRepository) GetProgram(_ context.Context, _ uuid.UUID) (catalogdb.Program, error) {
 	return f.getProgramRow, f.getProgramErr
 }
-func (f *fakeRepository) ListPrograms(_ context.Context) ([]catalogdb.Program, error) {
+func (f *fakeRepository) ListPrograms(_ context.Context, _ catalog.ListProgramsRepoParams) ([]catalogdb.Program, error) {
 	return f.listProgramsRows, nil
 }
 func (f *fakeRepository) DeleteProgramTx(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
@@ -131,7 +131,7 @@ func (f *fakeRepository) UpdateCourse(_ context.Context, _ uuid.UUID, _ catalog.
 func (f *fakeRepository) GetCourse(_ context.Context, _ uuid.UUID) (catalogdb.Course, error) {
 	return f.getCourseRow, f.getCourseErr
 }
-func (f *fakeRepository) ListCourses(_ context.Context) ([]catalogdb.Course, error) {
+func (f *fakeRepository) ListCourses(_ context.Context, _ catalog.ListCoursesRepoParams) ([]catalogdb.Course, error) {
 	return f.listCoursesRows, nil
 }
 func (f *fakeRepository) DeleteCourseTx(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
@@ -199,7 +199,7 @@ func (f *fakeRepository) UpdateSection(_ context.Context, _ uuid.UUID, _ catalog
 func (f *fakeRepository) GetSection(_ context.Context, _ uuid.UUID) (catalogdb.Section, error) {
 	return f.getSectionRow, f.getSectionErr
 }
-func (f *fakeRepository) ListSections(_ context.Context, _ *uuid.UUID, _ *uuid.UUID) ([]catalogdb.Section, error) {
+func (f *fakeRepository) ListSections(_ context.Context, _ catalog.ListSectionsRepoParams) ([]catalogdb.Section, error) {
 	return f.listSectionsRows, nil
 }
 func (f *fakeRepository) DeleteSectionTx(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
