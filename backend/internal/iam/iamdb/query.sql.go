@@ -131,8 +131,8 @@ LEFT JOIN user_profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
 WHERE u.deleted_at IS NULL
   AND ($1::uuid IS NULL OR u.id < $1::uuid)
   AND ($2::text IS NULL
-       OR u.email ILIKE '%' || $2 || '%'
-       OR (p.given_names || ' ' || p.last_name_paternal) ILIKE '%' || $2 || '%')
+       OR u.email ILIKE '%' || $2 || '%' ESCAPE '\'
+       OR (p.given_names || ' ' || p.last_name_paternal) ILIKE '%' || $2 || '%' ESCAPE '\')
 ORDER BY u.id DESC
 LIMIT $3::int
 `

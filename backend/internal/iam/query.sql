@@ -13,8 +13,8 @@ LEFT JOIN user_profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
 WHERE u.deleted_at IS NULL
   AND (sqlc.narg('page_token')::uuid IS NULL OR u.id < sqlc.narg('page_token')::uuid)
   AND (sqlc.narg('query')::text IS NULL
-       OR u.email ILIKE '%' || sqlc.narg('query') || '%'
-       OR (p.given_names || ' ' || p.last_name_paternal) ILIKE '%' || sqlc.narg('query') || '%')
+       OR u.email ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\'
+       OR (p.given_names || ' ' || p.last_name_paternal) ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\')
 ORDER BY u.id DESC
 LIMIT sqlc.arg('row_limit')::int;
 

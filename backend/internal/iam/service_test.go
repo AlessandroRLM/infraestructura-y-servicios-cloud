@@ -19,6 +19,7 @@ type fakeRepository struct {
 	listUsersRows   []iamdb.ListUsersRow
 	listUsersErr    error
 	listUsersCalled bool
+	listUsersArgs   iam.ListUsersParams
 
 	getUserByIDRow    iamdb.GetUserByIDRow
 	getUserByIDErr    error
@@ -39,8 +40,9 @@ type fakeRepository struct {
 // Compile-time check: fakeRepository must satisfy iam.Repository.
 var _ iam.Repository = (*fakeRepository)(nil)
 
-func (f *fakeRepository) ListUsers(_ context.Context, _ iam.ListUsersParams) ([]iamdb.ListUsersRow, error) {
+func (f *fakeRepository) ListUsers(_ context.Context, params iam.ListUsersParams) ([]iamdb.ListUsersRow, error) {
 	f.listUsersCalled = true
+	f.listUsersArgs = params
 	return f.listUsersRows, f.listUsersErr
 }
 
@@ -128,6 +130,42 @@ func TestService_ListUsers_InvalidPageToken(t *testing.T) {
 	// Repository must NOT be called when validation fails.
 	if repo.listUsersCalled {
 		t.Error("ListUsers (bad page_token): repository must not be called on invalid input")
+	}
+}
+
+// --- ILIKE wildcard escaping ---
+
+func TestService_ListUsers_EscapesQueryWildcards(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		query string
+		want  string
+	}{
+		{"percent escaped", "50%", `50\%`},
+		{"underscore escaped", "a_b", `a\_b`},
+		{"backslash escaped", `a\b`, `a\\b`},
+		{"plain unchanged", "ada", "ada"},
+		{"combined", `1_0%\`, `1\_0\%\\`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &fakeRepository{listUsersRows: []iamdb.ListUsersRow{}}
+			svc := iam.NewService(repo)
+
+			if _, err := svc.ListUsers(context.Background(), 20, "", tc.query); err != nil {
+				t.Fatalf("ListUsers: unexpected error: %v", err)
+			}
+			if repo.listUsersArgs.Query == nil {
+				t.Fatal("ListUsers: expected a non-nil query param")
+			}
+			if got := *repo.listUsersArgs.Query; got != tc.want {
+				t.Errorf("escaped query = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
