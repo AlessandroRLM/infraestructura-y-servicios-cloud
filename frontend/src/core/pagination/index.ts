@@ -1,7 +1,4 @@
-// Shared AIP-158 cursor-pagination vocabulary. The generic useCursorList wrapper
-// was removed in favor of calling connect-query's useInfiniteQuery directly per
-// hook (exact typing, no casts); these types remain as the shared contract for
-// list features and any future pagination helper.
+// Shared AIP-158 cursor-pagination types for list features.
 export type {
   CursorPageRequest,
   CursorPageResponse,

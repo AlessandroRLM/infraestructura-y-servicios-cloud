@@ -3,11 +3,9 @@ import { IamService } from "@/gen/iam/v1/iam_pb";
 import { USERS_PAGE_SIZE } from "../constants";
 
 /**
- * Cursor-paginated list of users with optional search filter.
- *
- * Calls connect-query's useInfiniteQuery directly with the concrete listUsers
- * descriptor — at a concrete call site the request type is known, so pageParamKey
- * and the input type check exactly with no casts.
+ * Cursor-paginated list of users with optional search filter. `isError`
+ * reflects only the initial load; a failed "load more" surfaces via
+ * `isFetchNextPageError` while the loaded pages stay visible.
  */
 export function useUsersList(
   query: string,
@@ -22,9 +20,6 @@ export function useUsersList(
     },
   );
 
-  // Separate the initial-load error (no data yet) from a fetchNextPage error
-  // (existing pages remain). The initial load error renders inline + retry;
-  // the next-page error fires a toast while keeping the current rows visible.
   const users = result.data?.pages.flatMap((page) => page.users) ?? [];
   const isFetchNextPageError = result.isFetchNextPageError;
   const isInitialLoadError = result.isError && !isFetchNextPageError;
