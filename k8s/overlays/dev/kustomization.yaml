@@ -5,6 +5,7 @@ namespace: academico-dev
 
 resources:
   - namespace.yaml
+  - resourcequota.yaml
   - ../../base
 
 secretGenerator:
