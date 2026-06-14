@@ -90,3 +90,12 @@ sql:
         out: "internal/auditlogs/auditlogsdb"
         sql_package: "pgx/v5"
         emit_interface: true
+  - engine: "postgresql"
+    queries: "internal/iam/query.sql"
+    schema: "migrations/"
+    gen:
+      go:
+        package: "iamdb"
+        out: "internal/iam/iamdb"
+        sql_package: "pgx/v5"
+        emit_interface: true

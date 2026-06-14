@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package iam.v1;
+
+option go_package = "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/iam/v1;iamv1";
+
+// IamService provides user and role management operations for administrators.
+// All procedures require the users.manage permission.
+service IamService {
+  // ListUsers returns a paginated list of users with their roles and status.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  // GetUser returns the full profile view for a single user by UUID.
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+}
+
+// UserStatus indicates whether a user account is active or disabled.
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_DISABLED = 2;
+}
+
+// UserSummary is the shared view returned by all IamService RPCs.
+message UserSummary {
+  // id is the user's UUID.
+  string id = 1;
+  // email is the user's login email address.
+  string email = 2;
+  // display_name is derived from user_profiles (given_names + last_name_paternal),
+  // falling back to email when no profile row exists.
+  string display_name = 3;
+  // roles contains the role names assigned to the user, sorted alphabetically.
+  repeated string roles = 4;
+  // status is derived from users.disabled_at; NULL = ACTIVE, non-NULL = DISABLED.
+  UserStatus status = 5;
+}
+
+// ListUsersRequest is the request message for ListUsers.
+message ListUsersRequest {
+  // page_size controls how many items to return. Values <= 0 are clamped to 20;
+  // values > 200 are clamped to 200.
+  int32 page_size = 1;
+  // page_token is the opaque cursor returned by a previous call. Empty = first page.
+  string page_token = 2;
+  // query is an optional search string. Filters by email or display_name (ILIKE).
+  string query = 3;
+}
+
+// ListUsersResponse is the response message for ListUsers.
+message ListUsersResponse {
+  // users contains the page of user summaries, ordered newest-first.
+  repeated UserSummary users = 1;
+  // next_page_token is the continuation cursor; empty string signals the last page.
+  string next_page_token = 2;
+  // Field number 3 is reserved for has_more if ever re-added.
+  reserved 3;
+}
+
+// GetUserRequest is the request message for GetUser.
+message GetUserRequest {
+  // user_id is the UUID of the user to retrieve.
+  string user_id = 1;
+}
+
+// GetUserResponse is the response message for GetUser.
+message GetUserResponse {
+  // user is the full UserSummary for the requested user.
+  UserSummary user = 1;
+}

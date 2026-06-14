@@ -15,6 +15,7 @@ import (
 	catalogv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
 	enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1/enrollmentv1connect"
 	gradesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1/gradesv1connect"
+	iamv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/iam/v1/iamv1connect"
 	profilesv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1/profilesv1connect"
 	reportsv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/reports/v1/reportsv1connect"
 	section_enrollmentv1connect "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1/section_enrollmentv1connect"
@@ -31,6 +32,8 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades"
 	gradesdb "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/health"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/iam"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/iam/iamdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/config"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/db"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/logging"
@@ -199,6 +202,10 @@ func main() {
 
 		// Audit logs procedure — requires audit.read.
 		auditlogsv1connect.AuditLogsServiceListAuditLogsProcedure: authz.RequirePermission(authz.PermAuditRead),
+
+		// IAM procedures — all require users.manage.
+		iamv1connect.IamServiceListUsersProcedure: authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceGetUserProcedure:   authz.RequirePermission(authz.PermUsersManage),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
@@ -306,6 +313,16 @@ func main() {
 		auditlogs.Register(mux, auditHandler, authOpts...)
 	}
 
+	// IAM handler (iamdb.Querier → repository → service → Connect handler).
+	iamQueries := iamdb.New(pool)
+	iamRepo := iam.NewPostgresRepository(iamQueries)
+	iamSvc := iam.NewService(iamRepo)
+	iamHandler := iam.NewHandler(iamSvc)
+
+	iamReg := func(mux *http.ServeMux) {
+		iam.Register(mux, iamHandler, authOpts...)
+	}
+
 	// Redis pinger for the readyz handler.
 	redisPinger, err := platformredis.NewPinger(cfg.RedisURL)
 	if err != nil {
@@ -329,6 +346,7 @@ func main() {
 		gradesReg,
 		reportsReg,
 		auditLogsReg,
+		iamReg,
 		metricsHandlerReg,
 	)
 	srv.Addr = cfg.HTTPAddr
