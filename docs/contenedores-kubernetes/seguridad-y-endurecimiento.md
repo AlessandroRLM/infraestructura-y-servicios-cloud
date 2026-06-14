@@ -4,6 +4,16 @@ Fundamento de las decisiones de seguridad aplicadas a los manifiestos de `k8s/` 
 
 El objetivo es que el `base` cumpla el perfil **Restricted** de los Pod Security Standards de Kubernetes, que codifica las prácticas de endurecimiento vigentes para cargas sin requisitos de privilegio.
 
+## Índice
+
+1. [Contexto de seguridad de los pods (Pod Security Standards: Restricted)](#1-contexto-de-seguridad-de-los-pods-pod-security-standards-restricted)
+2. [nginx sin privilegios (web)](#2-nginx-sin-privilegios-web)
+3. [NetworkPolicy: deny por defecto en ingress y egress](#3-networkpolicy-deny-por-defecto-en-ingress-y-egress)
+4. [Secrets fuera del control de versiones](#4-secrets-fuera-del-control-de-versiones)
+5. [`COOKIE_SECURE` seguro por defecto](#5-cookie_secure-seguro-por-defecto)
+6. [`.dockerignore` (higiene del build context)](#6-dockerignore-higiene-del-build-context)
+7. [Disponibilidad: anti-afinidad de pods](#7-disponibilidad-anti-afinidad-de-pods)
+
 ## 1. Contexto de seguridad de los pods (Pod Security Standards: Restricted)
 
 Cada contenedor (incluido el `initContainer`) declara:

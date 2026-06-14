@@ -1,9 +1,22 @@
 # Infraestructura — Guía de despliegue
 
-Runbook para levantar la infraestructura en GCP (principal) y AWS (respaldo) con Terraform.
-Toda la infraestructura es reproducible: se crea con `terraform apply` y se elimina con `terraform destroy`.
+Runbook para levantar la infraestructura en GCP (principal) y AWS (respaldo) con Terraform. Toda la infraestructura es reproducible: se crea con `terraform apply` y se elimina con `terraform destroy`.
 
 > Las capturas de consola se agregan durante la ejecución real (marcadas con `[captura]`).
+
+## Índice
+
+1. [Prerrequisitos](#1-prerrequisitos)
+2. [Estado remoto de Terraform](#2-estado-remoto-de-terraform)
+3. [Estructura del código IaC](#3-estructura-del-código-iac)
+4. [Despliegue paso a paso](#4-despliegue-paso-a-paso)
+5. [Red y firewall](#5-red-y-firewall)
+6. [Máquinas virtuales](#6-máquinas-virtuales)
+7. [Almacenamiento](#7-almacenamiento)
+8. [Pool de conexiones (presupuesto)](#8-pool-de-conexiones-presupuesto)
+9. [Backups cross-cloud (GCS → S3)](#9-backups-cross-cloud-gcs--s3)
+10. [Prueba de restauración](#10-prueba-de-restauración)
+11. [Apagado y reducción de costos](#11-apagado-y-reducción-de-costos)
 
 ## 1. Prerrequisitos
 
