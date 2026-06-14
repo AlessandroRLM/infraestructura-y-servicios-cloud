@@ -234,7 +234,8 @@ func TestCatalog_ProgramQuota_FullLifecycle(t *testing.T) {
 	}
 }
 
-// TestCatalog_ProgramCourses_MN verifies AddCourseToProgram→ListProgramCourses→RemoveCourseFromProgram.
+// TestCatalog_ProgramCourses_MN verifies AddCourseToProgram→ListProgramCourses→RemoveCourseFromProgram,
+// including the embedded Course fields on each ProgramCourse entry.
 func TestCatalog_ProgramCourses_MN(t *testing.T) {
 	ctx := context.Background()
 	adminSID := catalogSeedAdminSession(t, "catalog-mn-assoc@catalog.test")
@@ -268,7 +269,7 @@ func TestCatalog_ProgramCourses_MN(t *testing.T) {
 		t.Fatalf("AddCourseToProgram: %v", err)
 	}
 
-	// List — must contain
+	// List — must contain with embedded course fields populated.
 	listReq := connect.NewRequest(&catalogv1.ListProgramCoursesRequest{ProgramId: progID})
 	listReq.Header().Set("Cookie", "sid="+adminSID)
 	listResp, err := client.ListProgramCourses(ctx, listReq)
@@ -279,6 +280,31 @@ func TestCatalog_ProgramCourses_MN(t *testing.T) {
 	for _, pc := range listResp.Msg.GetProgramCourses() {
 		if pc.GetCourseId() == courseID {
 			found = true
+			// Assert embedded course fields are populated.
+			c := pc.GetCourse()
+			if c == nil {
+				t.Errorf("ListProgramCourses: ProgramCourse.Course is nil for course %s", courseID)
+				continue
+			}
+			if c.GetId() != courseID {
+				t.Errorf("ProgramCourse.Course.Id = %q, want %q", c.GetId(), courseID)
+			}
+			if c.GetCode() != cCode {
+				t.Errorf("ProgramCourse.Course.Code = %q, want %q", c.GetCode(), cCode)
+			}
+			if c.GetName() != "MN Course" {
+				t.Errorf("ProgramCourse.Course.Name = %q, want %q", c.GetName(), "MN Course")
+			}
+			if c.GetCredits() != 3 {
+				t.Errorf("ProgramCourse.Course.Credits = %d, want 3", c.GetCredits())
+			}
+			// Association tuple fields must remain intact.
+			if pc.GetProgramId() != progID {
+				t.Errorf("ProgramCourse.ProgramId = %q, want %q", pc.GetProgramId(), progID)
+			}
+			if pc.GetCreatedAt() == "" {
+				t.Errorf("ProgramCourse.CreatedAt is empty")
+			}
 		}
 	}
 	if !found {
@@ -307,6 +333,232 @@ func TestCatalog_ProgramCourses_MN(t *testing.T) {
 	}
 	if len(listAfterResp.Msg.GetProgramCourses()) != 0 {
 		t.Errorf("ListProgramCourses after remove: expected 0, got %d", len(listAfterResp.Msg.GetProgramCourses()))
+	}
+}
+
+// TestCatalog_ProgramCourses_Enriched verifies the full enrichment scenarios:
+// - 2 live courses: both returned with embedded Course fields and intact association tuple.
+// - 1 soft-deleted course: only the live one returned.
+// - Empty program: empty list, no error.
+// - Ordering: entries ordered by association created_at.
+func TestCatalog_ProgramCourses_Enriched(t *testing.T) {
+	ctx := context.Background()
+	adminSID := catalogSeedAdminSession(t, "catalog-enriched@catalog.test")
+	client := newCatalogClient(nil)
+
+	// --- Scenario 1 & 4: 2 live courses, both enriched, ordered by association created_at ---
+
+	pCode1 := "ENRICH-PROG-" + uuid.New().String()[:8]
+	pReq1 := connect.NewRequest(&catalogv1.CreateProgramRequest{Code: pCode1, Name: "Enriched Program"})
+	pReq1.Header().Set("Cookie", "sid="+adminSID)
+	pResp1, err := client.CreateProgram(ctx, pReq1)
+	if err != nil {
+		t.Fatalf("CreateProgram: %v", err)
+	}
+	progID1 := pResp1.Msg.GetId()
+	t.Cleanup(func() { cleanupProgram(t, progID1) })
+
+	cCode1 := "ENRICH-CRS1-" + uuid.New().String()[:8]
+	cReq1 := connect.NewRequest(&catalogv1.CreateCourseRequest{Code: cCode1, Name: "Enriched Course 1", Credits: 4})
+	cReq1.Header().Set("Cookie", "sid="+adminSID)
+	cResp1, err := client.CreateCourse(ctx, cReq1)
+	if err != nil {
+		t.Fatalf("CreateCourse 1: %v", err)
+	}
+	courseID1 := cResp1.Msg.GetId()
+	t.Cleanup(func() { cleanupCourse(t, courseID1) })
+
+	cCode2 := "ENRICH-CRS2-" + uuid.New().String()[:8]
+	cReq2 := connect.NewRequest(&catalogv1.CreateCourseRequest{Code: cCode2, Name: "Enriched Course 2", Credits: 6})
+	cReq2.Header().Set("Cookie", "sid="+adminSID)
+	cResp2, err := client.CreateCourse(ctx, cReq2)
+	if err != nil {
+		t.Fatalf("CreateCourse 2: %v", err)
+	}
+	courseID2 := cResp2.Msg.GetId()
+	t.Cleanup(func() { cleanupCourse(t, courseID2) })
+
+	// Add both associations (small sleep to ensure created_at ordering is deterministic).
+	add1 := connect.NewRequest(&catalogv1.AddCourseToProgramRequest{ProgramId: progID1, CourseId: courseID1})
+	add1.Header().Set("Cookie", "sid="+adminSID)
+	if _, err := client.AddCourseToProgram(ctx, add1); err != nil {
+		t.Fatalf("AddCourseToProgram 1: %v", err)
+	}
+	time.Sleep(2 * time.Millisecond) // guarantee created_at ordering
+	add2 := connect.NewRequest(&catalogv1.AddCourseToProgramRequest{ProgramId: progID1, CourseId: courseID2})
+	add2.Header().Set("Cookie", "sid="+adminSID)
+	if _, err := client.AddCourseToProgram(ctx, add2); err != nil {
+		t.Fatalf("AddCourseToProgram 2: %v", err)
+	}
+
+	listReq := connect.NewRequest(&catalogv1.ListProgramCoursesRequest{ProgramId: progID1})
+	listReq.Header().Set("Cookie", "sid="+adminSID)
+	listResp, err := client.ListProgramCourses(ctx, listReq)
+	if err != nil {
+		t.Fatalf("ListProgramCourses (2 live): %v", err)
+	}
+	pcs := listResp.Msg.GetProgramCourses()
+	if len(pcs) != 2 {
+		t.Fatalf("ListProgramCourses (2 live): want 2, got %d", len(pcs))
+	}
+
+	// Ordering: first added course must appear first.
+	if pcs[0].GetCourseId() != courseID1 {
+		t.Errorf("ordering: pcs[0].CourseId = %q, want %q", pcs[0].GetCourseId(), courseID1)
+	}
+	if pcs[1].GetCourseId() != courseID2 {
+		t.Errorf("ordering: pcs[1].CourseId = %q, want %q", pcs[1].GetCourseId(), courseID2)
+	}
+
+	// Verify enriched fields for both entries.
+	for i, pc := range pcs {
+		c := pc.GetCourse()
+		if c == nil {
+			t.Errorf("pcs[%d].Course is nil", i)
+			continue
+		}
+		if pc.GetProgramId() != progID1 {
+			t.Errorf("pcs[%d].ProgramId = %q, want %q", i, pc.GetProgramId(), progID1)
+		}
+		if pc.GetCreatedAt() == "" {
+			t.Errorf("pcs[%d].CreatedAt is empty", i)
+		}
+		if c.GetId() != pc.GetCourseId() {
+			t.Errorf("pcs[%d].Course.Id = %q, want %q", i, c.GetId(), pc.GetCourseId())
+		}
+		if c.GetId() == "" {
+			t.Errorf("pcs[%d].Course.Id is empty", i)
+		}
+		if c.GetCode() == "" {
+			t.Errorf("pcs[%d].Course.Code is empty", i)
+		}
+		if c.GetName() == "" {
+			t.Errorf("pcs[%d].Course.Name is empty", i)
+		}
+		if c.GetCredits() <= 0 {
+			t.Errorf("pcs[%d].Course.Credits = %d, want > 0", i, c.GetCredits())
+		}
+	}
+
+	// Specific field assertions for each course.
+	if pcs[0].GetCourse().GetCode() != cCode1 {
+		t.Errorf("pcs[0].Course.Code = %q, want %q", pcs[0].GetCourse().GetCode(), cCode1)
+	}
+	if pcs[0].GetCourse().GetCredits() != 4 {
+		t.Errorf("pcs[0].Course.Credits = %d, want 4", pcs[0].GetCourse().GetCredits())
+	}
+	if pcs[1].GetCourse().GetCode() != cCode2 {
+		t.Errorf("pcs[1].Course.Code = %q, want %q", pcs[1].GetCourse().GetCode(), cCode2)
+	}
+	if pcs[1].GetCourse().GetCredits() != 6 {
+		t.Errorf("pcs[1].Course.Credits = %d, want 6", pcs[1].GetCourse().GetCredits())
+	}
+
+	// --- Scenario 2: soft-deleted course is filtered ---
+
+	pCode2 := "SDEL-PROG-" + uuid.New().String()[:8]
+	pReq2 := connect.NewRequest(&catalogv1.CreateProgramRequest{Code: pCode2, Name: "Soft-Delete Program"})
+	pReq2.Header().Set("Cookie", "sid="+adminSID)
+	pResp2, err := client.CreateProgram(ctx, pReq2)
+	if err != nil {
+		t.Fatalf("CreateProgram (soft-del): %v", err)
+	}
+	progID2 := pResp2.Msg.GetId()
+	t.Cleanup(func() { cleanupProgram(t, progID2) })
+
+	// Live course.
+	liveCrsCode := "LIVE-CRS-" + uuid.New().String()[:8]
+	liveReq := connect.NewRequest(&catalogv1.CreateCourseRequest{Code: liveCrsCode, Name: "Live Course", Credits: 2})
+	liveReq.Header().Set("Cookie", "sid="+adminSID)
+	liveResp, err := client.CreateCourse(ctx, liveReq)
+	if err != nil {
+		t.Fatalf("CreateCourse (live): %v", err)
+	}
+	liveCrsID := liveResp.Msg.GetId()
+	t.Cleanup(func() { cleanupCourse(t, liveCrsID) })
+
+	// Soft-deleted course: create then delete via API.
+	delCrsCode := "DEL-CRS-" + uuid.New().String()[:8]
+	delReq := connect.NewRequest(&catalogv1.CreateCourseRequest{Code: delCrsCode, Name: "Deleted Course", Credits: 1})
+	delReq.Header().Set("Cookie", "sid="+adminSID)
+	delResp, err := client.CreateCourse(ctx, delReq)
+	if err != nil {
+		t.Fatalf("CreateCourse (to delete): %v", err)
+	}
+	delCrsID := delResp.Msg.GetId()
+	t.Cleanup(func() { cleanupCourse(t, delCrsID) })
+
+	// Add both associations before soft-deleting.
+	addLive := connect.NewRequest(&catalogv1.AddCourseToProgramRequest{ProgramId: progID2, CourseId: liveCrsID})
+	addLive.Header().Set("Cookie", "sid="+adminSID)
+	if _, err := client.AddCourseToProgram(ctx, addLive); err != nil {
+		t.Fatalf("AddCourseToProgram (live): %v", err)
+	}
+	addDel := connect.NewRequest(&catalogv1.AddCourseToProgramRequest{ProgramId: progID2, CourseId: delCrsID})
+	addDel.Header().Set("Cookie", "sid="+adminSID)
+	if _, err := client.AddCourseToProgram(ctx, addDel); err != nil {
+		t.Fatalf("AddCourseToProgram (to-delete): %v", err)
+	}
+
+	// Soft-delete the second course via the API — the program_courses row stays, but the JOIN excludes it.
+	// We must first remove the association so DeleteCourse is not blocked by ErrHasDependents,
+	// then re-add it after deletion via raw SQL to simulate an orphaned association.
+	rmDelAssoc := connect.NewRequest(&catalogv1.RemoveCourseFromProgramRequest{ProgramId: progID2, CourseId: delCrsID})
+	rmDelAssoc.Header().Set("Cookie", "sid="+adminSID)
+	if _, err := client.RemoveCourseFromProgram(ctx, rmDelAssoc); err != nil {
+		t.Fatalf("RemoveCourseFromProgram (pre-delete): %v", err)
+	}
+	delCrsReq := connect.NewRequest(&catalogv1.DeleteCourseRequest{Id: delCrsID})
+	delCrsReq.Header().Set("Cookie", "sid="+adminSID)
+	if _, err := client.DeleteCourse(ctx, delCrsReq); err != nil {
+		t.Fatalf("DeleteCourse: %v", err)
+	}
+	// Re-insert the association row directly (bypassing the API) so the orphaned row exists
+	// in program_courses while the course is soft-deleted.
+	if _, err := pgxPool.Exec(ctx,
+		`INSERT INTO program_courses (program_id, course_id) VALUES ($1::uuid, $2::uuid)`,
+		progID2, delCrsID,
+	); err != nil {
+		t.Fatalf("seed orphaned association: %v", err)
+	}
+
+	sdListReq := connect.NewRequest(&catalogv1.ListProgramCoursesRequest{ProgramId: progID2})
+	sdListReq.Header().Set("Cookie", "sid="+adminSID)
+	sdListResp, err := client.ListProgramCourses(ctx, sdListReq)
+	if err != nil {
+		t.Fatalf("ListProgramCourses (soft-delete filter): %v", err)
+	}
+	sdPcs := sdListResp.Msg.GetProgramCourses()
+	if len(sdPcs) != 1 {
+		t.Fatalf("ListProgramCourses (soft-delete filter): want 1, got %d", len(sdPcs))
+	}
+	if sdPcs[0].GetCourseId() != liveCrsID {
+		t.Errorf("soft-delete filter: expected live course %q, got %q", liveCrsID, sdPcs[0].GetCourseId())
+	}
+	if sdPcs[0].GetCourse() == nil {
+		t.Errorf("soft-delete filter: Course is nil on live entry")
+	}
+
+	// --- Scenario 3: empty program returns empty list ---
+
+	pCodeEmpty := "EMPTY-PROG-" + uuid.New().String()[:8]
+	pReqEmpty := connect.NewRequest(&catalogv1.CreateProgramRequest{Code: pCodeEmpty, Name: "Empty Program"})
+	pReqEmpty.Header().Set("Cookie", "sid="+adminSID)
+	pRespEmpty, err := client.CreateProgram(ctx, pReqEmpty)
+	if err != nil {
+		t.Fatalf("CreateProgram (empty): %v", err)
+	}
+	emptyProgID := pRespEmpty.Msg.GetId()
+	t.Cleanup(func() { cleanupProgram(t, emptyProgID) })
+
+	emptyListReq := connect.NewRequest(&catalogv1.ListProgramCoursesRequest{ProgramId: emptyProgID})
+	emptyListReq.Header().Set("Cookie", "sid="+adminSID)
+	emptyListResp, err := client.ListProgramCourses(ctx, emptyListReq)
+	if err != nil {
+		t.Fatalf("ListProgramCourses (empty program): %v", err)
+	}
+	if len(emptyListResp.Msg.GetProgramCourses()) != 0 {
+		t.Errorf("ListProgramCourses (empty): want 0, got %d", len(emptyListResp.Msg.GetProgramCourses()))
 	}
 }
 
