@@ -428,7 +428,7 @@ func (h *Handler) ListProgramCourses(
 	}
 	protos := make([]*catalogv1.ProgramCourse, 0, len(rows))
 	for _, r := range rows {
-		protos = append(protos, programCourseToProto(r))
+		protos = append(protos, enrichedProgramCourseToProto(r))
 	}
 	return connect.NewResponse(&catalogv1.ListProgramCoursesResponse{ProgramCourses: protos}), nil
 }
@@ -523,11 +523,35 @@ func programQuotaToProto(r catalogdb.ProgramQuota) *catalogv1.ProgramQuota {
 	return p
 }
 
+// programCourseToProto converts a plain ProgramCourse row (used by AddCourseToProgram).
+// The Course field is not populated here since the INSERT result carries no joined data.
 func programCourseToProto(r catalogdb.ProgramCourse) *catalogv1.ProgramCourse {
 	return &catalogv1.ProgramCourse{
 		ProgramId: uuidToString(r.ProgramID),
 		CourseId:  uuidToString(r.CourseID),
 		CreatedAt: r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
+// enrichedProgramCourseToProto converts a ListProgramCoursesWithCourseRow into a ProgramCourse
+// proto with the embedded Course populated via courseToProto.
+func enrichedProgramCourseToProto(r catalogdb.ListProgramCoursesWithCourseRow) *catalogv1.ProgramCourse {
+	course := courseToProto(catalogdb.Course{
+		ID:        r.CID,
+		Code:      r.CCode,
+		Name:      r.CName,
+		Credits:   r.CCredits,
+		CreatedAt: r.CCreatedAt,
+		UpdatedAt: r.CUpdatedAt,
+		DeletedAt: r.CDeletedAt,
+		CreatedBy: r.CCreatedBy,
+		UpdatedBy: r.CUpdatedBy,
+	})
+	return &catalogv1.ProgramCourse{
+		ProgramId: uuidToString(r.ProgramID),
+		CourseId:  uuidToString(r.CourseID),
+		CreatedAt: r.AssociationCreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		Course:    course,
 	}
 }
 

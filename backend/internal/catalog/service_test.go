@@ -43,10 +43,11 @@ type fakeRepository struct {
 	countCourseAssociationsErr error
 
 	// Program courses
-	addCourseToProgramRow  catalogdb.ProgramCourse
-	addCourseToProgramErr  error
-	removeCourseErr        error
-	listProgramCoursesRows []catalogdb.ProgramCourse
+	addCourseToProgramRow              catalogdb.ProgramCourse
+	addCourseToProgramErr              error
+	removeCourseErr                    error
+	listProgramCoursesWithCourseRows   []catalogdb.ListProgramCoursesWithCourseRow
+	listProgramCoursesWithCourseErr    error
 
 	// Academic periods
 	createAcademicPeriodRow   catalogdb.AcademicPeriod
@@ -151,8 +152,8 @@ func (f *fakeRepository) AddCourseToProgram(_ context.Context, _, _ uuid.UUID) (
 func (f *fakeRepository) RemoveCourseFromProgram(_ context.Context, _, _ uuid.UUID) error {
 	return f.removeCourseErr
 }
-func (f *fakeRepository) ListProgramCourses(_ context.Context, _ uuid.UUID) ([]catalogdb.ProgramCourse, error) {
-	return f.listProgramCoursesRows, nil
+func (f *fakeRepository) ListProgramCoursesWithCourse(_ context.Context, _ uuid.UUID) ([]catalogdb.ListProgramCoursesWithCourseRow, error) {
+	return f.listProgramCoursesWithCourseRows, f.listProgramCoursesWithCourseErr
 }
 func (f *fakeRepository) CreateAcademicPeriod(_ context.Context, _ catalog.CreateAcademicPeriodParams) (catalogdb.AcademicPeriod, error) {
 	return f.createAcademicPeriodRow, f.createAcademicPeriodErr
@@ -654,6 +655,30 @@ func TestService_AddCourseToProgram_AlreadyExists(t *testing.T) {
 	_, err := svc.AddCourseToProgram(context.Background(), uuid.New(), uuid.New())
 	if !errors.Is(err, catalog.ErrAlreadyExists) {
 		t.Errorf("AddCourseToProgram (duplicate): got %v, want ErrAlreadyExists", err)
+	}
+}
+
+// --- ListProgramCourses enriched ---
+
+func TestService_ListProgramCourses_DelegatesToEnrichedRepo(t *testing.T) {
+	t.Parallel()
+
+	cID := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	expected := []catalogdb.ListProgramCoursesWithCourseRow{
+		{CID: cID, CCode: "SVC-C", CName: "Service Course", CCredits: 4},
+	}
+	repo := &fakeRepository{listProgramCoursesWithCourseRows: expected}
+	svc := catalog.NewService(repo)
+
+	rows, err := svc.ListProgramCourses(context.Background(), uuid.New())
+	if err != nil {
+		t.Fatalf("ListProgramCourses: unexpected error: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Errorf("ListProgramCourses: got %d rows, want 1", len(rows))
+	}
+	if rows[0].CCode != "SVC-C" {
+		t.Errorf("ListProgramCourses: CCode = %q, want %q", rows[0].CCode, "SVC-C")
 	}
 }
 

@@ -44,12 +44,12 @@ type fakeQuerier struct {
 	countCourseAssociationsN int64
 	countCourseAssociationsE error
 
-	insertProgramCourseErr  error
-	insertProgramCourseRow  catalogdb.ProgramCourse
-	deleteProgramCourseRows int64
-	deleteProgramCourseErr  error
-	listProgramCoursesRows  []catalogdb.ProgramCourse
-	listProgramCoursesErr   error
+	insertProgramCourseErr              error
+	insertProgramCourseRow              catalogdb.ProgramCourse
+	deleteProgramCourseRows             int64
+	deleteProgramCourseErr              error
+	listProgramCoursesWithCourseRows    []catalogdb.ListProgramCoursesWithCourseRow
+	listProgramCoursesWithCourseErr     error
 
 	insertAcademicPeriodErr      error
 	insertAcademicPeriodRow      catalogdb.AcademicPeriod
@@ -152,8 +152,8 @@ func (f *fakeQuerier) InsertProgramCourse(_ context.Context, _ catalogdb.InsertP
 func (f *fakeQuerier) DeleteProgramCourse(_ context.Context, _ catalogdb.DeleteProgramCourseParams) (int64, error) {
 	return f.deleteProgramCourseRows, f.deleteProgramCourseErr
 }
-func (f *fakeQuerier) ListProgramCourses(_ context.Context, _ pgtype.UUID) ([]catalogdb.ProgramCourse, error) {
-	return f.listProgramCoursesRows, f.listProgramCoursesErr
+func (f *fakeQuerier) ListProgramCoursesWithCourse(_ context.Context, _ pgtype.UUID) ([]catalogdb.ListProgramCoursesWithCourseRow, error) {
+	return f.listProgramCoursesWithCourseRows, f.listProgramCoursesWithCourseErr
 }
 func (f *fakeQuerier) InsertAcademicPeriod(_ context.Context, _ catalogdb.InsertAcademicPeriodParams) (catalogdb.AcademicPeriod, error) {
 	return f.insertAcademicPeriodRow, f.insertAcademicPeriodErr
@@ -410,6 +410,39 @@ func TestRepository_CountLiveSectionsByAcademicPeriod(t *testing.T) {
 	}
 	if n != 1 {
 		t.Errorf("CountLiveSectionsByAcademicPeriod: got %d, want 1", n)
+	}
+}
+
+func TestRepository_ListProgramCoursesWithCourse_Delegates(t *testing.T) {
+	t.Parallel()
+
+	id1 := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	id2 := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	expected := []catalogdb.ListProgramCoursesWithCourseRow{
+		{CID: id1, CCode: "C001", CName: "Course 1", CCredits: 3},
+		{CID: id2, CCode: "C002", CName: "Course 2", CCredits: 6},
+	}
+	q := &fakeQuerier{listProgramCoursesWithCourseRows: expected}
+	repo := catalog.NewPostgresRepository(q, nil)
+
+	rows, err := repo.ListProgramCoursesWithCourse(context.Background(), uuid.New())
+	if err != nil {
+		t.Fatalf("ListProgramCoursesWithCourse: unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Errorf("ListProgramCoursesWithCourse: got %d rows, want 2", len(rows))
+	}
+}
+
+func TestRepository_ListProgramCoursesWithCourse_Error(t *testing.T) {
+	t.Parallel()
+
+	q := &fakeQuerier{listProgramCoursesWithCourseErr: pgx.ErrNoRows}
+	repo := catalog.NewPostgresRepository(q, nil)
+
+	_, err := repo.ListProgramCoursesWithCourse(context.Background(), uuid.New())
+	if err == nil {
+		t.Error("ListProgramCoursesWithCourse: expected error, got nil")
 	}
 }
 

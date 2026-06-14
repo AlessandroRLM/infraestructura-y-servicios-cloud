@@ -103,11 +103,13 @@ message ProgramQuota {
   optional string updated_by      = 9;
 }
 
-// ProgramCourse represents a single course-to-program association.
+// ProgramCourse represents a single course-to-program association, with the live course embedded.
 message ProgramCourse {
   string program_id = 1;
   string course_id  = 2;
   string created_at = 3;
+  // course is the embedded course; populated by ListProgramCourses, left unset by AddCourseToProgram.
+  Course course     = 4;
 }
 
 // Section represents a scheduled instance of a course in an academic period.

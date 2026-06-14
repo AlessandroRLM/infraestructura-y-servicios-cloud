@@ -85,10 +85,24 @@ RETURNING *;
 DELETE FROM program_courses
 WHERE program_id = $1 AND course_id = $2;
 
--- name: ListProgramCourses :many
-SELECT * FROM program_courses
-WHERE program_id = $1
-ORDER BY created_at;
+-- name: ListProgramCoursesWithCourse :many
+SELECT
+    pc.program_id,
+    pc.course_id,
+    pc.created_at        AS association_created_at,
+    c.id                 AS c_id,
+    c.code               AS c_code,
+    c.name               AS c_name,
+    c.credits            AS c_credits,
+    c.created_at         AS c_created_at,
+    c.updated_at         AS c_updated_at,
+    c.deleted_at         AS c_deleted_at,
+    c.created_by         AS c_created_by,
+    c.updated_by         AS c_updated_by
+FROM program_courses pc
+JOIN courses c ON c.id = pc.course_id AND c.deleted_at IS NULL
+WHERE pc.program_id = $1
+ORDER BY pc.created_at;
 
 -- Academic periods
 

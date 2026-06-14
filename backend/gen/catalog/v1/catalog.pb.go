@@ -443,12 +443,14 @@ func (x *ProgramQuota) GetUpdatedBy() string {
 	return ""
 }
 
-// ProgramCourse represents a single course-to-program association.
+// ProgramCourse represents a single course-to-program association, with the live course embedded.
 type ProgramCourse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ProgramId     string                 `protobuf:"bytes,1,opt,name=program_id,json=programId,proto3" json:"program_id,omitempty"`
-	CourseId      string                 `protobuf:"bytes,2,opt,name=course_id,json=courseId,proto3" json:"course_id,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	ProgramId string                 `protobuf:"bytes,1,opt,name=program_id,json=programId,proto3" json:"program_id,omitempty"`
+	CourseId  string                 `protobuf:"bytes,2,opt,name=course_id,json=courseId,proto3" json:"course_id,omitempty"`
+	CreatedAt string                 `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// course is the embedded course; populated by ListProgramCourses, left unset by AddCourseToProgram.
+	Course        *Course `protobuf:"bytes,4,opt,name=course,proto3" json:"course,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -502,6 +504,13 @@ func (x *ProgramCourse) GetCreatedAt() string {
 		return x.CreatedAt
 	}
 	return ""
+}
+
+func (x *ProgramCourse) GetCourse() *Course {
+	if x != nil {
+		return x.Course
+	}
+	return nil
 }
 
 // Section represents a scheduled instance of a course in an academic period.
@@ -2864,13 +2873,14 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"updated_by\x18\t \x01(\tH\x02R\tupdatedBy\x88\x01\x01B\r\n" +
 	"\v_deleted_atB\r\n" +
 	"\v_created_byB\r\n" +
-	"\v_updated_by\"j\n" +
+	"\v_updated_by\"\x96\x01\n" +
 	"\rProgramCourse\x12\x1d\n" +
 	"\n" +
 	"program_id\x18\x01 \x01(\tR\tprogramId\x12\x1b\n" +
 	"\tcourse_id\x18\x02 \x01(\tR\bcourseId\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x03 \x01(\tR\tcreatedAt\"\xe0\x02\n" +
+	"created_at\x18\x03 \x01(\tR\tcreatedAt\x12*\n" +
+	"\x06course\x18\x04 \x01(\v2\x12.catalog.v1.CourseR\x06course\"\xe0\x02\n" +
 	"\aSection\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tcourse_id\x18\x02 \x01(\tR\bcourseId\x12,\n" +
@@ -3121,80 +3131,81 @@ var file_catalog_v1_catalog_proto_goTypes = []any{
 	(*ListProgramCoursesResponse)(nil),       // 51: catalog.v1.ListProgramCoursesResponse
 }
 var file_catalog_v1_catalog_proto_depIdxs = []int32{
-	5,  // 0: catalog.v1.ListSectionsResponse.sections:type_name -> catalog.v1.Section
-	6,  // 1: catalog.v1.ListSectionTeachersResponse.section_teachers:type_name -> catalog.v1.SectionTeacher
-	0,  // 2: catalog.v1.ListProgramsResponse.programs:type_name -> catalog.v1.Program
-	1,  // 3: catalog.v1.ListCoursesResponse.courses:type_name -> catalog.v1.Course
-	2,  // 4: catalog.v1.ListAcademicPeriodsResponse.academic_periods:type_name -> catalog.v1.AcademicPeriod
-	3,  // 5: catalog.v1.ListProgramQuotasResponse.program_quotas:type_name -> catalog.v1.ProgramQuota
-	4,  // 6: catalog.v1.ListProgramCoursesResponse.program_courses:type_name -> catalog.v1.ProgramCourse
-	19, // 7: catalog.v1.CatalogService.CreateProgram:input_type -> catalog.v1.CreateProgramRequest
-	20, // 8: catalog.v1.CatalogService.UpdateProgram:input_type -> catalog.v1.UpdateProgramRequest
-	21, // 9: catalog.v1.CatalogService.GetProgram:input_type -> catalog.v1.GetProgramRequest
-	22, // 10: catalog.v1.CatalogService.ListPrograms:input_type -> catalog.v1.ListProgramsRequest
-	24, // 11: catalog.v1.CatalogService.DeleteProgram:input_type -> catalog.v1.DeleteProgramRequest
-	26, // 12: catalog.v1.CatalogService.CreateCourse:input_type -> catalog.v1.CreateCourseRequest
-	27, // 13: catalog.v1.CatalogService.UpdateCourse:input_type -> catalog.v1.UpdateCourseRequest
-	28, // 14: catalog.v1.CatalogService.GetCourse:input_type -> catalog.v1.GetCourseRequest
-	29, // 15: catalog.v1.CatalogService.ListCourses:input_type -> catalog.v1.ListCoursesRequest
-	31, // 16: catalog.v1.CatalogService.DeleteCourse:input_type -> catalog.v1.DeleteCourseRequest
-	33, // 17: catalog.v1.CatalogService.CreateAcademicPeriod:input_type -> catalog.v1.CreateAcademicPeriodRequest
-	34, // 18: catalog.v1.CatalogService.UpdateAcademicPeriod:input_type -> catalog.v1.UpdateAcademicPeriodRequest
-	35, // 19: catalog.v1.CatalogService.GetAcademicPeriod:input_type -> catalog.v1.GetAcademicPeriodRequest
-	36, // 20: catalog.v1.CatalogService.ListAcademicPeriods:input_type -> catalog.v1.ListAcademicPeriodsRequest
-	38, // 21: catalog.v1.CatalogService.DeleteAcademicPeriod:input_type -> catalog.v1.DeleteAcademicPeriodRequest
-	40, // 22: catalog.v1.CatalogService.CreateProgramQuota:input_type -> catalog.v1.CreateProgramQuotaRequest
-	41, // 23: catalog.v1.CatalogService.UpdateProgramQuota:input_type -> catalog.v1.UpdateProgramQuotaRequest
-	42, // 24: catalog.v1.CatalogService.GetProgramQuota:input_type -> catalog.v1.GetProgramQuotaRequest
-	43, // 25: catalog.v1.CatalogService.ListProgramQuotas:input_type -> catalog.v1.ListProgramQuotasRequest
-	45, // 26: catalog.v1.CatalogService.DeleteProgramQuota:input_type -> catalog.v1.DeleteProgramQuotaRequest
-	47, // 27: catalog.v1.CatalogService.AddCourseToProgram:input_type -> catalog.v1.AddCourseToProgramRequest
-	48, // 28: catalog.v1.CatalogService.RemoveCourseFromProgram:input_type -> catalog.v1.RemoveCourseFromProgramRequest
-	50, // 29: catalog.v1.CatalogService.ListProgramCourses:input_type -> catalog.v1.ListProgramCoursesRequest
-	7,  // 30: catalog.v1.CatalogService.CreateSection:input_type -> catalog.v1.CreateSectionRequest
-	8,  // 31: catalog.v1.CatalogService.UpdateSection:input_type -> catalog.v1.UpdateSectionRequest
-	9,  // 32: catalog.v1.CatalogService.GetSection:input_type -> catalog.v1.GetSectionRequest
-	10, // 33: catalog.v1.CatalogService.ListSections:input_type -> catalog.v1.ListSectionsRequest
-	12, // 34: catalog.v1.CatalogService.DeleteSection:input_type -> catalog.v1.DeleteSectionRequest
-	14, // 35: catalog.v1.CatalogService.AssignTeacherToSection:input_type -> catalog.v1.AssignTeacherToSectionRequest
-	15, // 36: catalog.v1.CatalogService.RemoveTeacherFromSection:input_type -> catalog.v1.RemoveTeacherFromSectionRequest
-	17, // 37: catalog.v1.CatalogService.ListSectionTeachers:input_type -> catalog.v1.ListSectionTeachersRequest
-	0,  // 38: catalog.v1.CatalogService.CreateProgram:output_type -> catalog.v1.Program
-	0,  // 39: catalog.v1.CatalogService.UpdateProgram:output_type -> catalog.v1.Program
-	0,  // 40: catalog.v1.CatalogService.GetProgram:output_type -> catalog.v1.Program
-	23, // 41: catalog.v1.CatalogService.ListPrograms:output_type -> catalog.v1.ListProgramsResponse
-	25, // 42: catalog.v1.CatalogService.DeleteProgram:output_type -> catalog.v1.DeleteProgramResponse
-	1,  // 43: catalog.v1.CatalogService.CreateCourse:output_type -> catalog.v1.Course
-	1,  // 44: catalog.v1.CatalogService.UpdateCourse:output_type -> catalog.v1.Course
-	1,  // 45: catalog.v1.CatalogService.GetCourse:output_type -> catalog.v1.Course
-	30, // 46: catalog.v1.CatalogService.ListCourses:output_type -> catalog.v1.ListCoursesResponse
-	32, // 47: catalog.v1.CatalogService.DeleteCourse:output_type -> catalog.v1.DeleteCourseResponse
-	2,  // 48: catalog.v1.CatalogService.CreateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
-	2,  // 49: catalog.v1.CatalogService.UpdateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
-	2,  // 50: catalog.v1.CatalogService.GetAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
-	37, // 51: catalog.v1.CatalogService.ListAcademicPeriods:output_type -> catalog.v1.ListAcademicPeriodsResponse
-	39, // 52: catalog.v1.CatalogService.DeleteAcademicPeriod:output_type -> catalog.v1.DeleteAcademicPeriodResponse
-	3,  // 53: catalog.v1.CatalogService.CreateProgramQuota:output_type -> catalog.v1.ProgramQuota
-	3,  // 54: catalog.v1.CatalogService.UpdateProgramQuota:output_type -> catalog.v1.ProgramQuota
-	3,  // 55: catalog.v1.CatalogService.GetProgramQuota:output_type -> catalog.v1.ProgramQuota
-	44, // 56: catalog.v1.CatalogService.ListProgramQuotas:output_type -> catalog.v1.ListProgramQuotasResponse
-	46, // 57: catalog.v1.CatalogService.DeleteProgramQuota:output_type -> catalog.v1.DeleteProgramQuotaResponse
-	4,  // 58: catalog.v1.CatalogService.AddCourseToProgram:output_type -> catalog.v1.ProgramCourse
-	49, // 59: catalog.v1.CatalogService.RemoveCourseFromProgram:output_type -> catalog.v1.RemoveCourseFromProgramResponse
-	51, // 60: catalog.v1.CatalogService.ListProgramCourses:output_type -> catalog.v1.ListProgramCoursesResponse
-	5,  // 61: catalog.v1.CatalogService.CreateSection:output_type -> catalog.v1.Section
-	5,  // 62: catalog.v1.CatalogService.UpdateSection:output_type -> catalog.v1.Section
-	5,  // 63: catalog.v1.CatalogService.GetSection:output_type -> catalog.v1.Section
-	11, // 64: catalog.v1.CatalogService.ListSections:output_type -> catalog.v1.ListSectionsResponse
-	13, // 65: catalog.v1.CatalogService.DeleteSection:output_type -> catalog.v1.DeleteSectionResponse
-	6,  // 66: catalog.v1.CatalogService.AssignTeacherToSection:output_type -> catalog.v1.SectionTeacher
-	16, // 67: catalog.v1.CatalogService.RemoveTeacherFromSection:output_type -> catalog.v1.RemoveTeacherFromSectionResponse
-	18, // 68: catalog.v1.CatalogService.ListSectionTeachers:output_type -> catalog.v1.ListSectionTeachersResponse
-	38, // [38:69] is the sub-list for method output_type
-	7,  // [7:38] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	1,  // 0: catalog.v1.ProgramCourse.course:type_name -> catalog.v1.Course
+	5,  // 1: catalog.v1.ListSectionsResponse.sections:type_name -> catalog.v1.Section
+	6,  // 2: catalog.v1.ListSectionTeachersResponse.section_teachers:type_name -> catalog.v1.SectionTeacher
+	0,  // 3: catalog.v1.ListProgramsResponse.programs:type_name -> catalog.v1.Program
+	1,  // 4: catalog.v1.ListCoursesResponse.courses:type_name -> catalog.v1.Course
+	2,  // 5: catalog.v1.ListAcademicPeriodsResponse.academic_periods:type_name -> catalog.v1.AcademicPeriod
+	3,  // 6: catalog.v1.ListProgramQuotasResponse.program_quotas:type_name -> catalog.v1.ProgramQuota
+	4,  // 7: catalog.v1.ListProgramCoursesResponse.program_courses:type_name -> catalog.v1.ProgramCourse
+	19, // 8: catalog.v1.CatalogService.CreateProgram:input_type -> catalog.v1.CreateProgramRequest
+	20, // 9: catalog.v1.CatalogService.UpdateProgram:input_type -> catalog.v1.UpdateProgramRequest
+	21, // 10: catalog.v1.CatalogService.GetProgram:input_type -> catalog.v1.GetProgramRequest
+	22, // 11: catalog.v1.CatalogService.ListPrograms:input_type -> catalog.v1.ListProgramsRequest
+	24, // 12: catalog.v1.CatalogService.DeleteProgram:input_type -> catalog.v1.DeleteProgramRequest
+	26, // 13: catalog.v1.CatalogService.CreateCourse:input_type -> catalog.v1.CreateCourseRequest
+	27, // 14: catalog.v1.CatalogService.UpdateCourse:input_type -> catalog.v1.UpdateCourseRequest
+	28, // 15: catalog.v1.CatalogService.GetCourse:input_type -> catalog.v1.GetCourseRequest
+	29, // 16: catalog.v1.CatalogService.ListCourses:input_type -> catalog.v1.ListCoursesRequest
+	31, // 17: catalog.v1.CatalogService.DeleteCourse:input_type -> catalog.v1.DeleteCourseRequest
+	33, // 18: catalog.v1.CatalogService.CreateAcademicPeriod:input_type -> catalog.v1.CreateAcademicPeriodRequest
+	34, // 19: catalog.v1.CatalogService.UpdateAcademicPeriod:input_type -> catalog.v1.UpdateAcademicPeriodRequest
+	35, // 20: catalog.v1.CatalogService.GetAcademicPeriod:input_type -> catalog.v1.GetAcademicPeriodRequest
+	36, // 21: catalog.v1.CatalogService.ListAcademicPeriods:input_type -> catalog.v1.ListAcademicPeriodsRequest
+	38, // 22: catalog.v1.CatalogService.DeleteAcademicPeriod:input_type -> catalog.v1.DeleteAcademicPeriodRequest
+	40, // 23: catalog.v1.CatalogService.CreateProgramQuota:input_type -> catalog.v1.CreateProgramQuotaRequest
+	41, // 24: catalog.v1.CatalogService.UpdateProgramQuota:input_type -> catalog.v1.UpdateProgramQuotaRequest
+	42, // 25: catalog.v1.CatalogService.GetProgramQuota:input_type -> catalog.v1.GetProgramQuotaRequest
+	43, // 26: catalog.v1.CatalogService.ListProgramQuotas:input_type -> catalog.v1.ListProgramQuotasRequest
+	45, // 27: catalog.v1.CatalogService.DeleteProgramQuota:input_type -> catalog.v1.DeleteProgramQuotaRequest
+	47, // 28: catalog.v1.CatalogService.AddCourseToProgram:input_type -> catalog.v1.AddCourseToProgramRequest
+	48, // 29: catalog.v1.CatalogService.RemoveCourseFromProgram:input_type -> catalog.v1.RemoveCourseFromProgramRequest
+	50, // 30: catalog.v1.CatalogService.ListProgramCourses:input_type -> catalog.v1.ListProgramCoursesRequest
+	7,  // 31: catalog.v1.CatalogService.CreateSection:input_type -> catalog.v1.CreateSectionRequest
+	8,  // 32: catalog.v1.CatalogService.UpdateSection:input_type -> catalog.v1.UpdateSectionRequest
+	9,  // 33: catalog.v1.CatalogService.GetSection:input_type -> catalog.v1.GetSectionRequest
+	10, // 34: catalog.v1.CatalogService.ListSections:input_type -> catalog.v1.ListSectionsRequest
+	12, // 35: catalog.v1.CatalogService.DeleteSection:input_type -> catalog.v1.DeleteSectionRequest
+	14, // 36: catalog.v1.CatalogService.AssignTeacherToSection:input_type -> catalog.v1.AssignTeacherToSectionRequest
+	15, // 37: catalog.v1.CatalogService.RemoveTeacherFromSection:input_type -> catalog.v1.RemoveTeacherFromSectionRequest
+	17, // 38: catalog.v1.CatalogService.ListSectionTeachers:input_type -> catalog.v1.ListSectionTeachersRequest
+	0,  // 39: catalog.v1.CatalogService.CreateProgram:output_type -> catalog.v1.Program
+	0,  // 40: catalog.v1.CatalogService.UpdateProgram:output_type -> catalog.v1.Program
+	0,  // 41: catalog.v1.CatalogService.GetProgram:output_type -> catalog.v1.Program
+	23, // 42: catalog.v1.CatalogService.ListPrograms:output_type -> catalog.v1.ListProgramsResponse
+	25, // 43: catalog.v1.CatalogService.DeleteProgram:output_type -> catalog.v1.DeleteProgramResponse
+	1,  // 44: catalog.v1.CatalogService.CreateCourse:output_type -> catalog.v1.Course
+	1,  // 45: catalog.v1.CatalogService.UpdateCourse:output_type -> catalog.v1.Course
+	1,  // 46: catalog.v1.CatalogService.GetCourse:output_type -> catalog.v1.Course
+	30, // 47: catalog.v1.CatalogService.ListCourses:output_type -> catalog.v1.ListCoursesResponse
+	32, // 48: catalog.v1.CatalogService.DeleteCourse:output_type -> catalog.v1.DeleteCourseResponse
+	2,  // 49: catalog.v1.CatalogService.CreateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
+	2,  // 50: catalog.v1.CatalogService.UpdateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
+	2,  // 51: catalog.v1.CatalogService.GetAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
+	37, // 52: catalog.v1.CatalogService.ListAcademicPeriods:output_type -> catalog.v1.ListAcademicPeriodsResponse
+	39, // 53: catalog.v1.CatalogService.DeleteAcademicPeriod:output_type -> catalog.v1.DeleteAcademicPeriodResponse
+	3,  // 54: catalog.v1.CatalogService.CreateProgramQuota:output_type -> catalog.v1.ProgramQuota
+	3,  // 55: catalog.v1.CatalogService.UpdateProgramQuota:output_type -> catalog.v1.ProgramQuota
+	3,  // 56: catalog.v1.CatalogService.GetProgramQuota:output_type -> catalog.v1.ProgramQuota
+	44, // 57: catalog.v1.CatalogService.ListProgramQuotas:output_type -> catalog.v1.ListProgramQuotasResponse
+	46, // 58: catalog.v1.CatalogService.DeleteProgramQuota:output_type -> catalog.v1.DeleteProgramQuotaResponse
+	4,  // 59: catalog.v1.CatalogService.AddCourseToProgram:output_type -> catalog.v1.ProgramCourse
+	49, // 60: catalog.v1.CatalogService.RemoveCourseFromProgram:output_type -> catalog.v1.RemoveCourseFromProgramResponse
+	51, // 61: catalog.v1.CatalogService.ListProgramCourses:output_type -> catalog.v1.ListProgramCoursesResponse
+	5,  // 62: catalog.v1.CatalogService.CreateSection:output_type -> catalog.v1.Section
+	5,  // 63: catalog.v1.CatalogService.UpdateSection:output_type -> catalog.v1.Section
+	5,  // 64: catalog.v1.CatalogService.GetSection:output_type -> catalog.v1.Section
+	11, // 65: catalog.v1.CatalogService.ListSections:output_type -> catalog.v1.ListSectionsResponse
+	13, // 66: catalog.v1.CatalogService.DeleteSection:output_type -> catalog.v1.DeleteSectionResponse
+	6,  // 67: catalog.v1.CatalogService.AssignTeacherToSection:output_type -> catalog.v1.SectionTeacher
+	16, // 68: catalog.v1.CatalogService.RemoveTeacherFromSection:output_type -> catalog.v1.RemoveTeacherFromSectionResponse
+	18, // 69: catalog.v1.CatalogService.ListSectionTeachers:output_type -> catalog.v1.ListSectionTeachersResponse
+	39, // [39:70] is the sub-list for method output_type
+	8,  // [8:39] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_catalog_v1_catalog_proto_init() }

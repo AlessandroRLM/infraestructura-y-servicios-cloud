@@ -40,7 +40,9 @@ type Repository interface {
 	// Program-course M:N
 	AddCourseToProgram(ctx context.Context, programID, courseID uuid.UUID) (catalogdb.ProgramCourse, error)
 	RemoveCourseFromProgram(ctx context.Context, programID, courseID uuid.UUID) error
-	ListProgramCourses(ctx context.Context, programID uuid.UUID) ([]catalogdb.ProgramCourse, error)
+	// ListProgramCoursesWithCourse returns all live course associations for the given program,
+	// with the full Course embedded. Associations pointing to soft-deleted courses are excluded.
+	ListProgramCoursesWithCourse(ctx context.Context, programID uuid.UUID) ([]catalogdb.ListProgramCoursesWithCourseRow, error)
 
 	// Academic periods
 	CreateAcademicPeriod(ctx context.Context, p CreateAcademicPeriodParams) (catalogdb.AcademicPeriod, error)
@@ -397,8 +399,8 @@ func (r *postgresRepository) RemoveCourseFromProgram(ctx context.Context, progra
 	return nil
 }
 
-func (r *postgresRepository) ListProgramCourses(ctx context.Context, programID uuid.UUID) ([]catalogdb.ProgramCourse, error) {
-	rows, err := r.q.ListProgramCourses(ctx, pgtype.UUID{Bytes: programID, Valid: true})
+func (r *postgresRepository) ListProgramCoursesWithCourse(ctx context.Context, programID uuid.UUID) ([]catalogdb.ListProgramCoursesWithCourseRow, error) {
+	rows, err := r.q.ListProgramCoursesWithCourse(ctx, pgtype.UUID{Bytes: programID, Valid: true})
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}

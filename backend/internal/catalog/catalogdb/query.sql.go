@@ -586,22 +586,64 @@ func (q *Queries) ListCourses(ctx context.Context) ([]Course, error) {
 	return items, nil
 }
 
-const listProgramCourses = `-- name: ListProgramCourses :many
-SELECT program_id, course_id, created_at FROM program_courses
-WHERE program_id = $1
-ORDER BY created_at
+const listProgramCoursesWithCourse = `-- name: ListProgramCoursesWithCourse :many
+SELECT
+    pc.program_id,
+    pc.course_id,
+    pc.created_at        AS association_created_at,
+    c.id                 AS c_id,
+    c.code               AS c_code,
+    c.name               AS c_name,
+    c.credits            AS c_credits,
+    c.created_at         AS c_created_at,
+    c.updated_at         AS c_updated_at,
+    c.deleted_at         AS c_deleted_at,
+    c.created_by         AS c_created_by,
+    c.updated_by         AS c_updated_by
+FROM program_courses pc
+JOIN courses c ON c.id = pc.course_id AND c.deleted_at IS NULL
+WHERE pc.program_id = $1
+ORDER BY pc.created_at
 `
 
-func (q *Queries) ListProgramCourses(ctx context.Context, programID pgtype.UUID) ([]ProgramCourse, error) {
-	rows, err := q.db.Query(ctx, listProgramCourses, programID)
+type ListProgramCoursesWithCourseRow struct {
+	ProgramID            pgtype.UUID
+	CourseID             pgtype.UUID
+	AssociationCreatedAt pgtype.Timestamptz
+	CID                  pgtype.UUID
+	CCode                string
+	CName                string
+	CCredits             int32
+	CCreatedAt           pgtype.Timestamptz
+	CUpdatedAt           pgtype.Timestamptz
+	CDeletedAt           pgtype.Timestamptz
+	CCreatedBy           pgtype.UUID
+	CUpdatedBy           pgtype.UUID
+}
+
+func (q *Queries) ListProgramCoursesWithCourse(ctx context.Context, programID pgtype.UUID) ([]ListProgramCoursesWithCourseRow, error) {
+	rows, err := q.db.Query(ctx, listProgramCoursesWithCourse, programID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ProgramCourse
+	var items []ListProgramCoursesWithCourseRow
 	for rows.Next() {
-		var i ProgramCourse
-		if err := rows.Scan(&i.ProgramID, &i.CourseID, &i.CreatedAt); err != nil {
+		var i ListProgramCoursesWithCourseRow
+		if err := rows.Scan(
+			&i.ProgramID,
+			&i.CourseID,
+			&i.AssociationCreatedAt,
+			&i.CID,
+			&i.CCode,
+			&i.CName,
+			&i.CCredits,
+			&i.CCreatedAt,
+			&i.CUpdatedAt,
+			&i.CDeletedAt,
+			&i.CCreatedBy,
+			&i.CUpdatedBy,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
