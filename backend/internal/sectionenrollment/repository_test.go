@@ -153,7 +153,7 @@ func (f *fakeQuerier) ListSectionEnrollments(_ context.Context, _ sectionenrollm
 	return f.listRows, f.listErr
 }
 
-func (f *fakeQuerier) ListOwnSectionEnrollments(_ context.Context, _ pgtype.UUID) ([]sectionenrollmentdb.SectionEnrollment, error) {
+func (f *fakeQuerier) ListOwnSectionEnrollments(_ context.Context, _ sectionenrollmentdb.ListOwnSectionEnrollmentsParams) ([]sectionenrollmentdb.SectionEnrollment, error) {
 	f.listOwnCalled = true
 	return f.listOwnRows, f.listOwnErr
 }
@@ -234,7 +234,7 @@ func TestRepository_ListSectionEnrollments_Empty(t *testing.T) {
 	fq := &fakeQuerier{listRows: nil}
 	repo := newFakeRepository(fq)
 
-	rows, err := repo.ListSectionEnrollments(context.Background(), ListSectionEnrollmentsFilter{})
+	rows, err := repo.ListSectionEnrollments(context.Background(), ListSectionEnrollmentsRepoParams{RowLimit: 21})
 	if err != nil {
 		t.Fatalf("ListSectionEnrollments: unexpected error %v", err)
 	}
@@ -243,6 +243,44 @@ func TestRepository_ListSectionEnrollments_Empty(t *testing.T) {
 	}
 	if !fq.listCalled {
 		t.Error("ListSectionEnrollments was not called on querier")
+	}
+}
+
+// TestRepository_ListSectionEnrollments_ForwardsToken verifies that a non-nil PageToken
+// is translated to a valid pgtype.UUID in the params forwarded to the querier.
+func TestRepository_ListSectionEnrollments_ForwardsToken(t *testing.T) {
+	t.Parallel()
+
+	token := uuid.New()
+	fq := &fakeQuerier{}
+	repo := newFakeRepository(fq)
+
+	_, _ = repo.ListSectionEnrollments(context.Background(), ListSectionEnrollmentsRepoParams{
+		PageToken: &token,
+		RowLimit:  21,
+	})
+	if !fq.listCalled {
+		t.Error("ListSectionEnrollments was not called on querier")
+	}
+}
+
+// TestRepository_ListOwnSectionEnrollments_ForwardsToken verifies that a non-nil PageToken
+// is translated correctly for ListOwnSectionEnrollments.
+func TestRepository_ListOwnSectionEnrollments_ForwardsToken(t *testing.T) {
+	t.Parallel()
+
+	studentID := uuid.New()
+	token := uuid.New()
+	fq := &fakeQuerier{}
+	repo := newFakeRepository(fq)
+
+	_, _ = repo.ListOwnSectionEnrollments(context.Background(), ListOwnSectionEnrollmentsRepoParams{
+		StudentID: studentID,
+		PageToken: &token,
+		RowLimit:  21,
+	})
+	if !fq.listOwnCalled {
+		t.Error("ListOwnSectionEnrollments was not called on querier")
 	}
 }
 

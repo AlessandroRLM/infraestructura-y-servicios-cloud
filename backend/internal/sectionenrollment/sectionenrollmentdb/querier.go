@@ -39,8 +39,9 @@ type Querier interface {
 	// Used as lock step #1 in EnrollSectionTx; lock order is section → key row.
 	GetSectionForUpdateWithWindow(ctx context.Context, id pgtype.UUID) (GetSectionForUpdateWithWindowRow, error)
 	InsertSectionEnrollment(ctx context.Context, arg InsertSectionEnrollmentParams) (SectionEnrollment, error)
-	// Returns all live inscriptions for a student by joining enrollments on student_id.
-	ListOwnSectionEnrollments(ctx context.Context, studentID pgtype.UUID) ([]SectionEnrollment, error)
+	// Returns live inscriptions for a student by joining enrollments on student_id.
+	// Keyset pagination: results ordered by se.id DESC; page_token is the exclusive upper bound.
+	ListOwnSectionEnrollments(ctx context.Context, arg ListOwnSectionEnrollmentsParams) ([]SectionEnrollment, error)
 	ListSectionEnrollments(ctx context.Context, arg ListSectionEnrollmentsParams) ([]SectionEnrollment, error)
 	// Resolves an enrollment by id without filtering on status.
 	// Returns year, status, and deleted_at so the caller can distinguish:

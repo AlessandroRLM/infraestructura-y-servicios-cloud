@@ -57,12 +57,12 @@ func (f *fakeRepository) GetSectionEnrollment(_ context.Context, _ uuid.UUID) (s
 	return f.getSERow, f.getSEErr
 }
 
-func (f *fakeRepository) ListSectionEnrollments(_ context.Context, _ ListSectionEnrollmentsFilter) ([]sectionenrollmentdb.SectionEnrollment, error) {
+func (f *fakeRepository) ListSectionEnrollments(_ context.Context, _ ListSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.SectionEnrollment, error) {
 	f.listCalled = true
 	return f.listRows, f.listErr
 }
 
-func (f *fakeRepository) ListOwnSectionEnrollments(_ context.Context, _ uuid.UUID) ([]sectionenrollmentdb.SectionEnrollment, error) {
+func (f *fakeRepository) ListOwnSectionEnrollments(_ context.Context, _ ListOwnSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.SectionEnrollment, error) {
 	f.listOwnCalled = true
 	return f.listOwnRows, f.listOwnErr
 }
@@ -214,11 +214,11 @@ func TestService_ListOwnSectionEnrollments_DerivesFromContext(t *testing.T) {
 	callerID := uuid.New()
 	ctx := contextWithUser(callerID)
 
-	rows, err := svc.ListOwnSectionEnrollments(ctx)
+	result, err := svc.ListOwnSectionEnrollments(ctx, 0, "")
 	if err != nil {
 		t.Fatalf("ListOwnSectionEnrollments: unexpected error %v", err)
 	}
-	_ = rows
+	_ = result
 	if !repo.listOwnCalled {
 		t.Error("ListOwnSectionEnrollments was not called on repository")
 	}
@@ -231,9 +231,92 @@ func TestService_ListOwnSectionEnrollments_NoContext(t *testing.T) {
 	repo := &fakeRepository{}
 	svc := NewService(repo)
 
-	_, err := svc.ListOwnSectionEnrollments(context.Background())
+	_, err := svc.ListOwnSectionEnrollments(context.Background(), 0, "")
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("ListOwnSectionEnrollments(no ctx) = %v; want ErrNotFound", err)
+	}
+}
+
+// TestService_ListOwnSectionEnrollments_InvalidToken verifies that a malformed
+// page_token returns ErrInvalidInput before touching the repository.
+func TestService_ListOwnSectionEnrollments_InvalidToken(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListOwnSectionEnrollments(ctx, 20, "not-a-uuid")
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("ListOwnSectionEnrollments(bad token) = %v; want ErrInvalidInput", err)
+	}
+	if repo.listOwnCalled {
+		t.Error("repo.ListOwnSectionEnrollments must not be called on invalid token")
+	}
+}
+
+// TestService_ListSectionEnrollments_InvalidToken verifies that a malformed page_token
+// returns ErrInvalidInput before touching the repository.
+func TestService_ListSectionEnrollments_InvalidToken(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	_, err := svc.ListSectionEnrollments(context.Background(), ListSectionEnrollmentsFilter{}, 20, "not-a-uuid")
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("ListSectionEnrollments(bad token) = %v; want ErrInvalidInput", err)
+	}
+	if repo.listCalled {
+		t.Error("repo.ListSectionEnrollments must not be called on invalid token")
+	}
+}
+
+// TestService_ListSectionEnrollments_ClampMin verifies page_size ≤ 0 is clamped to 20.
+func TestService_ListSectionEnrollments_ClampMin(t *testing.T) {
+	t.Parallel()
+
+	// Repo returns 21 rows (size+1 sentinel pattern).
+	rows := make([]sectionenrollmentdb.SectionEnrollment, 21)
+	for i := range rows {
+		rows[i] = newInsertedRow(uuid.New(), uuid.New(), uuid.New())
+	}
+	repo := &fakeRepository{listRows: rows}
+	svc := NewService(repo)
+
+	result, err := svc.ListSectionEnrollments(context.Background(), ListSectionEnrollmentsFilter{}, 0, "")
+	if err != nil {
+		t.Fatalf("ListSectionEnrollments: %v", err)
+	}
+	if len(result.SectionEnrollments) != 20 {
+		t.Errorf("clamped page size = %d, want 20", len(result.SectionEnrollments))
+	}
+	if result.NextPageToken == "" {
+		t.Error("next_page_token must be non-empty when HasNext=true")
+	}
+}
+
+// TestService_ListSectionEnrollments_LastPage verifies that an empty next_page_token
+// is returned when the result fits within the page size.
+func TestService_ListSectionEnrollments_LastPage(t *testing.T) {
+	t.Parallel()
+
+	rows := make([]sectionenrollmentdb.SectionEnrollment, 5)
+	for i := range rows {
+		rows[i] = newInsertedRow(uuid.New(), uuid.New(), uuid.New())
+	}
+	repo := &fakeRepository{listRows: rows}
+	svc := NewService(repo)
+
+	result, err := svc.ListSectionEnrollments(context.Background(), ListSectionEnrollmentsFilter{}, 20, "")
+	if err != nil {
+		t.Fatalf("ListSectionEnrollments: %v", err)
+	}
+	if len(result.SectionEnrollments) != 5 {
+		t.Errorf("last page count = %d, want 5", len(result.SectionEnrollments))
+	}
+	if result.NextPageToken != "" {
+		t.Errorf("last page: next_page_token = %q, want empty", result.NextPageToken)
 	}
 }
 

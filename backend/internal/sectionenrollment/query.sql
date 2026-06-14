@@ -115,19 +115,24 @@ WHERE id = $1 AND deleted_at IS NULL;
 -- name: ListSectionEnrollments :many
 SELECT * FROM section_enrollments
 WHERE deleted_at IS NULL
-  AND (sqlc.narg('section_id')::uuid IS NULL   OR section_id   = sqlc.narg('section_id')::uuid)
+  AND (sqlc.narg('page_token')::uuid IS NULL    OR id            < sqlc.narg('page_token')::uuid)
+  AND (sqlc.narg('section_id')::uuid IS NULL    OR section_id    = sqlc.narg('section_id')::uuid)
   AND (sqlc.narg('enrollment_id')::uuid IS NULL OR enrollment_id = sqlc.narg('enrollment_id')::uuid)
   AND (sqlc.narg('status')::text IS NULL        OR status        = sqlc.narg('status')::text)
-ORDER BY created_at;
+ORDER BY id DESC
+LIMIT sqlc.arg('row_limit')::int;
 
 -- name: ListOwnSectionEnrollments :many
--- Returns all live inscriptions for a student by joining enrollments on student_id.
+-- Returns live inscriptions for a student by joining enrollments on student_id.
+-- Keyset pagination: results ordered by se.id DESC; page_token is the exclusive upper bound.
 SELECT se.*
 FROM section_enrollments se
 JOIN enrollments e ON e.id = se.enrollment_id
-WHERE e.student_id = $1
+WHERE e.student_id = sqlc.arg('student_id')::uuid
   AND se.deleted_at IS NULL
-ORDER BY se.created_at;
+  AND (sqlc.narg('page_token')::uuid IS NULL OR se.id < sqlc.narg('page_token')::uuid)
+ORDER BY se.id DESC
+LIMIT sqlc.arg('row_limit')::int;
 
 -- name: SetSectionEnrollmentOutcome :one
 -- Transitions a section_enrollment status to passed or failed and writes the
