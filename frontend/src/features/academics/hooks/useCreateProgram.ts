@@ -1,12 +1,17 @@
 import { useMutation } from "@connectrpc/connect-query";
+import { createConnectQueryKey } from "@connectrpc/connect-query-core";
 import { useQueryClient } from "@tanstack/react-query";
 import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
-import { PROGRAMS_QUERY_KEY } from "../api/queries";
 
 export function useCreateProgram() {
   const queryClient = useQueryClient();
   return useMutation(CatalogService.method.createProgram, {
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: PROGRAMS_QUERY_KEY }),
+      queryClient.invalidateQueries({
+        queryKey: createConnectQueryKey({
+          schema: CatalogService,
+          cardinality: undefined,
+        }),
+      }),
   });
 }

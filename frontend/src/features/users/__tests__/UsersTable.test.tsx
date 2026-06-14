@@ -472,6 +472,49 @@ describe("UsersTable", () => {
     expect(newCallCount).toBeLessThanOrEqual(2);
   });
 
+  it("S-PS: page-size selector visible and changing it resets pages", async () => {
+    const user = userEvent.setup();
+    let callCount = 0;
+    renderPage({
+      listUsers: vi.fn(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return create(ListUsersResponseSchema, {
+            users: [user1],
+            nextPageToken: "cursor-page-2",
+          });
+        }
+        if (callCount === 2) {
+          // Page 2 fetch.
+          return create(ListUsersResponseSchema, {
+            users: [user2],
+            nextPageToken: "",
+          });
+        }
+        // After page size change: page 1 of new size.
+        return create(ListUsersResponseSchema, {
+          users: [user3],
+          nextPageToken: "",
+        });
+      }),
+    });
+
+    await screen.findByText("alice@test.com");
+
+    // Load page 2.
+    await user.click(screen.getByRole("button", { name: /cargar más/i }));
+    await screen.findAllByText("bob@test.com"); // user2 has empty displayName → email shown twice
+
+    // Change page size via the selector.
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByText("50 por página"));
+
+    // New page 1 (carol) appears; accumulated pages (alice, bob) should be gone.
+    await screen.findByText("carol@test.com");
+    expect(screen.queryByText("alice@test.com")).not.toBeInTheDocument();
+    expect(screen.queryByText("bob@test.com")).not.toBeInTheDocument();
+  });
+
   it("SG-01: row click opens Sheet without changing the URL", async () => {
     const user = userEvent.setup();
     const { router } = renderPage({

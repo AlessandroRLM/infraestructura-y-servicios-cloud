@@ -33,7 +33,10 @@ const NAV = [
   {
     label: "Académico",
     icon: BookOpen,
-    options: linkOptions({ to: "/academics" }),
+    options: linkOptions({
+      to: "/academics",
+      search: { tab: "programs", q: "", pageSize: 20 },
+    }),
   },
   {
     label: "Inscripciones",
@@ -58,7 +61,7 @@ const NAV = [
   {
     label: "Usuarios",
     icon: Users,
-    options: linkOptions({ to: "/users" }),
+    options: linkOptions({ to: "/users", search: { q: "", pageSize: 20 } }),
   },
   {
     label: "Control de acceso",

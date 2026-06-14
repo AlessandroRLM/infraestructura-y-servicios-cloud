@@ -24,7 +24,10 @@ export function AcademicsPage() {
   const [createCourseOpen, setCreateCourseOpen] = useState(false);
 
   const handleTabChange = (value: string) => {
-    navigate({ search: { tab: value as "programs" | "courses" } });
+    // Reset q and pageSize on tab switch so each tab starts with a clean state.
+    navigate({
+      search: { tab: value as "programs" | "courses", q: "", pageSize: 20 },
+    });
   };
 
   const createLabel =
