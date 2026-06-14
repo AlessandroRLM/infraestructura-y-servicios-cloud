@@ -54,6 +54,8 @@ El detalle archivo por archivo está en [`infra/README.md`](../../infra/README.m
 
 ## 4. Despliegue paso a paso
 
+El procedimiento operativo completo, comando por comando (terraform → imágenes → app en GKE → TLS → backups), está en el runbook copy-paste [`../despliegue-gcp`](../despliegue-gcp/README.md). En resumen, la parte de Terraform:
+
 ```bash
 cd infra
 terraform init      # descarga providers y conecta el backend GCS
