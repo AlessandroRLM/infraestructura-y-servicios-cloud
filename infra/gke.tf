@@ -1,5 +1,5 @@
 resource "google_container_cluster" "primary" {
-  provider = google-beta
+  provider = google
 
   name     = "gke-academico"
   location = var.zone

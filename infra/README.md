@@ -20,7 +20,7 @@ La guía de despliegue paso a paso está en [`docs/infraestructura`](../docs/inf
 infra/
 ├── versions.tf                 # versiones de Terraform y providers
 ├── backend.tf                  # estado remoto (GCS)
-├── providers.tf                # google, google-beta, aws, random
+├── providers.tf                # google, aws, random
 ├── variables.tf
 ├── apis.tf                     # google_project_service (APIs GCP)
 ├── kms.tf                      # key ring + crypto keys CMEK + IAM
