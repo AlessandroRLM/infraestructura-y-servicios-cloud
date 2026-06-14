@@ -114,7 +114,7 @@ func (h *Handler) GetEnrollment(
 	return connect.NewResponse(enrollmentToProto(row)), nil
 }
 
-// ListEnrollments returns live enrollments, optionally filtered.
+// ListEnrollments returns a paginated page of live enrollments, optionally filtered.
 func (h *Handler) ListEnrollments(
 	ctx context.Context,
 	req *connect.Request[enrollmentv1.ListEnrollmentsRequest],
@@ -143,34 +143,40 @@ func (h *Handler) ListEnrollments(
 		f.Status = &s
 	}
 
-	rows, err := h.svc.ListEnrollments(ctx, f)
+	result, err := h.svc.ListEnrollments(ctx, f, req.Msg.GetPageSize(), req.Msg.GetPageToken())
 	if err != nil {
 		return nil, MapError(err)
 	}
-	protos := make([]*enrollmentv1.Enrollment, 0, len(rows))
-	for _, r := range rows {
+	protos := make([]*enrollmentv1.Enrollment, 0, len(result.Enrollments))
+	for _, r := range result.Enrollments {
 		protos = append(protos, enrollmentToProto(r))
 	}
-	return connect.NewResponse(&enrollmentv1.ListEnrollmentsResponse{Enrollments: protos}), nil
+	return connect.NewResponse(&enrollmentv1.ListEnrollmentsResponse{
+		Enrollments:   protos,
+		NextPageToken: result.NextPageToken,
+	}), nil
 }
 
 // --- View-own RPCs ---
 
-// ListOwnEnrollments returns enrollments for the authenticated student.
+// ListOwnEnrollments returns a paginated page of enrollments for the authenticated student.
 // The student identity is injected from context; the request carries no student_id field.
 func (h *Handler) ListOwnEnrollments(
 	ctx context.Context,
-	_ *connect.Request[enrollmentv1.ListOwnEnrollmentsRequest],
+	req *connect.Request[enrollmentv1.ListOwnEnrollmentsRequest],
 ) (*connect.Response[enrollmentv1.ListEnrollmentsResponse], error) {
-	rows, err := h.svc.ListOwnEnrollments(ctx)
+	result, err := h.svc.ListOwnEnrollments(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken())
 	if err != nil {
 		return nil, MapError(err)
 	}
-	protos := make([]*enrollmentv1.Enrollment, 0, len(rows))
-	for _, r := range rows {
+	protos := make([]*enrollmentv1.Enrollment, 0, len(result.Enrollments))
+	for _, r := range result.Enrollments {
 		protos = append(protos, enrollmentToProto(r))
 	}
-	return connect.NewResponse(&enrollmentv1.ListEnrollmentsResponse{Enrollments: protos}), nil
+	return connect.NewResponse(&enrollmentv1.ListEnrollmentsResponse{
+		Enrollments:   protos,
+		NextPageToken: result.NextPageToken,
+	}), nil
 }
 
 // GetOwnEnrollment retrieves an enrollment by id only if the caller is the enrollment's student.

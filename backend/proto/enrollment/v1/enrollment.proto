@@ -55,7 +55,8 @@ message GetEnrollmentRequest {
   string id = 1;
 }
 
-// ListEnrollmentsRequest supports optional filters; an empty request returns all live enrollments.
+// ListEnrollmentsRequest supports optional filters and AIP-158 keyset pagination.
+// An empty request returns the first page of all live enrollments.
 message ListEnrollmentsRequest {
   // Optional UUID filter. Empty string means unfiltered.
   string student_id = 1;
@@ -65,15 +66,28 @@ message ListEnrollmentsRequest {
   int32 year = 3;
   // Optional status filter ("pending", "paid", "cancelled"). Empty string means unfiltered.
   string status = 4;
+  // Maximum number of enrollments to return. Clamped to [20, 200]; zero → 20.
+  int32 page_size = 5;
+  // Opaque cursor returned by a previous ListEnrollments or ListOwnEnrollments call.
+  // Empty string returns the first page.
+  string page_token = 6;
 }
 
 message ListEnrollmentsResponse {
   repeated Enrollment enrollments = 1;
+  // Opaque cursor for the next page. Empty when this is the last page.
+  string next_page_token = 2;
 }
 
-// ListOwnEnrollmentsRequest carries no student_id field.
+// ListOwnEnrollmentsRequest carries no student_id field and supports AIP-158 keyset pagination.
 // The service injects the caller's identity from context.
-message ListOwnEnrollmentsRequest {}
+message ListOwnEnrollmentsRequest {
+  // Maximum number of enrollments to return. Clamped to [20, 200]; zero → 20.
+  int32 page_size = 1;
+  // Opaque cursor returned by a previous ListOwnEnrollments call.
+  // Empty string returns the first page.
+  string page_token = 2;
+}
 
 message GetOwnEnrollmentRequest {
   string id = 1;

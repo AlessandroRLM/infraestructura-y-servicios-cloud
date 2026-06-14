@@ -144,26 +144,32 @@ func (q *Queries) InsertEnrollment(ctx context.Context, arg InsertEnrollmentPara
 const listEnrollments = `-- name: ListEnrollments :many
 SELECT id, student_id, program_id, year, status, paid_at, created_at, updated_at, deleted_at, created_by, updated_by FROM enrollments
 WHERE deleted_at IS NULL
-  AND ($1::uuid IS NULL OR student_id = $1::uuid)
-  AND ($2::uuid IS NULL OR program_id = $2::uuid)
-  AND ($3::int IS NULL OR year = $3::int)
-  AND ($4::text IS NULL OR status = $4::text)
-ORDER BY created_at
+  AND ($1::uuid IS NULL OR id < $1::uuid)
+  AND ($2::uuid IS NULL OR student_id = $2::uuid)
+  AND ($3::uuid IS NULL OR program_id = $3::uuid)
+  AND ($4::int IS NULL OR year = $4::int)
+  AND ($5::text IS NULL OR status = $5::text)
+ORDER BY id DESC
+LIMIT $6::int
 `
 
 type ListEnrollmentsParams struct {
+	PageToken pgtype.UUID
 	StudentID pgtype.UUID
 	ProgramID pgtype.UUID
 	Year      pgtype.Int4
 	Status    pgtype.Text
+	RowLimit  int32
 }
 
 func (q *Queries) ListEnrollments(ctx context.Context, arg ListEnrollmentsParams) ([]Enrollment, error) {
 	rows, err := q.db.Query(ctx, listEnrollments,
+		arg.PageToken,
 		arg.StudentID,
 		arg.ProgramID,
 		arg.Year,
 		arg.Status,
+		arg.RowLimit,
 	)
 	if err != nil {
 		return nil, err
@@ -197,12 +203,20 @@ func (q *Queries) ListEnrollments(ctx context.Context, arg ListEnrollmentsParams
 
 const listOwnEnrollments = `-- name: ListOwnEnrollments :many
 SELECT id, student_id, program_id, year, status, paid_at, created_at, updated_at, deleted_at, created_by, updated_by FROM enrollments
-WHERE student_id = $1 AND deleted_at IS NULL
-ORDER BY created_at
+WHERE student_id = $1::uuid AND deleted_at IS NULL
+  AND ($2::uuid IS NULL OR id < $2::uuid)
+ORDER BY id DESC
+LIMIT $3::int
 `
 
-func (q *Queries) ListOwnEnrollments(ctx context.Context, studentID pgtype.UUID) ([]Enrollment, error) {
-	rows, err := q.db.Query(ctx, listOwnEnrollments, studentID)
+type ListOwnEnrollmentsParams struct {
+	StudentID pgtype.UUID
+	PageToken pgtype.UUID
+	RowLimit  int32
+}
+
+func (q *Queries) ListOwnEnrollments(ctx context.Context, arg ListOwnEnrollmentsParams) ([]Enrollment, error) {
+	rows, err := q.db.Query(ctx, listOwnEnrollments, arg.StudentID, arg.PageToken, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
