@@ -29,10 +29,11 @@ func TestAllPermissions_ParityWithSeedData(t *testing.T) {
 		"grades.override":             {},
 		"profile.view_own":            {},
 		"section_enrollment.view_own": {},
+		"profile.edit_own":            {},
 	}
 
-	if len(authz.AllPermissions) != 13 {
-		t.Errorf("AllPermissions length = %d, want 13", len(authz.AllPermissions))
+	if len(authz.AllPermissions) != 14 {
+		t.Errorf("AllPermissions length = %d, want 14", len(authz.AllPermissions))
 	}
 
 	seen := make(map[authz.Permission]struct{}, len(authz.AllPermissions))

@@ -38,7 +38,7 @@ export function DeleteProgramDialog({
     try {
       await deleteMutation.mutateAsync({ id: program.id });
       onOpenChange(false);
-      toast.success("Programa eliminado");
+      toast.success("Carrera eliminada");
     } catch (err) {
       const kind = mapDeleteError(err);
       setInlineError(kind);
@@ -54,23 +54,23 @@ export function DeleteProgramDialog({
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>¿Eliminar programa?</AlertDialogTitle>
+          <AlertDialogTitle>¿Eliminar carrera?</AlertDialogTitle>
           <AlertDialogDescription>
-            ¿Eliminar el programa {program.code}? Esta acción no se puede
+            ¿Eliminar la carrera {program.code}? Esta acción no se puede
             deshacer.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         {inlineError === "precondition" && (
           <p role="alert" className="text-destructive text-sm">
-            No se puede eliminar: el programa tiene cursos o cupos asociados.
-            Quita esas asociaciones primero.
+            No se puede eliminar: la carrera tiene asignaturas o cupos
+            asociados. Quita esas asociaciones primero.
           </p>
         )}
 
         {inlineError === "transport" && (
           <p role="alert" className="text-destructive text-sm">
-            No se pudo eliminar el programa. Inténtalo de nuevo.
+            No se pudo eliminar la carrera. Inténtalo de nuevo.
           </p>
         )}
 

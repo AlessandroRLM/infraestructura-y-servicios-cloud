@@ -204,6 +204,7 @@ type User struct {
 	CreatedBy    pgtype.UUID
 	UpdatedBy    pgtype.UUID
 	DeletedAt    pgtype.Timestamptz
+	DisabledAt   pgtype.Timestamptz
 }
 
 type UserProfile struct {

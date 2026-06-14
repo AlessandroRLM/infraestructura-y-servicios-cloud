@@ -17,6 +17,10 @@ service ProfileService {
   // Self-read procedure — requires profile.view_own permission.
   // The caller's identity is taken from the session context; no user_id field is accepted.
   rpc GetOwnProfile(GetOwnProfileRequest) returns (UserProfile);
+  // Self-edit procedure — requires profile.edit_own permission.
+  // Identity from session context; no user_id field. PATCH semantics: absent field
+  // preserves the column; present field writes it (present-empty clears).
+  rpc UpsertOwnProfile(UpsertOwnProfileRequest) returns (UserProfile);
 }
 
 // UserProfile holds all personal and contact data for a user.
@@ -126,3 +130,21 @@ message ListTeacherQualificationsResponse {
 // The caller's identity is derived from the session context, enforcing
 // that this procedure can only return the authenticated caller's own profile.
 message GetOwnProfileRequest {}
+
+// UpsertOwnProfileRequest intentionally has no user_id field.
+// The caller's identity is derived from the session context. All 11 fields are
+// optional to enable PATCH semantics: absent = preserve column, present-empty = clear
+// column, present-non-empty = set column. Legal-identity fields are excluded.
+message UpsertOwnProfileRequest {
+  optional string birth_date               = 1;  // YYYY-MM-DD
+  optional string phone                    = 2;
+  optional string personal_email           = 3;
+  optional string address_street           = 4;
+  optional string commune                  = 5;
+  optional string region                   = 6;
+  optional string country                  = 7;
+  optional string postal_code              = 8;
+  optional string photo_url                = 9;
+  optional string emergency_contact_name   = 10;
+  optional string emergency_contact_phone  = 11;
+}

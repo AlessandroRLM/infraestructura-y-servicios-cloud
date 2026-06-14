@@ -38,7 +38,7 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
         role="status"
         className="space-y-2"
         aria-busy="true"
-        aria-label="Cargando programas"
+        aria-label="Cargando carreras"
       >
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-10 w-full" />
@@ -51,7 +51,7 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
     return (
       <div className="rounded-md border border-destructive/50 p-4" role="alert">
         <p className="text-destructive text-sm font-medium">
-          No se pudo cargar la lista de programas.
+          No se pudo cargar la lista de carreras.
         </p>
         <Button
           variant="outline"
@@ -69,13 +69,11 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
   if (programs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-md border border-dashed p-12 text-center">
-        <p className="text-muted-foreground text-sm">
-          Todavía no hay programas
-        </p>
+        <p className="text-muted-foreground text-sm">Todavía no hay carreras</p>
         {canManage && (
           <Button onClick={onCreateClick} className="gap-2">
             <Plus className="size-4" aria-hidden />
-            Crear programa
+            Crear carrera
           </Button>
         )}
       </div>

@@ -214,6 +214,88 @@ func (q *Queries) ListTeacherQualifications(ctx context.Context, teacherID pgtyp
 	return items, nil
 }
 
+const upsertOwnProfile = `-- name: UpsertOwnProfile :one
+UPDATE user_profiles SET
+    birth_date              = COALESCE($1,              birth_date),
+    phone                   = COALESCE($2,                   phone),
+    personal_email          = COALESCE($3,          personal_email),
+    address_street          = COALESCE($4,          address_street),
+    commune                 = COALESCE($5,                 commune),
+    region                  = COALESCE($6,                  region),
+    country                 = COALESCE($7,                 country),
+    postal_code             = COALESCE($8,             postal_code),
+    photo_url               = COALESCE($9,               photo_url),
+    emergency_contact_name  = COALESCE($10,  emergency_contact_name),
+    emergency_contact_phone = COALESCE($11, emergency_contact_phone),
+    updated_at = now(),
+    updated_by = $12
+WHERE user_id = $13
+  AND deleted_at IS NULL
+RETURNING user_id, given_names, last_name_paternal, last_name_maternal, national_id_type, national_id, birth_date, phone, personal_email, address_street, commune, region, country, postal_code, sex, nationality, photo_url, emergency_contact_name, emergency_contact_phone, created_at, updated_at, deleted_at, created_by, updated_by
+`
+
+type UpsertOwnProfileParams struct {
+	BirthDate             pgtype.Date
+	Phone                 pgtype.Text
+	PersonalEmail         pgtype.Text
+	AddressStreet         pgtype.Text
+	Commune               pgtype.Text
+	Region                pgtype.Text
+	Country               pgtype.Text
+	PostalCode            pgtype.Text
+	PhotoUrl              pgtype.Text
+	EmergencyContactName  pgtype.Text
+	EmergencyContactPhone pgtype.Text
+	UpdatedBy             pgtype.UUID
+	UserID                pgtype.UUID
+}
+
+func (q *Queries) UpsertOwnProfile(ctx context.Context, arg UpsertOwnProfileParams) (UserProfile, error) {
+	row := q.db.QueryRow(ctx, upsertOwnProfile,
+		arg.BirthDate,
+		arg.Phone,
+		arg.PersonalEmail,
+		arg.AddressStreet,
+		arg.Commune,
+		arg.Region,
+		arg.Country,
+		arg.PostalCode,
+		arg.PhotoUrl,
+		arg.EmergencyContactName,
+		arg.EmergencyContactPhone,
+		arg.UpdatedBy,
+		arg.UserID,
+	)
+	var i UserProfile
+	err := row.Scan(
+		&i.UserID,
+		&i.GivenNames,
+		&i.LastNamePaternal,
+		&i.LastNameMaternal,
+		&i.NationalIDType,
+		&i.NationalID,
+		&i.BirthDate,
+		&i.Phone,
+		&i.PersonalEmail,
+		&i.AddressStreet,
+		&i.Commune,
+		&i.Region,
+		&i.Country,
+		&i.PostalCode,
+		&i.Sex,
+		&i.Nationality,
+		&i.PhotoUrl,
+		&i.EmergencyContactName,
+		&i.EmergencyContactPhone,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
 const upsertStudentProfile = `-- name: UpsertStudentProfile :one
 INSERT INTO student_profiles (
     user_id,

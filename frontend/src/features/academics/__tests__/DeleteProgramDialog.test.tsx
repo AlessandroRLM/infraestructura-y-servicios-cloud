@@ -86,7 +86,7 @@ describe("DeleteProgramDialog", () => {
     await user.click(screen.getByRole("button", { name: "Eliminar" }));
 
     await waitFor(() =>
-      expect(toastSuccess).toHaveBeenCalledWith("Programa eliminado"),
+      expect(toastSuccess).toHaveBeenCalledWith("Carrera eliminada"),
     );
     await waitFor(() =>
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
@@ -113,7 +113,7 @@ describe("DeleteProgramDialog", () => {
     await waitFor(() =>
       expect(
         screen.getByText(
-          /No se puede eliminar: el programa tiene cursos o cupos asociados\. Quita esas asociaciones primero\./,
+          /No se puede eliminar: la carrera tiene asignaturas o cupos asociados\. Quita esas asociaciones primero\./,
         ),
       ).toBeInTheDocument(),
     );
@@ -140,7 +140,7 @@ describe("DeleteProgramDialog", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/No se pudo eliminar el programa/),
+        screen.getByText(/No se pudo eliminar la carrera/),
       ).toBeInTheDocument(),
     );
     expect(toastError).not.toHaveBeenCalled();

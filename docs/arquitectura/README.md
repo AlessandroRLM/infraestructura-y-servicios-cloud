@@ -253,7 +253,7 @@ Los rangos de pods y services se definen como rangos secundarios de la subred de
 
 La autorización es de dos capas: **permiso** (qué operación, data-driven) y **pertenencia a nivel de recurso** (sobre qué datos). Los permisos se guardan en tablas (`permissions`, `role_permissions`) y se asignan vía `user_roles`. El control real es del backend; la UI solo oculta lo que el rol no puede usar.
 
-El sistema cuenta con **13 permisos** definidos como constantes tipadas en `internal/authz/permission.go` y validados por un test de paridad contra las migraciones seed.
+El sistema cuenta con **14 permisos** definidos como constantes tipadas en `internal/authz/permission.go` y validados por un test de paridad contra las migraciones seed.
 
 | Operación                                              | Administrador |      Docente       | Alumno |
 | ------------------------------------------------------ | :-----------: | :----------------: | :----: |
@@ -264,6 +264,7 @@ El sistema cuenta con **13 permisos** definidos como constantes tipadas en `inte
 | Anular inscripción de sección                          |      Sí       |         —          |   —    |
 | Ver inscripciones de sección propias                   |      Sí       |         —          |   Sí   |
 | Ver perfil propio                                      |      Sí       |         Sí         |   Sí   |
+| Editar perfil propio (contacto y datos personales)     |      Sí       |         Sí         |   Sí   |
 | Ver matrícula e inscripciones propias                  |      Sí       |         —          |   Sí   |
 | Registrar / editar notas                               |      Sí       | Solo sus secciones |   —    |
 | Ver notas de una sección                               |      Sí       | Solo sus secciones |   —    |
@@ -274,7 +275,7 @@ El sistema cuenta con **13 permisos** definidos como constantes tipadas en `inte
 **Dos capas de autorización:**
 
 - El **permiso** habilita la operación (el interceptor lo verifica contra los permisos del rol); la **pertenencia** decide sobre qué recursos. Un docente con permiso para cargar notas solo puede hacerlo en las secciones que dicta (`section_teachers`). La misma pertenencia limita la **lectura** de notas (`grades.read`): los listados fuera de las secciones del docente devuelven vacío y las consultas por id responden not-found, sin revelar la existencia del recurso (patrón anti-leak, igual que en perfiles e inscripciones).
-- **Perfil propio:** todo usuario puede leer sus propios datos personales (operación habilitada por el permiso `profile.view_own`). La pertenencia restringe la lectura al registro cuyo `user_id` coincide con el del solicitante; un usuario nunca ve el perfil de otro por esta vía. La gestión de perfiles de terceros (alta/edición/lectura por id) es una operación administrativa aparte (`users.manage`).
+- **Perfil propio:** todo usuario puede leer (`profile.view_own`) y editar (`profile.edit_own`) sus propios datos personales. La identidad del solicitante se toma de la sesión (sin `user_id` en el request), de modo que la pertenencia queda estructuralmente acotada al registro propio: un usuario nunca lee ni modifica el perfil de otro por esta vía. La auto-edición se limita a datos de **contacto y personales** (teléfono, correo personal, domicilio, contacto de emergencia, foto, fecha de nacimiento) con semántica de merge parcial; la **identidad legal** (nombres, apellidos, tipo y número de documento) no es auto-editable y solo la gestiona un administrador. La gestión de perfiles de terceros (alta/edición/lectura por id) es una operación administrativa aparte (`users.manage`).
 - **Auto-inscripción vs. administración:** el alumno puede inscribirse a secciones dentro de la ventana habilitada (`sections.enroll`) y consultar sus propias inscripciones (`section_enrollment.view_own`). La anulación de inscripciones es exclusivamente administrativa; no existe WithdrawOwnSection.
 - **Sin auto-acción:** nadie opera sobre sus propios registros académicos. Un docente que también es alumno no puede cargar ni editar la nota de una inscripción donde el alumno sea él mismo. Esta regla aplica a los registros académicos (notas, inscripciones), no a la lectura de los datos personales propios.
 - **Admin total, pero auditado:** el administrador puede todo —incluida la corrección de una nota—, pero cada acción queda registrada en `audit_logs`. El poder no exime del rastro.
@@ -347,6 +348,7 @@ erDiagram
         uuid id PK
         string email UK
         string password_hash
+        timestamptz disabled_at "NULL = cuenta activa"
     }
     roles {
         uuid id PK
@@ -486,7 +488,7 @@ erDiagram
 
 Notas del modelo:
 
-- **Identidad, roles y permisos:** `users` es solo identidad/auth. El acceso es data-driven: `roles` y `permissions` se relacionan vía `role_permissions` (M:N) y se asignan a usuarios vía `user_roles` (M:N) — una persona puede ser docente **y** alumno a la vez, y los permisos de cada rol se cambian sin tocar código.
+- **Identidad, roles y permisos:** `users` es solo identidad/auth. El acceso es data-driven: `roles` y `permissions` se relacionan vía `role_permissions` (M:N) y se asignan a usuarios vía `user_roles` (M:N) — una persona puede ser docente **y** alumno a la vez, y los permisos de cada rol se cambian sin tocar código. `users.disabled_at` permite **deshabilitar** una cuenta (NULL = activa) sin borrarla; es distinto de `deleted_at` (soft-delete) y su escritura es una operación administrativa de gestión de cuentas.
 - **Datos personales:** los datos personales comunes a cualquier persona (nombre, identificador legal, contacto, domicilio) viven en `user_profiles` (1:1 con `users`), no en `users` —que se mantiene magro para autenticación— ni duplicados en `student_profiles`/`teacher_profiles`. Los perfiles de rol (`student_profiles`, `teacher_profiles`) guardan solo atributos específicos del rol. `national_id` es único. Cada usuario puede leer su propio `user_profiles` vía `profile.view_own` (ver §8.5).
 - **Jerarquía académica:** `programs` ↔ `courses` es **M:N** (`program_courses`): una asignatura como "Inglés I" puede compartirse entre varias carreras. Cada `course` se dicta en `sections` (una sección = asignatura + `academic_period` + uno o varios docentes vía `section_teachers`, co-docencia).
 - **Períodos lectivos:** `academic_periods` usa `term ∈ {1, 2}` (dos semestres por año), con `UNIQUE(year, term)`. Las columnas `enrollment_starts_at` / `enrollment_ends_at` definen la ventana institucional de auto-inscripción evaluada con el reloj del servidor de base de datos; `NULL` equivale a ventana no configurada (fail-closed). `program_quotas` lleva metadata de auditoría y soft-delete (es una entidad mutable sensible, no append-only) y tiene `UNIQUE(program_id, year)`.

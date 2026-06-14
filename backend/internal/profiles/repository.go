@@ -25,12 +25,34 @@ type Repository interface {
 	UpsertUserProfile(ctx context.Context, p UpsertUserProfileParams) (profilesdb.UserProfile, error)
 	GetUserProfile(ctx context.Context, userID uuid.UUID) (profilesdb.UserProfile, error)
 	GetOwnProfile(ctx context.Context, callerID uuid.UUID) (profilesdb.UserProfile, error)
+	UpsertOwnProfile(ctx context.Context, p UpsertOwnProfileParams) (profilesdb.UserProfile, error)
 	UpsertStudentProfile(ctx context.Context, p UpsertStudentProfileParams) (profilesdb.StudentProfile, error)
 	GetStudentProfile(ctx context.Context, userID uuid.UUID) (profilesdb.StudentProfile, error)
 	UpsertTeacherProfile(ctx context.Context, p UpsertTeacherProfileParams) (profilesdb.TeacherProfile, error)
 	GetTeacherProfile(ctx context.Context, userID uuid.UUID) (profilesdb.TeacherProfile, error)
 	AddTeacherQualification(ctx context.Context, p AddTeacherQualificationParams) (profilesdb.TeacherQualification, error)
 	ListTeacherQualifications(ctx context.Context, teacherID uuid.UUID) ([]profilesdb.TeacherQualification, error)
+}
+
+// UpsertOwnProfileParams carries the 11 self-editable fields for PATCH updates.
+// Each *string field encodes three states:
+//   - nil: field absent — COALESCE preserves the existing column value.
+//   - &"": field present-empty — sets column to empty string (clear).
+//   - &"value": field present-non-empty — sets column to the given value.
+type UpsertOwnProfileParams struct {
+	UserID                uuid.UUID
+	BirthDate             *string
+	Phone                 *string
+	PersonalEmail         *string
+	AddressStreet         *string
+	Commune               *string
+	Region                *string
+	Country               *string
+	PostalCode            *string
+	PhotoURL              *string
+	EmergencyContactName  *string
+	EmergencyContactPhone *string
+	UpdatedBy             *uuid.UUID
 }
 
 // UpsertUserProfileParams carries all fields for inserting or updating a user_profiles row.
@@ -148,6 +170,31 @@ func (r *postgresRepository) GetOwnProfile(ctx context.Context, callerID uuid.UU
 	return row, nil
 }
 
+func (r *postgresRepository) UpsertOwnProfile(ctx context.Context, p UpsertOwnProfileParams) (profilesdb.UserProfile, error) {
+	row, err := r.q.UpsertOwnProfile(ctx, profilesdb.UpsertOwnProfileParams{
+		UserID:                pgtype.UUID{Bytes: p.UserID, Valid: true},
+		BirthDate:             patchDate(p.BirthDate),
+		Phone:                 optionalText(p.Phone),
+		PersonalEmail:         optionalText(p.PersonalEmail),
+		AddressStreet:         optionalText(p.AddressStreet),
+		Commune:               optionalText(p.Commune),
+		Region:                optionalText(p.Region),
+		Country:               optionalText(p.Country),
+		PostalCode:            optionalText(p.PostalCode),
+		PhotoUrl:              optionalText(p.PhotoURL),
+		EmergencyContactName:  optionalText(p.EmergencyContactName),
+		EmergencyContactPhone: optionalText(p.EmergencyContactPhone),
+		UpdatedBy:             optionalUUID(p.UpdatedBy),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return profilesdb.UserProfile{}, ErrNotFound
+		}
+		return profilesdb.UserProfile{}, fmt.Errorf("profiles: UpsertOwnProfile: %w", err)
+	}
+	return row, nil
+}
+
 func (r *postgresRepository) UpsertStudentProfile(ctx context.Context, p UpsertStudentProfileParams) (profilesdb.StudentProfile, error) {
 	row, err := r.q.UpsertStudentProfile(ctx, profilesdb.UpsertStudentProfileParams{
 		UserID:        pgtype.UUID{Bytes: p.UserID, Valid: true},
@@ -246,4 +293,15 @@ func optionalUUID(id *uuid.UUID) pgtype.UUID {
 		return pgtype.UUID{}
 	}
 	return pgtype.UUID{Bytes: *id, Valid: true}
+}
+
+// patchDate converts a *string (ISO 8601 date) to pgtype.Date for PATCH semantics.
+// nil → pgtype.Date{} (null → COALESCE preserves existing value).
+// &"" → pgtype.Date{} (treated as skip; birth_date cannot be cleared via empty string).
+// &"YYYY-MM-DD" → parsed date (sets the column).
+func patchDate(s *string) pgtype.Date {
+	if s == nil || *s == "" {
+		return pgtype.Date{}
+	}
+	return optionalDate(s)
 }
