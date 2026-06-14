@@ -116,8 +116,10 @@ func (s *Service) GetProgram(ctx context.Context, id uuid.UUID) (catalogdb.Progr
 
 // ListPrograms returns a paginated page of live programs ordered by id DESC.
 // pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// query is an optional search string matched against code and name (ILIKE); LIKE
+// metacharacters are escaped before passing to the repository.
 // Returns ErrInvalidInput when the token cannot be parsed as a UUID.
-func (s *Service) ListPrograms(ctx context.Context, pageSize int32, pageToken string) (ListProgramsResult, error) {
+func (s *Service) ListPrograms(ctx context.Context, pageSize int32, pageToken string, query string) (ListProgramsResult, error) {
 	clamped := catalogClamp.Apply(pageSize)
 
 	var tokenUUID *uuid.UUID
@@ -129,7 +131,10 @@ func (s *Service) ListPrograms(ctx context.Context, pageSize int32, pageToken st
 		tokenUUID = &id
 	}
 
+	queryPtr := pagination.SearchPattern(query)
+
 	rows, err := s.repo.ListPrograms(ctx, ListProgramsRepoParams{
+		Query:     queryPtr,
 		PageToken: tokenUUID,
 		RowLimit:  int32(clamped + 1),
 	})
@@ -192,8 +197,10 @@ func (s *Service) GetCourse(ctx context.Context, id uuid.UUID) (catalogdb.Course
 
 // ListCourses returns a paginated page of live courses ordered by id DESC.
 // pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// query is an optional search string matched against code and name (ILIKE); LIKE
+// metacharacters are escaped before passing to the repository.
 // Returns ErrInvalidInput when the token cannot be parsed as a UUID.
-func (s *Service) ListCourses(ctx context.Context, pageSize int32, pageToken string) (ListCoursesResult, error) {
+func (s *Service) ListCourses(ctx context.Context, pageSize int32, pageToken string, query string) (ListCoursesResult, error) {
 	clamped := catalogClamp.Apply(pageSize)
 
 	var tokenUUID *uuid.UUID
@@ -205,7 +212,10 @@ func (s *Service) ListCourses(ctx context.Context, pageSize int32, pageToken str
 		tokenUUID = &id
 	}
 
+	queryPtr := pagination.SearchPattern(query)
+
 	rows, err := s.repo.ListCourses(ctx, ListCoursesRepoParams{
+		Query:     queryPtr,
 		PageToken: tokenUUID,
 		RowLimit:  int32(clamped + 1),
 	})

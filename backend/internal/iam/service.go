@@ -45,16 +45,6 @@ var validRoles = map[string]struct{}{
 	"student": {},
 }
 
-// escapeLikePattern escapes LIKE/ILIKE metacharacters so a caller-supplied search
-// string is matched literally rather than as a wildcard. Backslash is escaped
-// first to avoid double-escaping; the SQL pairs this with an explicit ESCAPE '\'.
-func escapeLikePattern(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, "%", `\%`)
-	s = strings.ReplaceAll(s, "_", `\_`)
-	return s
-}
-
 // Service implements the iam domain use cases: ListUsers, GetUser, AssignRole, RevokeRole.
 type Service struct {
 	repo Repository
@@ -80,14 +70,9 @@ func (s *Service) ListUsers(ctx context.Context, pageSize int32, pageToken strin
 		tokenUUID = &id
 	}
 
-	// Build optional query parameter. Escape LIKE metacharacters (% _ \) so a
-	// caller's literal characters are matched literally, not as ILIKE wildcards
-	// (the SQL applies ESCAPE '\').
-	var queryPtr *string
-	if query != "" {
-		escaped := escapeLikePattern(query)
-		queryPtr = &escaped
-	}
+	// Trim, escape LIKE metacharacters, and treat blank/whitespace as no filter
+	// via the shared helper (the SQL applies ESCAPE '\').
+	queryPtr := pagination.SearchPattern(query)
 
 	rows, err := s.repo.ListUsers(ctx, ListUsersParams{
 		Query:     queryPtr,

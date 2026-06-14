@@ -138,6 +138,9 @@ type UpdateProgramQuotaParams struct {
 
 // ListProgramsRepoParams holds keyset pagination parameters for ListPrograms.
 type ListProgramsRepoParams struct {
+	// Query is an optional search string matched against code and name (ILIKE).
+	// nil means no filter. The service escapes LIKE metacharacters before setting this.
+	Query *string
 	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
 	PageToken *uuid.UUID
 	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
@@ -146,6 +149,9 @@ type ListProgramsRepoParams struct {
 
 // ListCoursesRepoParams holds keyset pagination parameters for ListCourses.
 type ListCoursesRepoParams struct {
+	// Query is an optional search string matched against code and name (ILIKE).
+	// nil means no filter. The service escapes LIKE metacharacters before setting this.
+	Query *string
 	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
 	PageToken *uuid.UUID
 	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
@@ -235,6 +241,9 @@ func (r *postgresRepository) ListPrograms(ctx context.Context, params ListProgra
 	}
 	if params.PageToken != nil {
 		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
+	}
+	if params.Query != nil {
+		p.Query = pgtype.Text{String: *params.Query, Valid: true}
 	}
 	rows, err := r.q.ListPrograms(ctx, p)
 	if err != nil {
@@ -350,6 +359,9 @@ func (r *postgresRepository) ListCourses(ctx context.Context, params ListCourses
 	}
 	if params.PageToken != nil {
 		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
+	}
+	if params.Query != nil {
+		p.Query = pgtype.Text{String: *params.Query, Valid: true}
 	}
 	rows, err := r.q.ListCourses(ctx, p)
 	if err != nil {

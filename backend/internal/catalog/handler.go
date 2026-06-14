@@ -105,7 +105,7 @@ func (h *Handler) ListPrograms(
 	ctx context.Context,
 	req *connect.Request[catalogv1.ListProgramsRequest],
 ) (*connect.Response[catalogv1.ListProgramsResponse], error) {
-	result, err := h.svc.ListPrograms(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken())
+	result, err := h.svc.ListPrograms(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken(), req.Msg.GetQuery())
 	if err != nil {
 		return nil, MapError(err)
 	}
@@ -188,7 +188,7 @@ func (h *Handler) ListCourses(
 	ctx context.Context,
 	req *connect.Request[catalogv1.ListCoursesRequest],
 ) (*connect.Response[catalogv1.ListCoursesResponse], error) {
-	result, err := h.svc.ListCourses(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken())
+	result, err := h.svc.ListCourses(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken(), req.Msg.GetQuery())
 	if err != nil {
 		return nil, MapError(err)
 	}

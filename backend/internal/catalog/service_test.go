@@ -25,6 +25,7 @@ type fakeRepository struct {
 	getProgramRow       catalogdb.Program
 	getProgramErr       error
 	listProgramsRows    []catalogdb.Program
+	listProgramsArgs    catalog.ListProgramsRepoParams
 	softDeleteProgramE  error
 	countProgramCourses int64
 	countLiveQuotas     int64
@@ -38,6 +39,7 @@ type fakeRepository struct {
 	getCourseRow               catalogdb.Course
 	getCourseErr               error
 	listCoursesRows            []catalogdb.Course
+	listCoursesArgs            catalog.ListCoursesRepoParams
 	softDeleteCourseE          error
 	countCourseAssociations    int64
 	countCourseAssociationsErr error
@@ -103,7 +105,8 @@ func (f *fakeRepository) UpdateProgram(_ context.Context, _ uuid.UUID, _ catalog
 func (f *fakeRepository) GetProgram(_ context.Context, _ uuid.UUID) (catalogdb.Program, error) {
 	return f.getProgramRow, f.getProgramErr
 }
-func (f *fakeRepository) ListPrograms(_ context.Context, _ catalog.ListProgramsRepoParams) ([]catalogdb.Program, error) {
+func (f *fakeRepository) ListPrograms(_ context.Context, params catalog.ListProgramsRepoParams) ([]catalogdb.Program, error) {
+	f.listProgramsArgs = params
 	return f.listProgramsRows, nil
 }
 func (f *fakeRepository) DeleteProgramTx(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
@@ -131,7 +134,8 @@ func (f *fakeRepository) UpdateCourse(_ context.Context, _ uuid.UUID, _ catalog.
 func (f *fakeRepository) GetCourse(_ context.Context, _ uuid.UUID) (catalogdb.Course, error) {
 	return f.getCourseRow, f.getCourseErr
 }
-func (f *fakeRepository) ListCourses(_ context.Context, _ catalog.ListCoursesRepoParams) ([]catalogdb.Course, error) {
+func (f *fakeRepository) ListCourses(_ context.Context, params catalog.ListCoursesRepoParams) ([]catalogdb.Course, error) {
+	f.listCoursesArgs = params
 	return f.listCoursesRows, nil
 }
 func (f *fakeRepository) DeleteCourseTx(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
@@ -834,6 +838,236 @@ func TestParseDate_ValidAndInvalid(t *testing.T) {
 }
 
 // --- FormatDate round-trip ---
+
+// --- ListPrograms / ListCourses: page-size clamping ---
+
+func TestService_ListPrograms_PageSizeClamping(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		pageSize int32
+	}{
+		{"zero becomes min", 0},
+		{"negative becomes min", -5},
+		{"below min", 1},
+		{"at min", 20},
+		{"in range", 50},
+		{"at max", 200},
+		{"above max", 999},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &fakeRepository{listProgramsRows: []catalogdb.Program{}}
+			svc := catalog.NewService(repo)
+
+			_, err := svc.ListPrograms(context.Background(), tc.pageSize, "", "")
+			if err != nil {
+				t.Errorf("ListPrograms (pageSize=%d): unexpected error: %v", tc.pageSize, err)
+			}
+		})
+	}
+}
+
+func TestService_ListCourses_PageSizeClamping(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		pageSize int32
+	}{
+		{"zero becomes min", 0},
+		{"negative becomes min", -5},
+		{"at max", 200},
+		{"above max", 999},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &fakeRepository{listCoursesRows: []catalogdb.Course{}}
+			svc := catalog.NewService(repo)
+
+			_, err := svc.ListCourses(context.Background(), tc.pageSize, "", "")
+			if err != nil {
+				t.Errorf("ListCourses (pageSize=%d): unexpected error: %v", tc.pageSize, err)
+			}
+		})
+	}
+}
+
+// --- ListPrograms / ListCourses: ILIKE wildcard escaping ---
+
+func TestService_ListPrograms_EscapesQueryWildcards(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		query string
+		want  string
+	}{
+		{"percent escaped", "50%", `50\%`},
+		{"underscore escaped", "a_b", `a\_b`},
+		{"backslash escaped", `a\b`, `a\\b`},
+		{"plain unchanged", "ada", "ada"},
+		{"combined", `1_0%\`, `1\_0\%\\`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &fakeRepository{listProgramsRows: []catalogdb.Program{}}
+			svc := catalog.NewService(repo)
+
+			if _, err := svc.ListPrograms(context.Background(), 20, "", tc.query); err != nil {
+				t.Fatalf("ListPrograms: unexpected error: %v", err)
+			}
+			if repo.listProgramsArgs.Query == nil {
+				t.Fatal("ListPrograms: expected non-nil Query param")
+			}
+			if got := *repo.listProgramsArgs.Query; got != tc.want {
+				t.Errorf("escaped query = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestService_ListPrograms_BlankQueryIsNoFilter(t *testing.T) {
+	t.Parallel()
+
+	for _, query := range []string{"", "   ", "\t\n "} {
+		repo := &fakeRepository{listProgramsRows: []catalogdb.Program{}}
+		svc := catalog.NewService(repo)
+
+		if _, err := svc.ListPrograms(context.Background(), 20, "", query); err != nil {
+			t.Fatalf("ListPrograms(%q): unexpected error: %v", query, err)
+		}
+		if repo.listProgramsArgs.Query != nil {
+			t.Errorf("ListPrograms(%q): Query = %q, want nil (no filter)", query, *repo.listProgramsArgs.Query)
+		}
+	}
+}
+
+func TestService_ListCourses_EscapesQueryWildcards(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		query string
+		want  string
+	}{
+		{"percent escaped", "50%", `50\%`},
+		{"underscore escaped", "a_b", `a\_b`},
+		{"backslash escaped", `a\b`, `a\\b`},
+		{"plain unchanged", "ada", "ada"},
+		{"combined", `1_0%\`, `1\_0\%\\`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &fakeRepository{listCoursesRows: []catalogdb.Course{}}
+			svc := catalog.NewService(repo)
+
+			if _, err := svc.ListCourses(context.Background(), 20, "", tc.query); err != nil {
+				t.Fatalf("ListCourses: unexpected error: %v", err)
+			}
+			if repo.listCoursesArgs.Query == nil {
+				t.Fatal("ListCourses: expected non-nil Query param")
+			}
+			if got := *repo.listCoursesArgs.Query; got != tc.want {
+				t.Errorf("escaped query = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// --- ListPrograms / ListCourses: empty query passes nil to repo ---
+
+func TestService_ListPrograms_EmptyQueryPassesNil(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{listProgramsRows: []catalogdb.Program{}}
+	svc := catalog.NewService(repo)
+
+	if _, err := svc.ListPrograms(context.Background(), 20, "", ""); err != nil {
+		t.Fatalf("ListPrograms: unexpected error: %v", err)
+	}
+	if repo.listProgramsArgs.Query != nil {
+		t.Errorf("ListPrograms (empty query): expected nil Query, got %q", *repo.listProgramsArgs.Query)
+	}
+}
+
+func TestService_ListCourses_EmptyQueryPassesNil(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{listCoursesRows: []catalogdb.Course{}}
+	svc := catalog.NewService(repo)
+
+	if _, err := svc.ListCourses(context.Background(), 20, "", ""); err != nil {
+		t.Fatalf("ListCourses: unexpected error: %v", err)
+	}
+	if repo.listCoursesArgs.Query != nil {
+		t.Errorf("ListCourses (empty query): expected nil Query, got %q", *repo.listCoursesArgs.Query)
+	}
+}
+
+// --- ListPrograms / ListCourses: pagination with non-empty query ---
+
+func TestService_ListPrograms_PaginationWithQuery(t *testing.T) {
+	t.Parallel()
+
+	// Provide pageSize+1 rows so HasNext is true and a next page token is emitted.
+	rows := make([]catalogdb.Program, 21)
+	for i := range rows {
+		rows[i] = catalogdb.Program{ID: pgtype.UUID{Bytes: uuid.New(), Valid: true}}
+	}
+
+	repo := &fakeRepository{listProgramsRows: rows}
+	svc := catalog.NewService(repo)
+
+	result, err := svc.ListPrograms(context.Background(), 20, "", "eng")
+	if err != nil {
+		t.Fatalf("ListPrograms: unexpected error: %v", err)
+	}
+	if result.NextPageToken == "" {
+		t.Error("ListPrograms (has next): NextPageToken must be non-empty")
+	}
+	if repo.listProgramsArgs.Query == nil {
+		t.Fatal("ListPrograms: expected non-nil Query param for non-empty query")
+	}
+	if *repo.listProgramsArgs.Query != "eng" {
+		t.Errorf("ListPrograms Query = %q, want %q", *repo.listProgramsArgs.Query, "eng")
+	}
+}
+
+func TestService_ListCourses_PaginationWithQuery(t *testing.T) {
+	t.Parallel()
+
+	rows := make([]catalogdb.Course, 21)
+	for i := range rows {
+		rows[i] = catalogdb.Course{ID: pgtype.UUID{Bytes: uuid.New(), Valid: true}}
+	}
+
+	repo := &fakeRepository{listCoursesRows: rows}
+	svc := catalog.NewService(repo)
+
+	result, err := svc.ListCourses(context.Background(), 20, "", "mat")
+	if err != nil {
+		t.Fatalf("ListCourses: unexpected error: %v", err)
+	}
+	if result.NextPageToken == "" {
+		t.Error("ListCourses (has next): NextPageToken must be non-empty")
+	}
+	if repo.listCoursesArgs.Query == nil {
+		t.Fatal("ListCourses: expected non-nil Query param for non-empty query")
+	}
+	if *repo.listCoursesArgs.Query != "mat" {
+		t.Errorf("ListCourses Query = %q, want %q", *repo.listCoursesArgs.Query, "mat")
+	}
+}
 
 func TestFormatDate(t *testing.T) {
 	t.Parallel()
