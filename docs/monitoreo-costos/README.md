@@ -2,6 +2,14 @@
 
 Observabilidad con Cloud Monitoring + Cloud Logging, y estimación de costos con su plan de optimización.
 
+## Índice
+
+1. [Stack de observabilidad](#1-stack-de-observabilidad)
+2. [Dashboards](#2-dashboards)
+3. [Alertas](#3-alertas)
+4. [Estimación de costos](#4-estimación-de-costos)
+5. [Optimización de costos](#5-optimización-de-costos)
+
 ## 1. Stack de observabilidad
 
 | Herramienta | Uso |

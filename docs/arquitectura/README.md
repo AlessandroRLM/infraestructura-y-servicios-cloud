@@ -1,5 +1,24 @@
 # Arquitectura — Sistema de gestión académica
 
+## Índice
+
+1. [Caso y contexto](#1-caso-y-contexto)
+2. [Requisitos](#2-requisitos)
+3. [Diagrama lógico (multi-cloud)](#3-diagrama-lógico-multi-cloud)
+4. [Diagrama integral de infraestructura cloud](#4-diagrama-integral-de-infraestructura-cloud)
+5. [Servicios por nube](#5-servicios-por-nube)
+6. [Modelos de servicio](#6-modelos-de-servicio)
+7. [Modelo de despliegue](#7-modelo-de-despliegue)
+8. [Red y seguridad](#8-red-y-seguridad)
+9. [Ambientes](#9-ambientes)
+10. [Modelo de datos](#10-modelo-de-datos)
+11. [Flujos clave](#11-flujos-clave)
+12. [Concurrencia y cupos](#12-concurrencia-y-cupos)
+13. [Tolerancia a fallos y alta disponibilidad](#13-tolerancia-a-fallos-y-alta-disponibilidad)
+14. [Dimensionamiento y capacidad](#14-dimensionamiento-y-capacidad)
+15. [Respaldo y recuperación (DR)](#15-respaldo-y-recuperación-dr)
+16. [Decisiones y alternativas](#16-decisiones-y-alternativas)
+
 ## 1. Caso y contexto
 
 Un instituto profesional necesita llevar a la nube su sistema de **matrículas, notas y reportes**. Las exigencias del negocio son alta seguridad, trazabilidad de accesos y cambios, y presupuesto limitado.
@@ -553,8 +572,8 @@ sequenceDiagram
     U->>A: EnrollOwnSection / EnrollSection + cookie
     A->>A: semáforo de admisión (cap = floor(pool*0.6))<br/>saturado → ResourceExhausted (sin abrir conexión DB)
     A->>R: validar sesión y permiso
-    A->>P: COUNT activos (pre-check sin lock; sección llena → rechazado)
-    A->>P: BEGIN; SET LOCAL lock_timeout='2500ms'
+    A->>P: COUNT activos (pre-check sin lock, sección llena → rechazado)
+    A->>P: BEGIN, SET LOCAL lock_timeout=2500ms
     A->>P: SELECT … FROM sections FOR UPDATE<br/>(obtiene capacity, course_id, ventana DB-clock)
     alt alumno y ventana cerrada o NULL
         A-->>U: FailedPrecondition (window closed)

@@ -5,13 +5,26 @@ Guía lineal, comando por comando, para llevar el sistema a la nube. Ejecutar lo
 > Para correr todo en local sin nube, ver [`../local-dev`](../local-dev/README.md).
 
 Tres cosas a saber antes de empezar:
-1. El cluster GKE tiene **endpoint privado** (seguridad): `kubectl` se ejecuta **desde la VM bastión**, no desde la máquina local (Fase B).
+1. El cluster GKE tiene **endpoint privado** (seguridad): `kubectl` se ejecuta **desde la VM bastión**, no desde la máquina local (§4).
 2. El usuario de GCP necesita los roles `roles/owner` (o `roles/editor` + `roles/resourcemanager.projectIamAdmin` + `roles/container.admin`) sobre el proyecto.
 3. **Ejecutar todo desde una sola máquina con IP pública estable.** Esa IP va en `admin_ip` y habilita el SSH al bastión y el acceso al API server de GKE. Si la IP cambia (otra red, otra PC), actualizar `admin_ip` en `terraform.tfvars` y ejecutar `terraform apply` de nuevo.
 
 ---
 
-## Fase 0 — Instalar las herramientas (en la máquina local)
+## Índice
+
+1. [Instalar las herramientas (en la máquina local)](#1-instalar-las-herramientas-en-la-máquina-local)
+2. [Variables (completar una vez y pegar el bloque)](#2-variables-completar-una-vez-y-pegar-el-bloque)
+3. [Desde la máquina local: infraestructura e imágenes](#3-desde-la-máquina-local-infraestructura-e-imágenes)
+4. [Desde la VM bastión: cluster privado](#4-desde-la-vm-bastión-cluster-privado)
+5. [TLS y DNS](#5-tls-y-dns)
+6. [Verificación](#6-verificación)
+7. [Backups (verificación)](#7-backups-verificación)
+8. [Apagado (ahorro de costos)](#8-apagado-ahorro-de-costos)
+
+---
+
+## 1. Instalar las herramientas (en la máquina local)
 
 Se requiere: `gcloud`, `terraform`, `docker`, `kubectl` (trae `kustomize`), `aws`, `git`, `openssl`. Seleccionar según el sistema operativo.
 
@@ -78,7 +91,7 @@ gcloud version && terraform version && docker --version && kubectl version --cli
 
 ---
 
-## Fase 1 — Variables (completar una vez y pegar el bloque)
+## 2. Variables (completar una vez y pegar el bloque)
 
 ```bash
 export PROJECT_ID="mi-proyecto-gcp"                 # project id de GCP
@@ -94,9 +107,9 @@ export REPO_URL="https://github.com/AlessandroRLM/infraestructura-y-servicios-cl
 
 ---
 
-## Fase A — Desde la máquina local
+## 3. Desde la máquina local: infraestructura e imágenes
 
-### 1. Autenticación
+### 3.1 Autenticación
 
 ```bash
 gcloud auth login
@@ -105,13 +118,13 @@ gcloud config set project "$PROJECT_ID"
 aws configure                                        # claves del usuario IAM de backups
 ```
 
-### 2. Vincular facturación
+### 3.2 Vincular facturación
 
 ```bash
 gcloud billing projects link "$PROJECT_ID" --billing-account="$BILLING_ACCOUNT_ID"
 ```
 
-### 3. Bucket de estado de Terraform (una sola vez)
+### 3.3 Bucket de estado de Terraform (una sola vez)
 
 ```bash
 gcloud storage buckets create "gs://tfstate-academico" \
@@ -121,7 +134,7 @@ gcloud storage buckets update "gs://tfstate-academico" --versioning
 
 > Si el nombre `tfstate-academico` ya está tomado (los buckets son globales), elegir otro y actualizar `bucket = "..."` en `infra/backend.tf`.
 
-### 4. Variables de Terraform
+### 3.4 Variables de Terraform
 
 ```bash
 cd infra
@@ -137,7 +150,7 @@ EOF
 
 > `terraform.tfvars` está gitignored (no se commitea). `region`, `zone`, tamaños y budget usan defaults.
 
-### 5. Aplicar la infraestructura
+### 3.5 Aplicar la infraestructura
 
 ```bash
 terraform init
@@ -145,7 +158,7 @@ terraform plan      # revisar el plan
 terraform apply     # escribir 'yes' para confirmar
 ```
 
-### 6. Guardar los outputs
+### 3.6 Guardar los outputs
 
 ```bash
 export AR_URL=$(terraform output -raw artifact_registry_url)
@@ -155,7 +168,7 @@ echo "Cluster:  $CLUSTER"
 cd ..
 ```
 
-### 7. Construir y subir las imágenes al Artifact Registry
+### 3.7 Construir y subir las imágenes al Artifact Registry
 
 ```bash
 gcloud auth configure-docker "${REGION}-docker.pkg.dev"
@@ -167,7 +180,7 @@ docker push "$AR_URL/api:1.0.0"
 docker push "$AR_URL/web:1.0.0"
 ```
 
-### 8. Apuntar el overlay prod a esas imágenes
+### 3.8 Apuntar el overlay prod a esas imágenes
 
 ```bash
 cd k8s/overlays/prod
@@ -178,17 +191,17 @@ cd ../../..
 
 ---
 
-## Fase B — Desde la VM bastión (el cluster es privado)
+## 4. Desde la VM bastión: cluster privado
 
-### 9. Entrar al bastión
+### 4.1 Entrar al bastión (en la máquina local)
 
 ```bash
 gcloud compute ssh bastion --zone "$ZONE" --project "$PROJECT_ID"
 ```
 
-### 10. Preparar el bastión (una sola vez, dentro de la sesión SSH)
+### 4.2 Preparar el bastión (una sola vez, dentro de la sesión SSH)
 
-**Primero, volver a pegar el bloque de variables de la Fase 1** (el bastión es otra shell y no las tiene). Luego:
+**Primero, volver a pegar el bloque de variables de §2** (el bastión es otra shell y no las tiene). Luego:
 
 ```bash
 sudo apt-get update
@@ -197,7 +210,7 @@ git clone "$REPO_URL" && cd infraestructura-y-servicios-cloud
 gcloud container clusters get-credentials gke-academico --zone "$ZONE"
 ```
 
-### 11. Crear el Secret de producción (`app-secrets`)
+### 4.3 Crear el Secret de producción (`app-secrets`) (en el bastión)
 
 ```bash
 kubectl create namespace academico-prod --dry-run=client -o yaml | kubectl apply -f -
@@ -211,7 +224,7 @@ kubectl -n academico-prod create secret generic app-secrets \
 
 > En producción endurecida esto se inyecta desde Secret Manager con External Secrets; acá se crea a mano para arrancar. Usar la MISMA clave en `DATABASE_URL` y `POSTGRES_PASSWORD`.
 
-### 12. Desplegar la aplicación
+### 4.4 Desplegar la aplicación (en el bastión)
 
 ```bash
 kubectl apply -k k8s/overlays/prod
@@ -222,9 +235,9 @@ kubectl -n academico-prod get pods
 
 ---
 
-## Fase C — TLS y DNS
+## 5. TLS y DNS
 
-### 13. cert-manager + certificado (Let's Encrypt)
+### 5.1 cert-manager + certificado (Let's Encrypt) (en el bastión)
 
 ```bash
 # instalar cert-manager (desde el bastión)
@@ -254,7 +267,7 @@ kubectl -n academico-prod annotate ingress academico \
   cert-manager.io/cluster-issuer=letsencrypt --overwrite
 ```
 
-### 14. DNS
+### 5.2 DNS (en la máquina local)
 
 ```bash
 # IP pública del Ingress (esperar 1-2 min a que se asigne)
@@ -265,7 +278,7 @@ Crear un registro **A** del dominio (`$DOMAIN`) apuntando a esa IP. Cuando el DN
 
 ---
 
-## Fase D — Verificación
+## 6. Verificación
 
 ```bash
 # pods de prod
@@ -282,7 +295,7 @@ Dashboards y alertas: consola GCP → Monitoring → Dashboards (`infra`, `app`,
 
 ---
 
-## Fase E — Backups (verificación)
+## 7. Backups (verificación)
 
 ```bash
 # ejecutar el backup manualmente desde la VM ops y verificar en ambas nubes
@@ -297,7 +310,7 @@ aws s3 ls "s3://$(cd infra && terraform output -raw s3_backups_dr_bucket)/"
 
 ---
 
-## Fase F — Apagado (ahorro de costos)
+## 8. Apagado (ahorro de costos)
 
 ```bash
 cd infra

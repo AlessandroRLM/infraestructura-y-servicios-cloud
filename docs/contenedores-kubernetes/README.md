@@ -2,6 +2,14 @@
 
 Empaquetado de la aplicación y su orquestación en GKE.
 
+## Índice
+
+1. [Estrategia de empaquetado](#1-estrategia-de-empaquetado)
+2. [Comunicación entre servicios](#2-comunicación-entre-servicios)
+3. [Objetos de Kubernetes](#3-objetos-de-kubernetes)
+4. [Escalado y alta disponibilidad](#4-escalado-y-alta-disponibilidad)
+5. [Aislamiento entre ambientes](#5-aislamiento-entre-ambientes)
+
 ## 1. Estrategia de empaquetado
 
 La aplicación se divide en **cuatro contenedores**, uno por responsabilidad:

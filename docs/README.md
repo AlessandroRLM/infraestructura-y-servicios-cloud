@@ -32,3 +32,13 @@ Sistema de gestión académica (matrículas, notas, reportes) sobre arquitectura
 - Diagramas en Mermaid (renderizan en GitHub).
 - Las decisiones técnicas y tareas por módulo viven en el flujo SDD de cada capa, no acá.
 - READMEs por módulo (`backend/`, `frontend/`, `infra/`): qué es y cómo se usa.
+
+## Generar PDFs
+
+El script `scripts/docs-pdf.sh` exporta todos los documentos a PDF con [pandoc](https://pandoc.org/) y preserva los diagramas Mermaid mediante [mermaid-filter](https://github.com/raghur/mermaid-filter).
+
+```bash
+bash scripts/docs-pdf.sh
+```
+
+Los PDFs se generan junto a cada `.md` (mismo directorio, extensión `.pdf`). Ver el encabezado del script para los requisitos de instalación (`pandoc`, `weasyprint`, `npm i -g mermaid-filter`).

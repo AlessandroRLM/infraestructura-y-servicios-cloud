@@ -108,3 +108,10 @@ terraform.rc
 # Optional: ignore plan files saved before destroying Terraform configuration
 # Uncomment the line below if you want to ignore planout files.
 # planout
+
+# Generated documentation PDFs (build artifacts; regenerate with scripts/docs-pdf.sh)
+docs/**/*.pdf
+# Transient config created/removed by scripts/docs-pdf.sh
+.puppeteer.json
+.mermaid-config.json
+mermaid-filter.err

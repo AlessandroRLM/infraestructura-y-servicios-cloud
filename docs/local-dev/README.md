@@ -2,7 +2,16 @@
 
 Guía end-to-end para levantar el sistema en local (minikube) y validar el IaC sin tocar la nube. Los detalles por capa están en [`../contenedores-kubernetes`](../contenedores-kubernetes/README.md), [`../../k8s/README.md`](../../k8s/README.md) e [`../infraestructura`](../infraestructura/README.md).
 
-## 0. Qué corre en local y qué no
+## Índice
+
+1. [Qué corre en local y qué no](#1-qué-corre-en-local-y-qué-no)
+2. [Prerrequisitos](#2-prerrequisitos)
+3. [Kubernetes local (minikube)](#3-kubernetes-local-minikube)
+4. [Validar el Terraform (sin apply)](#4-validar-el-terraform-sin-apply)
+5. [Por qué `test`/`prod` y el monitoreo no corren en local](#5-por-qué-testprod-y-el-monitoreo-no-corren-en-local)
+6. [Troubleshooting](#6-troubleshooting)
+
+## 1. Qué corre en local y qué no
 
 | Componente | Local (minikube) | Solo GKE / nube |
 | --- | --- | --- |
@@ -17,7 +26,7 @@ Guía end-to-end para levantar el sistema en local (minikube) y validar el IaC s
 
 > El overlay `dev` está pensado para minikube (HTTP, `.env.dev`, storage `standard` 1Gi). `test`/`prod` apuntan a GKE y no aplican en minikube (CRD de GMP, clase de storage `standard-rwo`, certificados TLS, secret externo).
 
-## 1. Prerrequisitos
+## 2. Prerrequisitos
 
 | Herramienta | Versión usada |
 | --- | --- |
@@ -30,9 +39,9 @@ Guía end-to-end para levantar el sistema en local (minikube) y validar el IaC s
 
 Opcional, solo para `terraform plan` real: `gcloud` (`gcloud auth application-default login`) y `aws` (`aws configure`).
 
-## 2. Kubernetes local (minikube)
+## 3. Kubernetes local (minikube)
 
-### 2.1 Cluster + addons
+### 3.1 Cluster + addons
 
 ```bash
 minikube start --cni=calico            # Calico: enforcement real de NetworkPolicy
@@ -40,7 +49,7 @@ minikube addons enable ingress         # Ingress nginx
 minikube addons enable metrics-server  # requerido por el HPA
 ```
 
-### 2.2 Construir las imágenes en el daemon de minikube
+### 3.2 Construir las imágenes en el daemon de minikube
 
 Construir dentro del daemon del nodo evita `minikube image load`, que **no reemplaza una imagen con el mismo tag** (deja la vieja).
 
@@ -54,7 +63,7 @@ docker build --provenance=false -f frontend/Dockerfile -t academico/web:dev .
 
 > `--provenance=false` produce una imagen de manifiesto único (la que espera el kubelet). El frontend es same-origin: no necesita build-arg de URL. Para volver al Docker del host: `eval $(minikube docker-env -u)`.
 
-### 2.3 Desplegar el overlay dev
+### 3.3 Desplegar el overlay dev
 
 ```bash
 kubectl apply -k k8s/overlays/dev
@@ -62,13 +71,13 @@ kubectl -n academico-dev rollout status deploy/api
 kubectl -n academico-dev rollout status deploy/web
 ```
 
-### 2.4 Resolver el host del Ingress
+### 3.4 Resolver el host del Ingress
 
 ```bash
 echo "$(minikube ip) academico.local" | sudo tee -a /etc/hosts
 ```
 
-### 2.5 Verificar
+### 3.5 Verificar
 
 ```bash
 # Todos los pods Ready (2 api · postgres · redis · 2 web)
@@ -87,14 +96,14 @@ kubectl run probe --rm -i --restart=Never --image=busybox:1.36 -n default \
 kubectl -n academico-dev get resourcequota academico-quota
 ```
 
-### 2.6 Redeploy tras reconstruir una imagen (mismo tag)
+### 3.6 Redeploy tras reconstruir una imagen (mismo tag)
 
 ```bash
 # reconstruir (paso 2.2) y luego:
 kubectl -n academico-dev rollout restart deploy/web deploy/api
 ```
 
-### 2.7 Limpieza
+### 3.7 Limpieza
 
 ```bash
 kubectl delete -k k8s/overlays/dev    # borra el namespace y todo lo del overlay
@@ -102,7 +111,7 @@ minikube stop                         # apaga el cluster (conserva estado)
 minikube delete                       # destruye el cluster
 ```
 
-## 3. Validar el Terraform (sin apply)
+## 4. Validar el Terraform (sin apply)
 
 ```bash
 cd infra
@@ -123,14 +132,14 @@ terraform plan -var 'project_id=...' -var 'admin_ip=<ip-propia>/32'
 
 > Sin credenciales, `plan` falla solo por auth (la config es válida): `could not find default credentials`. No se ejecuta `apply` en este entorno.
 
-## 4. Por qué `test`/`prod` y el monitoreo no corren en local
+## 5. Por qué `test`/`prod` y el monitoreo no corren en local
 
 - **GMP `PodMonitoring`** usa un CRD (`monitoring.googleapis.com/v1`) que solo existe en GKE; minikube lo rechazaría (`no matches for kind PodMonitoring`). Por eso vive en un component que solo incluyen `test`/`prod`.
 - **`standard-rwo`** (pd-balanced) es una storage class de GKE; minikube usa `standard`.
 - **TLS** del Ingress depende de certificados gestionados / cert-manager en GKE.
 - **Secret de prod** se inyecta desde un gestor externo, no desde un `.env` local.
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 
 | Síntoma | Causa / arreglo |
 | --- | --- |
