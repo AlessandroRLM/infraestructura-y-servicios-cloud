@@ -176,7 +176,7 @@ describe("UserDetailSheet", () => {
       },
       {
         getUserProfile: async () => {
-          throw new ConnectError("not found", Code.NotFound);
+          throw new ConnectError("boom", Code.Internal);
         },
         getStudentProfile: async () =>
           create(StudentProfileSchema, { userId: "u1", admissionYear: 2022 }),
@@ -192,6 +192,33 @@ describe("UserDetailSheet", () => {
     await screen.findByText("No se pudo cargar el perfil.");
     expect(
       screen.queryByText("No se pudo cargar la información del usuario."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("S-16b: getUserProfile NotFound — shows empty state, not an error", async () => {
+    renderSheet(
+      {
+        listUsers: async () => ({ users: [baseUser], nextPageToken: "" }),
+        getUser: async () => create(GetUserResponseSchema, { user: baseUser }),
+      },
+      {
+        getUserProfile: async () => {
+          throw new ConnectError("not found", Code.NotFound);
+        },
+        getStudentProfile: async () =>
+          create(StudentProfileSchema, { userId: "u1", admissionYear: 2022 }),
+        getTeacherProfile: async () =>
+          create(TeacherProfileSchema, { userId: "u1" }),
+        listTeacherQualifications: async () => ({ qualifications: [] }),
+      },
+    );
+
+    await screen.findByText("alice@test.com");
+    await openSheetForUser("alice@test.com");
+
+    await screen.findByText("Sin perfil registrado.");
+    expect(
+      screen.queryByText("No se pudo cargar el perfil."),
     ).not.toBeInTheDocument();
   });
 
