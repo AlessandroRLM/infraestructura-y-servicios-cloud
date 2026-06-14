@@ -12,6 +12,7 @@ Sistema de gestión académica (matrículas, notas, reportes) sobre arquitectura
 | [Contenedores y Kubernetes](contenedores-kubernetes/README.md) | Empaquetado, manifiestos K8s, comunicación entre servicios, escalado y HA. |
 | [Monitoreo y costos](monitoreo-costos/README.md) | Dashboards, alertas, estimación mensual y optimización de costos. |
 | [Runbook local](local-dev/README.md) | Pruebas y despliegue en local (minikube) + validación del IaC sin tocar la nube. |
+| [Despliegue en GCP](despliegue-gcp/README.md) | Runbook copy-paste end-to-end del despliegue real (GCP + AWS): terraform, imágenes, app en GKE, TLS, backups. |
 
 ## Stack
 

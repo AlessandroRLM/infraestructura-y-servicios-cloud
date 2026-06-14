@@ -118,7 +118,7 @@ gcloud auth application-default login
 aws configure
 # el bucket de estado se crea una sola vez fuera de banda (ver docs/infraestructura §2)
 terraform init                  # conecta el backend GCS
-terraform plan -var 'project_id=...' -var 'admin_ip=<tu-ip>/32'
+terraform plan -var 'project_id=...' -var 'admin_ip=<ip-propia>/32'
 ```
 
 > Sin credenciales, `plan` falla solo por auth (la config es válida): `could not find default credentials`. No se ejecuta `apply` en este entorno.
@@ -137,4 +137,4 @@ terraform plan -var 'project_id=...' -var 'admin_ip=<tu-ip>/32'
 | El pod corre código viejo tras rebuild | `minikube image load` no pisa el mismo tag → construir en `docker-env` (paso 2.2) |
 | NetworkPolicy no bloquea nada | el CNI por defecto (kindnet) no las aplica → `minikube start --cni=calico` |
 | HPA sin métricas | falta `minikube addons enable metrics-server` |
-| `apply -k overlays/dev` falla con `PodMonitoring` | estás usando un overlay GKE; en local usá `dev` |
+| `apply -k overlays/dev` falla con `PodMonitoring` | se está usando un overlay GKE; en local usar `dev` |
