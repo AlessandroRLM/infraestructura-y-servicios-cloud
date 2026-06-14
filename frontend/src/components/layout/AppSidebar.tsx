@@ -142,8 +142,12 @@ export function AppSidebar() {
         ))}
       </nav>
 
-      <div className="space-y-3 border-t p-3">
-        <div className="flex items-center gap-3 px-1">
+      <div className="flex flex-col gap-3 border-t p-3">
+        <Link
+          {...linkOptions({ to: "/profile" })}
+          activeProps={{ "data-active": "true" }}
+          className="flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-accent data-[active=true]:bg-accent"
+        >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted font-medium text-foreground text-sm">
             {initials(name)}
           </span>
@@ -151,7 +155,7 @@ export function AppSidebar() {
             <div className="truncate font-medium text-sm">{name}</div>
             <div className="truncate text-muted-foreground text-xs">{role}</div>
           </div>
-        </div>
+        </Link>
         <LogoutButton className="w-full justify-start" />
       </div>
     </aside>
