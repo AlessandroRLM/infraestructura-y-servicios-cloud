@@ -12,6 +12,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { createRpcUsersDetailSource } from "../api/rpc";
 import { useUserDetail } from "../hooks/useUserDetail";
+import { RoleManagement } from "./RoleManagement";
 import { UserStatusBadge } from "./UserStatusBadge";
 
 interface UserDetailSheetProps {
@@ -93,7 +94,12 @@ export function UserDetailSheet({
                   </div>
                   <div>
                     <dt className="text-muted-foreground">Roles</dt>
-                    <dd>{iam.data.user.roles.join(", ") || "—"}</dd>
+                    <dd>
+                      <RoleManagement
+                        userId={iam.data.user.id}
+                        roles={iam.data.user.roles}
+                      />
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground">Estado</dt>
