@@ -1,5 +1,5 @@
 import { createClient, type Transport } from "@connectrpc/connect";
-import type { Program } from "@/gen/catalog/v1/catalog_pb";
+import type { Course, Program } from "@/gen/catalog/v1/catalog_pb";
 import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
 
 export interface ProgramsSource {
@@ -12,6 +12,20 @@ export function createRpcProgramsSource(transport: Transport): ProgramsSource {
     async listPrograms() {
       const res = await client.listPrograms({});
       return res.programs;
+    },
+  };
+}
+
+export interface CoursesSource {
+  listCourses(): Promise<Course[]>;
+}
+
+export function createRpcCoursesSource(transport: Transport): CoursesSource {
+  const client = createClient(CatalogService, transport);
+  return {
+    async listCourses() {
+      const res = await client.listCourses({});
+      return res.courses;
     },
   };
 }

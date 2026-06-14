@@ -51,7 +51,7 @@ describe("ProgramDialog — create mode", () => {
 
     // Use getAllByRole — when list is empty, both the header and empty-state render the button.
     const openButtons = screen.getAllByRole("button", {
-      name: /crear programa/i,
+      name: /crear carrera/i,
     });
     await user.click(openButtons[0]);
     await screen.findByRole("dialog");
@@ -64,13 +64,13 @@ describe("ProgramDialog — create mode", () => {
     );
 
     const submitBtn = within(dialog).getByRole("button", {
-      name: /crear programa/i,
+      name: /crear carrera/i,
     });
     await user.click(submitBtn);
 
     await waitFor(() => expect(createProgram).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(toastSuccess).toHaveBeenCalledWith("Programa creado"),
+      expect(toastSuccess).toHaveBeenCalledWith("Carrera creada"),
     );
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
@@ -87,7 +87,7 @@ describe("ProgramDialog — create mode", () => {
     await renderAcademicsPage({ createProgram, listPrograms });
 
     const openButtons = screen.getAllByRole("button", {
-      name: /crear programa/i,
+      name: /crear carrera/i,
     });
     await user.click(openButtons[0]);
     await screen.findByRole("dialog");
@@ -97,13 +97,13 @@ describe("ProgramDialog — create mode", () => {
     await user.type(within(dialog).getByLabelText("Nombre"), "Duplicado");
 
     const submitBtn = within(dialog).getByRole("button", {
-      name: /crear programa/i,
+      name: /crear carrera/i,
     });
     await user.click(submitBtn);
 
     await waitFor(() =>
       expect(
-        screen.getByText("Ya existe un programa con ese código"),
+        screen.getByText("Ya existe una carrera con ese código"),
       ).toBeInTheDocument(),
     );
     expect(toastError).not.toHaveBeenCalled();
@@ -120,7 +120,7 @@ describe("ProgramDialog — create mode", () => {
     await renderAcademicsPage({ createProgram, listPrograms });
 
     const openButtons = screen.getAllByRole("button", {
-      name: /crear programa/i,
+      name: /crear carrera/i,
     });
     await user.click(openButtons[0]);
     await screen.findByRole("dialog");
@@ -130,7 +130,7 @@ describe("ProgramDialog — create mode", () => {
     await user.type(within(dialog).getByLabelText("Nombre"), "Nombre válido");
 
     const submitBtn = within(dialog).getByRole("button", {
-      name: /crear programa/i,
+      name: /crear carrera/i,
     });
     await user.click(submitBtn);
 
@@ -166,7 +166,7 @@ describe("ProgramDialog — edit mode error paths (S-11)", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText("Ya existe un programa con ese código"),
+        screen.getByText("Ya existe una carrera con ese código"),
       ).toBeInTheDocument(),
     );
     expect(toastError).not.toHaveBeenCalled();
@@ -238,7 +238,7 @@ describe("ProgramDialog — edit mode", () => {
       name: "Ingeniería de Sistemas",
     });
     await waitFor(() =>
-      expect(toastSuccess).toHaveBeenCalledWith("Programa actualizado"),
+      expect(toastSuccess).toHaveBeenCalledWith("Carrera actualizada"),
     );
   });
 });

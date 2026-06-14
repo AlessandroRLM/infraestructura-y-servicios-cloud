@@ -54,7 +54,7 @@ describe("ProgramsTable", () => {
     renderPage({ listPrograms: () => new Promise(() => {}) });
 
     const skeleton = await screen.findByRole("status", {
-      name: "Cargando programas",
+      name: "Cargando carreras",
     });
     expect(skeleton).toBeInTheDocument();
     expect(skeleton).toHaveAttribute("aria-busy", "true");
@@ -84,9 +84,9 @@ describe("ProgramsTable", () => {
   it("S-03: shows empty state copy and Crear CTA", async () => {
     renderPage({ listPrograms: async () => ({ programs: [] }) });
 
-    await screen.findByText("Todavía no hay programas");
+    await screen.findByText("Todavía no hay carreras");
     const createButtons = screen.getAllByRole("button", {
-      name: /crear programa/i,
+      name: /crear carrera/i,
     });
     expect(createButtons.length).toBeGreaterThanOrEqual(1);
   });
@@ -98,7 +98,7 @@ describe("ProgramsTable", () => {
       },
     });
 
-    await screen.findByText(/No se pudo cargar la lista de programas/);
+    await screen.findByText(/No se pudo cargar la lista de carreras/);
     expect(
       screen.getByRole("button", { name: /reintentar/i }),
     ).toBeInTheDocument();
@@ -118,7 +118,7 @@ describe("ProgramsTable", () => {
       screen.queryByRole("button", { name: /eliminar/i }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /crear programa/i }),
+      screen.queryByRole("button", { name: /crear carrera/i }),
     ).not.toBeInTheDocument();
   });
 

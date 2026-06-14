@@ -11,22 +11,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { Program } from "@/gen/catalog/v1/catalog_pb";
-import { useDeleteProgram } from "../hooks/useDeleteProgram";
+import type { Course } from "@/gen/catalog/v1/catalog_pb";
+import { useDeleteCourse } from "../hooks/useDeleteCourse";
 import { mapDeleteError } from "./errorMapping";
 
-interface DeleteProgramDialogProps {
+interface DeleteCourseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  program: Program;
+  course: Course;
 }
 
-export function DeleteProgramDialog({
+export function DeleteCourseDialog({
   open,
   onOpenChange,
-  program,
-}: DeleteProgramDialogProps) {
-  const deleteMutation = useDeleteProgram();
+  course,
+}: DeleteCourseDialogProps) {
+  const deleteMutation = useDeleteCourse();
   const [inlineError, setInlineError] = useState<
     "precondition" | "transport" | null
   >(null);
@@ -36,9 +36,9 @@ export function DeleteProgramDialog({
     e.preventDefault();
     setInlineError(null);
     try {
-      await deleteMutation.mutateAsync({ id: program.id });
+      await deleteMutation.mutateAsync({ id: course.id });
       onOpenChange(false);
-      toast.success("Carrera eliminada");
+      toast.success("Asignatura eliminada");
     } catch (err) {
       const kind = mapDeleteError(err);
       setInlineError(kind);
@@ -54,23 +54,23 @@ export function DeleteProgramDialog({
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>¿Eliminar carrera?</AlertDialogTitle>
+          <AlertDialogTitle>¿Eliminar asignatura?</AlertDialogTitle>
           <AlertDialogDescription>
-            ¿Eliminar la carrera {program.code}? Esta acción no se puede
+            ¿Eliminar la asignatura {course.code}? Esta acción no se puede
             deshacer.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         {inlineError === "precondition" && (
           <p role="alert" className="text-destructive text-sm">
-            No se puede eliminar: la carrera tiene asignaturas o cupos
-            asociados. Quita esas asociaciones primero.
+            No se puede eliminar: la asignatura está en uso por carreras o
+            secciones. Quita esas asociaciones primero.
           </p>
         )}
 
         {inlineError === "transport" && (
           <p role="alert" className="text-destructive text-sm">
-            No se pudo eliminar la carrera. Inténtalo de nuevo.
+            No se pudo eliminar la asignatura. Inténtalo de nuevo.
           </p>
         )}
 

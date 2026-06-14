@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -40,22 +41,22 @@ export function ProgramDialog({
           name: values.name,
         });
         onOpenChange(false);
-        toast.success("Programa actualizado");
+        toast.success("Carrera actualizada");
       } else {
         await createMutation.mutateAsync({
           code: values.code,
           name: values.name,
         });
         onOpenChange(false);
-        toast.success("Programa creado");
+        toast.success("Carrera creada");
       }
     } catch (err) {
       const result = mapProgramMutationError(err, setError);
       if (result === "toast") {
         toast.error(
           isEdit
-            ? "No se pudo actualizar el programa. Inténtalo de nuevo."
-            : "No se pudo crear el programa. Inténtalo de nuevo.",
+            ? "No se pudo actualizar la carrera. Inténtalo de nuevo."
+            : "No se pudo crear la carrera. Inténtalo de nuevo.",
         );
       }
     }
@@ -66,8 +67,13 @@ export function ProgramDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? "Editar programa" : "Crear programa"}
+            {isEdit ? "Editar carrera" : "Crear carrera"}
           </DialogTitle>
+          <DialogDescription>
+            {isEdit
+              ? "Edita los datos de la carrera."
+              : "Completa los datos de la nueva carrera."}
+          </DialogDescription>
         </DialogHeader>
         <ProgramForm
           onSubmit={handleSubmit}
@@ -75,7 +81,7 @@ export function ProgramDialog({
           defaultValues={
             isEdit ? { code: program.code, name: program.name } : undefined
           }
-          submitLabel={isEdit ? "Guardar cambios" : "Crear programa"}
+          submitLabel={isEdit ? "Guardar cambios" : "Crear carrera"}
         />
       </DialogContent>
     </Dialog>
