@@ -17,6 +17,7 @@ import { Route as AuthenticatedSectionEnrollmentsRouteImport } from './routes/_a
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
+import { Route as AuthenticatedForbiddenRouteImport } from './routes/_authenticated/forbidden'
 import { Route as AuthenticatedEnrollmentsRouteImport } from './routes/_authenticated/enrollments'
 import { Route as AuthenticatedAccessControlRouteImport } from './routes/_authenticated/access-control'
 import { Route as AuthenticatedAcademicsRouteImport } from './routes/_authenticated/academics'
@@ -61,6 +62,11 @@ const AuthenticatedGradesRoute = AuthenticatedGradesRouteImport.update({
   path: '/grades',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedForbiddenRoute = AuthenticatedForbiddenRouteImport.update({
+  id: '/forbidden',
+  path: '/forbidden',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedEnrollmentsRoute =
   AuthenticatedEnrollmentsRouteImport.update({
     id: '/enrollments',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/academics': typeof AuthenticatedAcademicsRoute
   '/access-control': typeof AuthenticatedAccessControlRoute
   '/enrollments': typeof AuthenticatedEnrollmentsRoute
+  '/forbidden': typeof AuthenticatedForbiddenRoute
   '/grades': typeof AuthenticatedGradesRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/academics': typeof AuthenticatedAcademicsRoute
   '/access-control': typeof AuthenticatedAccessControlRoute
   '/enrollments': typeof AuthenticatedEnrollmentsRoute
+  '/forbidden': typeof AuthenticatedForbiddenRoute
   '/grades': typeof AuthenticatedGradesRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/_authenticated/academics': typeof AuthenticatedAcademicsRoute
   '/_authenticated/access-control': typeof AuthenticatedAccessControlRoute
   '/_authenticated/enrollments': typeof AuthenticatedEnrollmentsRoute
+  '/_authenticated/forbidden': typeof AuthenticatedForbiddenRoute
   '/_authenticated/grades': typeof AuthenticatedGradesRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/academics'
     | '/access-control'
     | '/enrollments'
+    | '/forbidden'
     | '/grades'
     | '/profile'
     | '/reports'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/academics'
     | '/access-control'
     | '/enrollments'
+    | '/forbidden'
     | '/grades'
     | '/profile'
     | '/reports'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/_authenticated/academics'
     | '/_authenticated/access-control'
     | '/_authenticated/enrollments'
+    | '/_authenticated/forbidden'
     | '/_authenticated/grades'
     | '/_authenticated/profile'
     | '/_authenticated/reports'
@@ -220,6 +232,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGradesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/forbidden': {
+      id: '/_authenticated/forbidden'
+      path: '/forbidden'
+      fullPath: '/forbidden'
+      preLoaderRoute: typeof AuthenticatedForbiddenRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/enrollments': {
       id: '/_authenticated/enrollments'
       path: '/enrollments'
@@ -248,6 +267,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAcademicsRoute: typeof AuthenticatedAcademicsRoute
   AuthenticatedAccessControlRoute: typeof AuthenticatedAccessControlRoute
   AuthenticatedEnrollmentsRoute: typeof AuthenticatedEnrollmentsRoute
+  AuthenticatedForbiddenRoute: typeof AuthenticatedForbiddenRoute
   AuthenticatedGradesRoute: typeof AuthenticatedGradesRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
@@ -260,6 +280,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAcademicsRoute: AuthenticatedAcademicsRoute,
   AuthenticatedAccessControlRoute: AuthenticatedAccessControlRoute,
   AuthenticatedEnrollmentsRoute: AuthenticatedEnrollmentsRoute,
+  AuthenticatedForbiddenRoute: AuthenticatedForbiddenRoute,
   AuthenticatedGradesRoute: AuthenticatedGradesRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,

@@ -14,6 +14,9 @@ export const Route = createFileRoute("/_authenticated")({
     if (!session) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
+    // Resolve once here; child route guards read context.session instead of
+    // hitting the query cache again.
+    return { session };
   },
   component: AuthenticatedLayout,
 });
