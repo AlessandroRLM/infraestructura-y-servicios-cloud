@@ -14,8 +14,8 @@ import {
 import {
   hasPermission,
   LogoutButton,
-  type Permission,
   primaryRoleLabel,
+  routePermissions,
   type SessionState,
   useSession,
 } from "@/features/auth";
@@ -23,8 +23,6 @@ import {
 interface NavMeta {
   label: string;
   icon: LucideIcon;
-  // Visible if the session has ANY of these; undefined = always visible.
-  permissions?: Permission[];
 }
 
 // No array annotation on purpose: `satisfies` validates the meta fields while
@@ -35,55 +33,51 @@ const NAV = [
   {
     label: "Académico",
     icon: BookOpen,
-    permissions: ["catalog.manage"],
     options: linkOptions({ to: "/academics" }),
   },
   {
     label: "Inscripciones",
     icon: ClipboardList,
-    permissions: ["enrollment.manage"],
     options: linkOptions({ to: "/enrollments" }),
   },
   {
     label: "Secciones",
     icon: ListChecks,
-    permissions: ["sections.enroll", "section_enrollment.view_own"],
     options: linkOptions({ to: "/section-enrollments" }),
   },
   {
     label: "Notas",
     icon: PenLine,
-    permissions: ["grades.read", "grades.write", "grades.view_own"],
     options: linkOptions({ to: "/grades" }),
   },
   {
     label: "Reportes",
     icon: ChartColumn,
-    permissions: ["reports.read"],
     options: linkOptions({ to: "/reports" }),
   },
   {
     label: "Usuarios",
     icon: Users,
-    permissions: ["users.manage"],
     options: linkOptions({ to: "/users" }),
   },
   {
     label: "Control de acceso",
     icon: ShieldCheck,
-    permissions: ["users.manage"],
     options: linkOptions({ to: "/access-control" }),
   },
 ] satisfies readonly (NavMeta & { options: object })[];
 
 type NavItem = (typeof NAV)[number];
 
+// Visibility derives from the same ROUTE_PERMISSIONS map the route guards use:
+// a link shows when its route is unguarded or the session holds one of the
+// route's permissions (ANY). Single source of truth, no duplication.
 function isVisible(session: SessionState, item: NavItem): boolean {
-  const permissions = "permissions" in item ? item.permissions : undefined;
+  const permissions = routePermissions(item.options.to);
   if (!permissions) {
     return true;
   }
-  return permissions.some((p) => hasPermission(session, p));
+  return permissions.some((permission) => hasPermission(session, permission));
 }
 
 // No display name on the wire (only email + roles); derive one from the local part.

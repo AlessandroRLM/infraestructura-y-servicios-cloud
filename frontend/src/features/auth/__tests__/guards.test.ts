@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { requireAnyPermission } from "../guards";
+import { requireAnyPermission, requireRoutePermission } from "../guards";
 import type { AuthenticatedSession } from "../types";
 
 function session(permissions: string[]): AuthenticatedSession {
@@ -31,6 +31,24 @@ describe("requireAnyPermission", () => {
     let thrown: unknown;
     try {
       requireAnyPermission(session([]), ["catalog.manage"]);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ options: { to: "/forbidden" } });
+  });
+});
+
+describe("requireRoutePermission", () => {
+  it("resolves the route's permission from ROUTE_PERMISSIONS and allows access", () => {
+    expect(() =>
+      requireRoutePermission(session(["users.manage"]), "/users"),
+    ).not.toThrow();
+  });
+
+  it("redirects to /forbidden when the session lacks the route's permission", () => {
+    let thrown: unknown;
+    try {
+      requireRoutePermission(session([]), "/users");
     } catch (error) {
       thrown = error;
     }

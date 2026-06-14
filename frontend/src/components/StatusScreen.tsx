@@ -7,9 +7,11 @@ interface StatusScreenProps {
   description: string;
 }
 
-// Shared full-height status page for terminal route states (404, 403). The
-// 70svh floor centers it whether it renders bare (root not-found, no shell) or
-// inside the authenticated <main>.
+/**
+ * Shared full-height status page for terminal route states (404, 403). The
+ * `70svh` floor centers it whether it renders bare (root not-found, no shell)
+ * or inside the authenticated `<main>`.
+ */
 export function StatusScreen({ code, title, description }: StatusScreenProps) {
   return (
     <div className="flex min-h-[70svh] flex-col items-center justify-center gap-3 px-6 text-center">

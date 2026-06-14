@@ -8,7 +8,7 @@ export { LoginForm } from "./components/LoginForm";
 export { LogoutButton } from "./components/LogoutButton";
 export { SessionContext } from "./context/context";
 export { SessionProvider } from "./context/provider";
-export { requireAnyPermission } from "./guards";
+export { requireAnyPermission, requireRoutePermission } from "./guards";
 export { useLogin } from "./hooks/useLogin";
 export { useLogout } from "./hooks/useLogout";
 export { hasPermission, hasRole, useSession } from "./hooks/useSession";
@@ -20,6 +20,11 @@ export {
   roleLabel,
   sortRolesByPriority,
 } from "./roles";
+export {
+  type GuardedRoute,
+  ROUTE_PERMISSIONS,
+  routePermissions,
+} from "./route-permissions";
 export { loginSearchSchema } from "./schemas/search";
 export type {
   AuthenticatedSession,

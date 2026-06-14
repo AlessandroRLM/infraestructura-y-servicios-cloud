@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { requireAnyPermission } from "@/features/auth";
+import { requireRoutePermission } from "@/features/auth";
 import { ReportsPage } from "@/features/reports";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   beforeLoad: ({ context }) => {
-    requireAnyPermission(context.session, ["reports.read"]);
+    requireRoutePermission(context.session, "/reports");
   },
   component: ReportsPage,
 });

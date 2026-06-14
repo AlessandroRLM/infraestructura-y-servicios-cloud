@@ -1,15 +1,20 @@
 import { redirect } from "@tanstack/react-router";
 import type { Permission } from "./permissions";
+import { type GuardedRoute, ROUTE_PERMISSIONS } from "./route-permissions";
 import type { AuthenticatedSession } from "./types";
 
-// Route-level authorization. This is UX, not security — the backend enforces
-// authorization per RPC (fail-closed). Its only job is to keep an authenticated
-// user without the permission off a page that would otherwise render broken,
-// and send them to a 403 instead.
-//
-// ANY semantics mirror the nav's link-visibility rule: holding one of the
-// listed permissions is enough. Call from a route's beforeLoad, after the
-// _authenticated layout has put the session on the context.
+/**
+ * Route-level authorization primitive. UX only — the backend enforces
+ * authorization per RPC (fail-closed); this just keeps an authenticated user
+ * without the permission off a page that would otherwise render broken.
+ *
+ * ANY semantics: holding one of `permissions` is enough. Call from a route's
+ * `beforeLoad`, after the `_authenticated` layout has put the session on the
+ * context. Prefer {@link requireRoutePermission} so the permission stays
+ * declared in a single place.
+ *
+ * @throws a redirect to `/forbidden` when the session holds none of `permissions`.
+ */
 export function requireAnyPermission(
   session: AuthenticatedSession,
   permissions: readonly Permission[],
@@ -20,4 +25,18 @@ export function requireAnyPermission(
     return;
   }
   throw redirect({ to: "/forbidden" });
+}
+
+/**
+ * Guards a route using {@link ROUTE_PERMISSIONS} — the single source of truth
+ * shared with the nav. Pass the route's URL path; the required permission is
+ * resolved from the map, so it is never duplicated in the route file.
+ *
+ * @throws a redirect to `/forbidden` when the session lacks access to `route`.
+ */
+export function requireRoutePermission(
+  session: AuthenticatedSession,
+  route: GuardedRoute,
+): void {
+  requireAnyPermission(session, ROUTE_PERMISSIONS[route]);
 }
