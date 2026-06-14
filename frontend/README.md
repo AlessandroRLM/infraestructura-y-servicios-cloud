@@ -66,8 +66,6 @@ Bun no ejecuta los `postinstall` (ni otros lifecycle scripts) de las dependencia
 
 ## Configuración
 
-| Variable | Descripción |
-|----------|-------------|
-| `VITE_API_URL` | URL base de la API Connect. |
+El cliente consume la API en el mismo origen (same-origin): el Ingress rutea los paths Connect (`/*.v1.*`) al backend, por lo que no requiere configurar una URL de API en build ni en runtime. En desarrollo, el proxy de Vite cumple el mismo rol.
 
 La sesión viaja en una cookie `httpOnly`; el cliente no maneja el token. El gating de UI por rol es solo presentación: el control real es del backend.

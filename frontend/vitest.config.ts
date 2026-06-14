@@ -10,8 +10,5 @@ export default defineConfig({
     setupFiles: ["./src/core/test/setup.ts"],
     include: ["src/**/__tests__/**/*.test.{ts,tsx}"],
     alias: { "@": resolve(__dirname, "./src") },
-    env: {
-      VITE_API_URL: "http://localhost:8080",
-    },
   },
 });

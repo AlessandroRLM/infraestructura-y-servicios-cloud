@@ -84,6 +84,8 @@ k8s/
 
 > Los Secrets no se versionan en el repositorio; se crean aparte o se inyectan desde un gestor de secretos.
 
+El endurecimiento de seguridad de estos manifiestos (Pod Security Standards, nginx sin privilegios, NetworkPolicy deny por defecto, manejo de Secrets) está documentado en [`seguridad-y-endurecimiento.md`](./seguridad-y-endurecimiento.md).
+
 ## 4. Escalado y alta disponibilidad
 
 | Mecanismo | Configuración |
