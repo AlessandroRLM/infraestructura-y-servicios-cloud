@@ -572,8 +572,8 @@ sequenceDiagram
     U->>A: EnrollOwnSection / EnrollSection + cookie
     A->>A: semáforo de admisión (cap = floor(pool*0.6))<br/>saturado → ResourceExhausted (sin abrir conexión DB)
     A->>R: validar sesión y permiso
-    A->>P: COUNT activos (pre-check sin lock; sección llena → rechazado)
-    A->>P: BEGIN; SET LOCAL lock_timeout='2500ms'
+    A->>P: COUNT activos (pre-check sin lock, sección llena → rechazado)
+    A->>P: BEGIN, SET LOCAL lock_timeout=2500ms
     A->>P: SELECT … FROM sections FOR UPDATE<br/>(obtiene capacity, course_id, ventana DB-clock)
     alt alumno y ventana cerrada o NULL
         A-->>U: FailedPrecondition (window closed)
