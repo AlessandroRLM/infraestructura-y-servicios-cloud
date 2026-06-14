@@ -37,10 +37,6 @@ const (
 	IamServiceListUsersProcedure = "/iam.v1.IamService/ListUsers"
 	// IamServiceGetUserProcedure is the fully-qualified name of the IamService's GetUser RPC.
 	IamServiceGetUserProcedure = "/iam.v1.IamService/GetUser"
-	// IamServiceAssignRoleProcedure is the fully-qualified name of the IamService's AssignRole RPC.
-	IamServiceAssignRoleProcedure = "/iam.v1.IamService/AssignRole"
-	// IamServiceRevokeRoleProcedure is the fully-qualified name of the IamService's RevokeRole RPC.
-	IamServiceRevokeRoleProcedure = "/iam.v1.IamService/RevokeRole"
 )
 
 // IamServiceClient is a client for the iam.v1.IamService service.
@@ -49,11 +45,6 @@ type IamServiceClient interface {
 	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
 	// GetUser returns the full profile view for a single user by UUID.
 	GetUser(context.Context, *connect.Request[v1.GetUserRequest]) (*connect.Response[v1.GetUserResponse], error)
-	// AssignRole assigns a role to the target user. Idempotent.
-	AssignRole(context.Context, *connect.Request[v1.AssignRoleRequest]) (*connect.Response[v1.AssignRoleResponse], error)
-	// RevokeRole removes a role from the target user. Guards against self-demotion
-	// and removal of the last admin.
-	RevokeRole(context.Context, *connect.Request[v1.RevokeRoleRequest]) (*connect.Response[v1.RevokeRoleResponse], error)
 }
 
 // NewIamServiceClient constructs a client for the iam.v1.IamService service. By default, it uses
@@ -79,27 +70,13 @@ func NewIamServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(iamServiceMethods.ByName("GetUser")),
 			connect.WithClientOptions(opts...),
 		),
-		assignRole: connect.NewClient[v1.AssignRoleRequest, v1.AssignRoleResponse](
-			httpClient,
-			baseURL+IamServiceAssignRoleProcedure,
-			connect.WithSchema(iamServiceMethods.ByName("AssignRole")),
-			connect.WithClientOptions(opts...),
-		),
-		revokeRole: connect.NewClient[v1.RevokeRoleRequest, v1.RevokeRoleResponse](
-			httpClient,
-			baseURL+IamServiceRevokeRoleProcedure,
-			connect.WithSchema(iamServiceMethods.ByName("RevokeRole")),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
 // iamServiceClient implements IamServiceClient.
 type iamServiceClient struct {
-	listUsers  *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
-	getUser    *connect.Client[v1.GetUserRequest, v1.GetUserResponse]
-	assignRole *connect.Client[v1.AssignRoleRequest, v1.AssignRoleResponse]
-	revokeRole *connect.Client[v1.RevokeRoleRequest, v1.RevokeRoleResponse]
+	listUsers *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
+	getUser   *connect.Client[v1.GetUserRequest, v1.GetUserResponse]
 }
 
 // ListUsers calls iam.v1.IamService.ListUsers.
@@ -112,27 +89,12 @@ func (c *iamServiceClient) GetUser(ctx context.Context, req *connect.Request[v1.
 	return c.getUser.CallUnary(ctx, req)
 }
 
-// AssignRole calls iam.v1.IamService.AssignRole.
-func (c *iamServiceClient) AssignRole(ctx context.Context, req *connect.Request[v1.AssignRoleRequest]) (*connect.Response[v1.AssignRoleResponse], error) {
-	return c.assignRole.CallUnary(ctx, req)
-}
-
-// RevokeRole calls iam.v1.IamService.RevokeRole.
-func (c *iamServiceClient) RevokeRole(ctx context.Context, req *connect.Request[v1.RevokeRoleRequest]) (*connect.Response[v1.RevokeRoleResponse], error) {
-	return c.revokeRole.CallUnary(ctx, req)
-}
-
 // IamServiceHandler is an implementation of the iam.v1.IamService service.
 type IamServiceHandler interface {
 	// ListUsers returns a paginated list of users with their roles and status.
 	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
 	// GetUser returns the full profile view for a single user by UUID.
 	GetUser(context.Context, *connect.Request[v1.GetUserRequest]) (*connect.Response[v1.GetUserResponse], error)
-	// AssignRole assigns a role to the target user. Idempotent.
-	AssignRole(context.Context, *connect.Request[v1.AssignRoleRequest]) (*connect.Response[v1.AssignRoleResponse], error)
-	// RevokeRole removes a role from the target user. Guards against self-demotion
-	// and removal of the last admin.
-	RevokeRole(context.Context, *connect.Request[v1.RevokeRoleRequest]) (*connect.Response[v1.RevokeRoleResponse], error)
 }
 
 // NewIamServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -154,28 +116,12 @@ func NewIamServiceHandler(svc IamServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(iamServiceMethods.ByName("GetUser")),
 		connect.WithHandlerOptions(opts...),
 	)
-	iamServiceAssignRoleHandler := connect.NewUnaryHandler(
-		IamServiceAssignRoleProcedure,
-		svc.AssignRole,
-		connect.WithSchema(iamServiceMethods.ByName("AssignRole")),
-		connect.WithHandlerOptions(opts...),
-	)
-	iamServiceRevokeRoleHandler := connect.NewUnaryHandler(
-		IamServiceRevokeRoleProcedure,
-		svc.RevokeRole,
-		connect.WithSchema(iamServiceMethods.ByName("RevokeRole")),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/iam.v1.IamService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case IamServiceListUsersProcedure:
 			iamServiceListUsersHandler.ServeHTTP(w, r)
 		case IamServiceGetUserProcedure:
 			iamServiceGetUserHandler.ServeHTTP(w, r)
-		case IamServiceAssignRoleProcedure:
-			iamServiceAssignRoleHandler.ServeHTTP(w, r)
-		case IamServiceRevokeRoleProcedure:
-			iamServiceRevokeRoleHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -191,12 +137,4 @@ func (UnimplementedIamServiceHandler) ListUsers(context.Context, *connect.Reques
 
 func (UnimplementedIamServiceHandler) GetUser(context.Context, *connect.Request[v1.GetUserRequest]) (*connect.Response[v1.GetUserResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("iam.v1.IamService.GetUser is not implemented"))
-}
-
-func (UnimplementedIamServiceHandler) AssignRole(context.Context, *connect.Request[v1.AssignRoleRequest]) (*connect.Response[v1.AssignRoleResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("iam.v1.IamService.AssignRole is not implemented"))
-}
-
-func (UnimplementedIamServiceHandler) RevokeRole(context.Context, *connect.Request[v1.RevokeRoleRequest]) (*connect.Response[v1.RevokeRoleResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("iam.v1.IamService.RevokeRole is not implemented"))
 }

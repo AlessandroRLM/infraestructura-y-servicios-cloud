@@ -23,12 +23,6 @@ var ErrInvalidInput = fmt.Errorf("iam: invalid input")
 // ErrAlreadyExists is returned when a unique constraint would be violated.
 var ErrAlreadyExists = fmt.Errorf("iam: already exists")
 
-// ErrLastAdmin is returned when a RevokeRole call would remove the last admin.
-var ErrLastAdmin = fmt.Errorf("iam: cannot remove the last admin")
-
-// ErrSelfDemotion is returned when an admin attempts to revoke their own admin role.
-var ErrSelfDemotion = fmt.Errorf("iam: self-demotion of admin role is not allowed")
-
 // TranslatePgError maps Postgres wire errors and pgx sentinels to domain error sentinels
 // so that no *pgconn.PgError or raw DB text crosses the service boundary.
 //
@@ -66,10 +60,6 @@ func MapError(ctx context.Context, err error) error {
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, ErrAlreadyExists):
 		return connect.NewError(connect.CodeAlreadyExists, err)
-	case errors.Is(err, ErrLastAdmin):
-		return connect.NewError(connect.CodeFailedPrecondition, err)
-	case errors.Is(err, ErrSelfDemotion):
-		return connect.NewError(connect.CodeFailedPrecondition, err)
 	default:
 		slog.ErrorContext(ctx, "iam: internal error", "err", err)
 		return connect.NewError(connect.CodeInternal, errors.New("internal error"))

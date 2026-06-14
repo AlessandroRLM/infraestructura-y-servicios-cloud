@@ -11,23 +11,15 @@ import (
 )
 
 type Querier interface {
-	// Assigns a role to a user. Idempotent via ON CONFLICT DO NOTHING on the composite PK.
-	AssignRole(ctx context.Context, arg AssignRoleParams) (int64, error)
-	// Returns the count of users currently holding the admin role.
-	CountAdmins(ctx context.Context) (int32, error)
 	// Returns identity and profile columns for a single non-deleted user by UUID.
 	// LEFT JOIN user_profiles so users without a profile row still return.
 	GetUserByID(ctx context.Context, userID pgtype.UUID) (GetUserByIDRow, error)
 	// Returns role names for a single user, sorted alphabetically.
 	GetUserRoles(ctx context.Context, userID pgtype.UUID) ([]string, error)
-	// Co-located audit log insertion (mirrors grades slice pattern).
-	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) error
 	// Keyset pagination over the users table with optional search and inline roles.
 	// Ordered newest-first (id DESC, UUIDv7 = reverse chronological). display_name
 	// derived via LEFT JOIN to user_profiles; roles aggregated in-query (no N+1).
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)
-	// Removes a role from a user by hard-deleting the user_roles row.
-	RevokeRole(ctx context.Context, arg RevokeRoleParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

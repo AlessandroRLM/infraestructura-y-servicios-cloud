@@ -78,22 +78,6 @@ func (h *Handler) GetUser(
 	}), nil
 }
 
-// AssignRole is not implemented in this slice (Slice D).
-func (h *Handler) AssignRole(
-	ctx context.Context,
-	req *connect.Request[iamv1.AssignRoleRequest],
-) (*connect.Response[iamv1.AssignRoleResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, fmt.Errorf("iam: AssignRole not implemented yet"))
-}
-
-// RevokeRole is not implemented in this slice (Slice D).
-func (h *Handler) RevokeRole(
-	ctx context.Context,
-	req *connect.Request[iamv1.RevokeRoleRequest],
-) (*connect.Response[iamv1.RevokeRoleResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, fmt.Errorf("iam: RevokeRole not implemented yet"))
-}
-
 // parseIAMUUID parses a UUID string, returning CodeInvalidArgument on failure.
 func parseIAMUUID(field, value string) (uuid.UUID, error) {
 	id, err := uuid.Parse(value)

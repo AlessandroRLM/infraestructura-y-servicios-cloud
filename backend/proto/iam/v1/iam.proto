@@ -11,11 +11,6 @@ service IamService {
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
   // GetUser returns the full profile view for a single user by UUID.
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
-  // AssignRole assigns a role to the target user. Idempotent.
-  rpc AssignRole(AssignRoleRequest) returns (AssignRoleResponse);
-  // RevokeRole removes a role from the target user. Guards against self-demotion
-  // and removal of the last admin.
-  rpc RevokeRole(RevokeRoleRequest) returns (RevokeRoleResponse);
 }
 
 // UserStatus indicates whether a user account is active or disabled.
@@ -70,33 +65,5 @@ message GetUserRequest {
 // GetUserResponse is the response message for GetUser.
 message GetUserResponse {
   // user is the full UserSummary for the requested user.
-  UserSummary user = 1;
-}
-
-// AssignRoleRequest is the request message for AssignRole.
-message AssignRoleRequest {
-  // user_id is the UUID of the target user.
-  string user_id = 1;
-  // role is the role name to assign (admin | teacher | student).
-  string role = 2;
-}
-
-// AssignRoleResponse is the response message for AssignRole.
-message AssignRoleResponse {
-  // user is the updated UserSummary for the target user after the assignment.
-  UserSummary user = 1;
-}
-
-// RevokeRoleRequest is the request message for RevokeRole.
-message RevokeRoleRequest {
-  // user_id is the UUID of the target user.
-  string user_id = 1;
-  // role is the role name to revoke (admin | teacher | student).
-  string role = 2;
-}
-
-// RevokeRoleResponse is the response message for RevokeRole.
-message RevokeRoleResponse {
-  // user is the updated UserSummary for the target user after the revocation.
   UserSummary user = 1;
 }
