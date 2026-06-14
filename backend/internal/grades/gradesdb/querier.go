@@ -51,8 +51,18 @@ type Querier interface {
 	// Lists grades for all section_enrollments in a section, scoped to a teacher.
 	// Returns empty if the teacher is not in section_teachers for the section.
 	ListGradesForSectionByTeacher(ctx context.Context, arg ListGradesForSectionByTeacherParams) ([]Grade, error)
+	// Keyset-paginated list of grades for a section, scoped to a teacher.
+	// Returns empty if the teacher is not in section_teachers for the section.
+	// Ordered by g.id DESC. page_token is the exclusive upper bound on g.id (NULL = start).
+	ListGradesForSectionByTeacherPaged(ctx context.Context, arg ListGradesForSectionByTeacherPagedParams) ([]Grade, error)
+	// Keyset-paginated list of grades for a section (admin path, no teacher scope).
+	// Ordered by g.id DESC. page_token is the exclusive upper bound on g.id (NULL = start).
+	ListGradesForSectionPaged(ctx context.Context, arg ListGradesForSectionPagedParams) ([]Grade, error)
 	// Lists all grades for a student by joining through enrollments.
 	ListOwnGrades(ctx context.Context, studentID pgtype.UUID) ([]Grade, error)
+	// Keyset-paginated list of grades for a student (via enrollments join).
+	// Ordered by g.id DESC. page_token is the exclusive upper bound on g.id (NULL = start).
+	ListOwnGradesPaged(ctx context.Context, arg ListOwnGradesPagedParams) ([]Grade, error)
 	// Acquires FOR UPDATE row locks on all live evaluation rows for a course.
 	// Must run before CountGradesForEvaluations inside RecreateEvaluationSchemeTx so that
 	// a concurrent RecordGradeTx (which holds FOR KEY SHARE on the evaluation via the FK)

@@ -11,7 +11,30 @@ import (
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pagination"
 )
+
+const (
+	// gradesPageSizeMin is the minimum effective page size for paginated grade list operations.
+	gradesPageSizeMin = 20
+	// gradesPageSizeMax is the maximum effective page size for paginated grade list operations.
+	gradesPageSizeMax = 200
+)
+
+// gradesClamp is the shared page-size clamp for grades list operations.
+var gradesClamp = pagination.Clamp{Min: gradesPageSizeMin, Max: gradesPageSizeMax}
+
+// ListGradesForSectionResult holds the paginated result for ListGradesForSection.
+type ListGradesForSectionResult struct {
+	Grades        []gradesdb.Grade
+	NextPageToken string
+}
+
+// ListOwnGradesResult holds the paginated result for ListOwnGrades.
+type ListOwnGradesResult struct {
+	Grades        []gradesdb.Grade
+	NextPageToken string
+}
 
 // Service orchestrates grades business logic: UUID validation, weight-sum enforcement,
 // resource-level authz checks, and delegation to the Repository.
@@ -160,25 +183,60 @@ func (s *Service) OverrideGrade(ctx context.Context, evalIDStr, seIDStr, valueSt
 	})
 }
 
-// ListGradesForSection returns grades scoped to a section.
+// ListGradesForSection returns a paginated page of grades scoped to a section.
 // Admin callers (grades.override) receive all grades for the section.
 // Teacher callers (grades.read only) receive only grades from sections where they are
-// in section_teachers; out-of-scope sections return an empty list.
-func (s *Service) ListGradesForSection(ctx context.Context, sectionIDStr string) ([]gradesdb.Grade, error) {
+// in section_teachers; out-of-scope sections return an empty list (anti-leak intact).
+// pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+func (s *Service) ListGradesForSection(ctx context.Context, sectionIDStr string, pageSize int32, pageToken string) (ListGradesForSectionResult, error) {
 	sectionID, err := parseServiceUUID(sectionIDStr)
 	if err != nil {
-		return nil, err
+		return ListGradesForSectionResult{}, err
 	}
 
+	clamped := gradesClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListGradesForSectionResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	var rows []gradesdb.Grade
 	if callerIsAdmin(ctx) {
-		return s.repo.ListGradesForSection(ctx, sectionID)
+		rows, err = s.repo.ListGradesForSectionPaged(ctx, ListGradesForSectionRepoParams{
+			SectionID: sectionID,
+			PageToken: tokenUUID,
+			RowLimit:  int32(clamped + 1),
+		})
+	} else {
+		callerID, ok := auth.UserIDFromContext(ctx)
+		if !ok {
+			return ListGradesForSectionResult{}, fmt.Errorf("%w: no authenticated user", ErrNotFound)
+		}
+		rows, err = s.repo.ListGradesForSectionByTeacherPaged(ctx, ListGradesForSectionByTeacherRepoParams{
+			SectionID: sectionID,
+			TeacherID: callerID,
+			PageToken: tokenUUID,
+			RowLimit:  int32(clamped + 1),
+		})
+	}
+	if err != nil {
+		return ListGradesForSectionResult{}, err
 	}
 
-	callerID, ok := auth.UserIDFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("%w: no authenticated user", ErrNotFound)
-	}
-	return s.repo.ListGradesForSectionByTeacher(ctx, sectionID, callerID)
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(g gradesdb.Grade) uuid.UUID {
+		return uuid.UUID(g.ID.Bytes)
+	})
+
+	return ListGradesForSectionResult{
+		Grades:        page.Items,
+		NextPageToken: nextToken,
+	}, nil
 }
 
 // GetGrade returns a grade by id. Admin callers (grades.override) can fetch any grade.
@@ -212,13 +270,44 @@ func callerIsAdmin(ctx context.Context) bool {
 	return perms.Has(authz.PermGradesOverride)
 }
 
-// ListOwnGrades returns all grades for the authenticated student.
-func (s *Service) ListOwnGrades(ctx context.Context) ([]gradesdb.Grade, error) {
+// ListOwnGrades returns a paginated page of grades for the authenticated student.
+// pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// Student identity is derived exclusively from the context; no student_id in the request.
+func (s *Service) ListOwnGrades(ctx context.Context, pageSize int32, pageToken string) (ListOwnGradesResult, error) {
 	callerID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		return nil, fmt.Errorf("%w: no authenticated user", ErrNotFound)
+		return ListOwnGradesResult{}, fmt.Errorf("%w: no authenticated user", ErrNotFound)
 	}
-	return s.repo.ListOwnGrades(ctx, callerID)
+
+	clamped := gradesClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListOwnGradesResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListOwnGradesPaged(ctx, ListOwnGradesRepoParams{
+		StudentID: callerID,
+		PageToken: tokenUUID,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListOwnGradesResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(g gradesdb.Grade) uuid.UUID {
+		return uuid.UUID(g.ID.Bytes)
+	})
+
+	return ListOwnGradesResult{
+		Grades:        page.Items,
+		NextPageToken: nextToken,
+	}, nil
 }
 
 // --- Arithmetic ---
