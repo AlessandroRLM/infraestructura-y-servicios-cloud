@@ -50,18 +50,7 @@ terraform {
 
 ## 3. Estructura del código IaC
 
-```
-infra/
-├── backend.tf          # estado remoto (GCS)
-├── providers.tf        # google + aws
-├── variables.tf
-├── network.tf          # VPC, subredes, NAT, firewall
-├── vms.tf              # bastion + ops
-├── gke.tf              # cluster + node pool
-├── storage.tf          # buckets GCS + bucket S3
-├── backup.tf           # IAM AWS + cron de la VM ops
-└── outputs.tf
-```
+El detalle archivo por archivo está en [`infra/README.md`](../../infra/README.md) (fuente única). A grandes rasgos: red (VPC/subredes/NAT/firewall), cómputo (`bastion` + `ops`), GKE, almacenamiento (GCS + S3 DR), KMS/IAM (cifrado y permisos), monitoreo, y los scripts de backup/restore.
 
 ## 4. Despliegue paso a paso
 
@@ -187,47 +176,24 @@ sequenceDiagram
     cron->>s3: aws s3 cp backup.sql.gz
 ```
 
-Script (`/opt/backup/backup.sh` en la VM ops):
+El script de backup está en `infra/scripts/backup.sh`. Se instala en la VM ops como `/opt/backup/backup.sh` mediante el startup script de Terraform (`infra/scripts/ops-startup.sh.tftpl`). Lee la configuración desde `/etc/default/academico-backup` y escribe logs en `/var/log/academico-backup.log`.
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-STAMP=$(date +%Y%m%d-%H%M)
-FILE="academico-${STAMP}.sql.gz"
-
-# dump desde el pod de postgres en prod
-kubectl -n prod exec deploy/api -- pg_dump "$DATABASE_URL" | gzip > "/tmp/${FILE}"
-
-# destino primario (GCS) y réplica cross-cloud (S3)
-gcloud storage cp "/tmp/${FILE}" "gs://backups-academico/${FILE}"
-aws s3 cp "/tmp/${FILE}" "s3://backups-academico-dr/${FILE}"
-
-rm -f "/tmp/${FILE}"
-```
-
-Crontab:
+Crontab (`/etc/cron.d/academico-backup`):
 
 ```cron
-0 2 * * * /opt/backup/backup.sh >> /var/log/backup.log 2>&1
+0 2 * * * root . /etc/default/academico-backup && /opt/backup/backup.sh >> /var/log/academico-backup.log 2>&1
 ```
 
 `[captura]` objetos en GCS y en S3 tras la primera corrida.
 
 ## 10. Prueba de restauración
 
-Restaurar el último backup en un namespace de prueba y validar:
+El script de restauración está en `infra/scripts/restore.sh`. Se instala en la VM ops como `/opt/backup/restore.sh`. Descarga desde S3 (valida la copia DR), restaura en el namespace `test` y ejecuta una consulta de validación (`SELECT count(*) FROM enrollments`) como evidencia de RNF-5. Con `BACKUP_OBJECT=latest` resuelve automáticamente el objeto más reciente.
 
 ```bash
-# bajar el último backup
-aws s3 cp s3://backups-academico-dr/academico-<stamp>.sql.gz .
-
-# restaurar en el postgres de test
-gunzip -c academico-<stamp>.sql.gz | \
-  kubectl -n test exec -i statefulset/postgres -- psql "$DATABASE_URL"
-
-# validar: conteo de registros clave
-kubectl -n test exec statefulset/postgres -- \
-  psql "$DATABASE_URL" -c "SELECT count(*) FROM enrollments;"
+# Ejecutar en la VM ops
+BACKUP_OBJECT=latest S3_BUCKET=backups-academico-dr-<suffix> TARGET_NAMESPACE=test \
+  /opt/backup/restore.sh
 ```
 
 `[captura]` resultado de la consulta de validación.

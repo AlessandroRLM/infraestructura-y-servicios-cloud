@@ -18,19 +18,22 @@ La guía de despliegue paso a paso está en [`docs/infraestructura`](../docs/inf
 
 ```
 infra/
-├── versions.tf                 # versiones de Terraform y providers
+├── versions.tf                 # versiones de Terraform y providers (google + aws + random)
+├── providers.tf                # configuración de providers
 ├── backend.tf                  # estado remoto (GCS)
-├── providers.tf                # google, aws, random
 ├── variables.tf
-├── apis.tf                     # google_project_service (APIs GCP)
-├── kms.tf                      # key ring + crypto keys CMEK + IAM
+├── apis.tf                     # habilitación de APIs de GCP
 ├── network.tf                  # VPC, subredes, Cloud NAT, firewall
-├── vms.tf                      # bastion + ops + SAs
-├── gke.tf                      # cluster + node pool + SA
-├── storage.tf                  # buckets GCS + S3 DR + IAM AWS
+├── kms.tf                      # key ring + claves CMEK (cifrado en reposo)
+├── iam.tf                      # service accounts + service agents + bindings IAM
+├── vms.tf                      # bastion + ops (startup-script del cron de backup)
+├── gke.tf                      # cluster + node pool
+├── storage.tf                  # buckets GCS + bucket S3 (DR) + IAM AWS
 ├── snapshots.tf                # política de snapshot diario (disco postgres)
+├── monitoring.tf               # dashboards, alertas, uptime check, budget
 ├── outputs.tf
-└── terraform.tfvars.example
+├── terraform.tfvars.example
+└── scripts/                    # backup.sh, restore.sh, ops-startup.sh.tftpl
 ```
 
 ## Uso
