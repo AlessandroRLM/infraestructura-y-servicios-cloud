@@ -48,3 +48,30 @@ variable "node_max_count" {
   description = "GKE node pool maximum node count."
   default     = 4
 }
+
+variable "alert_email" {
+  type        = string
+  description = "Email address for monitoring alert notifications."
+}
+
+variable "app_host" {
+  type        = string
+  description = "Public hostname of the application for uptime checks (e.g. academico.example.com)."
+  default     = "academico.example.com"
+}
+
+variable "billing_account_id" {
+  type        = string
+  description = "GCP billing account ID for budget alerts (format: XXXXXX-XXXXXX-XXXXXX)."
+}
+
+variable "monthly_budget_usd" {
+  type        = number
+  description = "Monthly spend budget in USD; triggers alerts at 50%, 90%, and 100%."
+  default     = 150
+
+  validation {
+    condition     = var.monthly_budget_usd == floor(var.monthly_budget_usd)
+    error_message = "monthly_budget_usd must be a whole number."
+  }
+}

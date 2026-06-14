@@ -17,6 +17,9 @@ images:
   - name: academico/web
     newTag: "1.0.0"
 
+components:
+  - ../../components/gmp
+
 patches:
   - path: patch-ingress-prod.yaml
     target:

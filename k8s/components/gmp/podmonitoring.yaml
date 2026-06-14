@@ -1,0 +1,18 @@
+# GMP PodMonitoring CRD — GKE only (Managed Service for Prometheus). Not for minikube.
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: api-metrics
+spec:
+  selector:
+    matchLabels:
+      app: api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      authorization:
+        credentials:
+          secret:
+            name: app-secrets
+            key: METRICS_AUTH_TOKEN

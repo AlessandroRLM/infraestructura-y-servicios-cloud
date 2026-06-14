@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# GKE-only Google Managed Service for Prometheus scrape config.
+# Included by the test/prod overlays; excluded from dev (minikube has no GMP CRD).
+resources:
+  - podmonitoring.yaml
