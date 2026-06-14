@@ -47,3 +47,18 @@ export function mapDeleteError(err: unknown): "precondition" | "transport" {
   }
   return "transport";
 }
+
+/**
+ * Maps program-course add/remove errors to a user-facing string.
+ * Never surfaces raw error codes, stack traces, or service names.
+ */
+export function mapProgramCourseError(err: unknown): string {
+  if (err instanceof ConnectError) {
+    if (err.code === Code.AlreadyExists)
+      return "Esta asignatura ya está en la carrera.";
+    if (err.code === Code.NotFound)
+      return "Esta asignatura ya no está en la carrera.";
+    // InvalidArgument and all transport/internal codes fall through to generic.
+  }
+  return "No se pudo completar la acción. Inténtalo de nuevo.";
+}

@@ -9,6 +9,16 @@ import {
 } from "../api/queries";
 import type { UsersDetailSource } from "../api/rpc";
 
+// A missing profile/teacher/student row is a normal state (the user simply
+// hasn't been enrolled yet), not a failure — surface it apart from real errors.
+function isNotFoundError(query: { isError: boolean; error: unknown }): boolean {
+  return (
+    query.isError &&
+    query.error instanceof ConnectError &&
+    query.error.code === Code.NotFound
+  );
+}
+
 export function useUserDetail(userId: string, source: UsersDetailSource) {
   const iamQuery = useQuery({
     ...getUserQueryOptions(source, userId),
@@ -45,6 +55,10 @@ export function useUserDetail(userId: string, source: UsersDetailSource) {
     enabled: hasTeacherRole,
   });
 
+  const profileNotFound = isNotFoundError(profileQuery);
+  const studentNotFound = isNotFoundError(studentQuery);
+  const teacherNotFound = isNotFoundError(teacherQuery);
+
   return {
     iam: {
       data: iamQuery.data,
@@ -55,19 +69,22 @@ export function useUserDetail(userId: string, source: UsersDetailSource) {
     profile: {
       data: profileQuery.data,
       isLoading: profileQuery.isLoading,
-      isError: profileQuery.isError,
+      isError: profileQuery.isError && !profileNotFound,
+      isNotFound: profileNotFound,
       refetch: profileQuery.refetch,
     },
     student: {
       data: studentQuery.data,
       isLoading: studentQuery.isLoading,
-      isError: studentQuery.isError,
+      isError: studentQuery.isError && !studentNotFound,
+      isNotFound: studentNotFound,
       refetch: studentQuery.refetch,
     },
     teacher: {
       data: teacherQuery.data,
       isLoading: teacherQuery.isLoading,
-      isError: teacherQuery.isError,
+      isError: teacherQuery.isError && !teacherNotFound,
+      isNotFound: teacherNotFound,
       refetch: teacherQuery.refetch,
     },
     quals: {

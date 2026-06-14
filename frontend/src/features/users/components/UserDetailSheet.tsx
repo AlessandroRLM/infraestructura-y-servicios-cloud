@@ -45,13 +45,13 @@ export function UserDetailSheet({
         </SheetHeader>
 
         {!userId ? null : isNotFound ? (
-          <div className="flex flex-col gap-4 p-4">
+          <div className="flex flex-col gap-4 px-4 pb-4">
             <p className="text-muted-foreground text-sm">
               El usuario no existe o fue eliminado.
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-6 p-4">
+          <div className="flex flex-col gap-6 px-4 pb-4">
             <section className="flex flex-col gap-3">
               <h2 className="font-semibold text-sm">Información de cuenta</h2>
               {iam.isLoading ? (
@@ -138,6 +138,10 @@ export function UserDetailSheet({
                     Reintentar
                   </Button>
                 </div>
+              ) : profile.isNotFound ? (
+                <p className="text-muted-foreground text-sm">
+                  Sin perfil registrado.
+                </p>
               ) : profile.data ? (
                 <dl className="flex flex-col gap-2 text-sm">
                   <div>
@@ -185,6 +189,10 @@ export function UserDetailSheet({
                         Reintentar
                       </Button>
                     </div>
+                  ) : student.isNotFound ? (
+                    <p className="text-muted-foreground text-sm">
+                      Sin información académica registrada.
+                    </p>
                   ) : student.data ? (
                     <dl className="flex flex-col gap-2 text-sm">
                       <div>
@@ -227,6 +235,10 @@ export function UserDetailSheet({
                         Reintentar
                       </Button>
                     </div>
+                  ) : teacher.isNotFound ? (
+                    <p className="text-muted-foreground text-sm">
+                      Sin información docente registrada.
+                    </p>
                   ) : teacher.data ? (
                     <dl className="flex flex-col gap-2 text-sm">
                       <div>

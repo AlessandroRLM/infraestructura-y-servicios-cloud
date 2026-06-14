@@ -1,6 +1,20 @@
-import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -14,6 +28,7 @@ import { hasPermission, useSession } from "@/features/auth";
 import type { Program } from "@/gen/catalog/v1/catalog_pb";
 import { usePrograms } from "../hooks/usePrograms";
 import { DeleteProgramDialog } from "./DeleteProgramDialog";
+import { ProgramCoursesSheet } from "./ProgramCoursesSheet";
 import { ProgramDialog } from "./ProgramDialog";
 
 interface ProgramsTableProps {
@@ -29,6 +44,9 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
     undefined,
   );
   const [deleteProgram, setDeleteProgram] = useState<Program | undefined>(
+    undefined,
+  );
+  const [coursesProgram, setCoursesProgram] = useState<Program | undefined>(
     undefined,
   );
 
@@ -103,27 +121,41 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
                     : "—"}
                 </TableCell>
                 {canManage && (
-                  <TableCell className="flex gap-2 justify-end">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1"
-                      onClick={() => setEditProgram(program)}
-                      aria-label={`Editar ${program.code}`}
-                    >
-                      <Pencil className="size-4" aria-hidden />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteProgram(program)}
-                      aria-label={`Eliminar ${program.code}`}
-                    >
-                      <Trash2 className="size-4" aria-hidden />
-                      Eliminar
-                    </Button>
+                  <TableCell className="flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Acciones ${program.code}`}
+                        >
+                          <MoreHorizontal aria-hidden />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            onSelect={() => setEditProgram(program)}
+                          >
+                            <Pencil data-icon="inline-start" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => setCoursesProgram(program)}
+                          >
+                            <BookOpen data-icon="inline-start" />
+                            Asignaturas
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onSelect={() => setDeleteProgram(program)}
+                          >
+                            <Trash2 data-icon="inline-start" />
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 )}
               </TableRow>
@@ -151,6 +183,14 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
           program={deleteProgram}
         />
       )}
+
+      <ProgramCoursesSheet
+        program={coursesProgram}
+        open={!!coursesProgram}
+        onOpenChange={(open) => {
+          if (!open) setCoursesProgram(undefined);
+        }}
+      />
     </>
   );
 }

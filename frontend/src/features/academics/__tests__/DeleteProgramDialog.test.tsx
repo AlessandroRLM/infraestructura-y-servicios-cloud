@@ -57,8 +57,8 @@ describe("DeleteProgramDialog", () => {
       deleteProgram,
     });
 
-    const deleteButtons = screen.getAllByRole("button", { name: /eliminar/i });
-    await user.click(deleteButtons[0]);
+    await user.click(screen.getByRole("button", { name: "Acciones ING-01" }));
+    await user.click(screen.getByRole("menuitem", { name: /eliminar/i }));
     await screen.findByRole("alertdialog");
 
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
@@ -79,8 +79,8 @@ describe("DeleteProgramDialog", () => {
       deleteProgram,
     });
 
-    const deleteButtons = screen.getAllByRole("button", { name: /eliminar/i });
-    await user.click(deleteButtons[0]);
+    await user.click(screen.getByRole("button", { name: "Acciones ING-01" }));
+    await user.click(screen.getByRole("menuitem", { name: /eliminar/i }));
     await screen.findByRole("alertdialog");
 
     await user.click(screen.getByRole("button", { name: "Eliminar" }));
@@ -104,8 +104,8 @@ describe("DeleteProgramDialog", () => {
       deleteProgram,
     });
 
-    const deleteButtons = screen.getAllByRole("button", { name: /eliminar/i });
-    await user.click(deleteButtons[0]);
+    await user.click(screen.getByRole("button", { name: "Acciones ING-01" }));
+    await user.click(screen.getByRole("menuitem", { name: /eliminar/i }));
     await screen.findByRole("alertdialog");
 
     await user.click(screen.getByRole("button", { name: "Eliminar" }));
@@ -132,8 +132,8 @@ describe("DeleteProgramDialog", () => {
       deleteProgram,
     });
 
-    const deleteButtons = screen.getAllByRole("button", { name: /eliminar/i });
-    await user.click(deleteButtons[0]);
+    await user.click(screen.getByRole("button", { name: "Acciones ING-01" }));
+    await user.click(screen.getByRole("menuitem", { name: /eliminar/i }));
     await screen.findByRole("alertdialog");
 
     await user.click(screen.getByRole("button", { name: "Eliminar" }));
