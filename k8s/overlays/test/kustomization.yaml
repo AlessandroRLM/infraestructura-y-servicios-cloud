@@ -16,6 +16,9 @@ secretGenerator:
 generatorOptions:
   disableNameSuffixHash: true
 
+components:
+  - ../../components/gmp
+
 patches:
   - path: patch-ingress-test.yaml
     target:
