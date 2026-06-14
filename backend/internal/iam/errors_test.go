@@ -93,8 +93,12 @@ func TestMapError_Sentinels(t *testing.T) {
 		{"ErrNotFound", iam.ErrNotFound, connect.CodeNotFound},
 		{"ErrInvalidInput", iam.ErrInvalidInput, connect.CodeInvalidArgument},
 		{"ErrAlreadyExists", iam.ErrAlreadyExists, connect.CodeAlreadyExists},
+		{"ErrSelfDemotion", iam.ErrSelfDemotion, connect.CodeFailedPrecondition},
+		{"ErrLastAdmin", iam.ErrLastAdmin, connect.CodeFailedPrecondition},
 		{"wrapped ErrNotFound", fmt.Errorf("wrap: %w", iam.ErrNotFound), connect.CodeNotFound},
 		{"wrapped ErrAlreadyExists", fmt.Errorf("wrap: %w", iam.ErrAlreadyExists), connect.CodeAlreadyExists},
+		{"wrapped ErrSelfDemotion", fmt.Errorf("wrap: %w", iam.ErrSelfDemotion), connect.CodeFailedPrecondition},
+		{"wrapped ErrLastAdmin", fmt.Errorf("wrap: %w", iam.ErrLastAdmin), connect.CodeFailedPrecondition},
 		{"unexpected error", errors.New("unexpected"), connect.CodeInternal},
 	}
 

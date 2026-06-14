@@ -2,6 +2,7 @@ package iam_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	iamv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/iam/v1"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/iam"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/iam/iamdb"
 )
@@ -26,6 +28,21 @@ type fakeRepository struct {
 	getUserRolesResult []string
 	getUserRolesErr    error
 	getUserRolesCalled bool
+
+	assignRoleResult int64
+	assignRoleErr    error
+	assignRoleCalled bool
+
+	revokeRoleTxErr    error
+	revokeRoleTxCalled bool
+
+	countAdminsResult int32
+	countAdminsErr    error
+	countAdminsCalled bool
+
+	insertAuditLogErr    error
+	insertAuditLogCalled bool
+	insertAuditLogArgs   iam.AuditLogParams
 }
 
 // Compile-time check: fakeRepository must satisfy iam.Repository.
@@ -44,6 +61,32 @@ func (f *fakeRepository) GetUserByID(_ context.Context, _ uuid.UUID) (iamdb.GetU
 func (f *fakeRepository) GetUserRoles(_ context.Context, _ uuid.UUID) ([]string, error) {
 	f.getUserRolesCalled = true
 	return f.getUserRolesResult, f.getUserRolesErr
+}
+
+func (f *fakeRepository) AssignRole(_ context.Context, _ iam.AssignRoleParams) (int64, error) {
+	f.assignRoleCalled = true
+	return f.assignRoleResult, f.assignRoleErr
+}
+
+func (f *fakeRepository) RevokeRoleTx(_ context.Context, _ iam.RevokeRoleParams) error {
+	f.revokeRoleTxCalled = true
+	return f.revokeRoleTxErr
+}
+
+func (f *fakeRepository) CountAdmins(_ context.Context) (int32, error) {
+	f.countAdminsCalled = true
+	return f.countAdminsResult, f.countAdminsErr
+}
+
+func (f *fakeRepository) InsertAuditLog(_ context.Context, p iam.AuditLogParams) error {
+	f.insertAuditLogCalled = true
+	f.insertAuditLogArgs = p
+	return f.insertAuditLogErr
+}
+
+// withCallerCtx injects a caller UUID into the context so service guard logic works.
+func withCallerCtx(callerID uuid.UUID) context.Context {
+	return auth.WithUserID(context.Background(), callerID)
 }
 
 // makeRow is a helper that builds a ListUsersRow for table-driven tests.
@@ -408,6 +451,226 @@ func TestService_GetUser_RolesErrorPropagates(t *testing.T) {
 	_, err := svc.GetUser(context.Background(), uuid.New())
 	if err == nil {
 		t.Fatal("GetUser (roles error): expected error, got nil")
+	}
+}
+
+// --- AssignRole service unit tests ---
+
+func TestService_AssignRole_InvalidRoleName(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := iam.NewService(repo)
+
+	callerID := uuid.New()
+	_, err := svc.AssignRole(withCallerCtx(callerID), uuid.New(), "superadmin")
+	if !errors.Is(err, iam.ErrInvalidInput) {
+		t.Errorf("AssignRole (invalid role): got %v, want ErrInvalidInput", err)
+	}
+	if repo.assignRoleCalled {
+		t.Error("AssignRole (invalid role): repo should not be called on validation failure")
+	}
+}
+
+func TestService_AssignRole_NonExistentUserReturnsInvalidInput(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{
+		getUserByIDErr: iam.ErrNotFound,
+	}
+	svc := iam.NewService(repo)
+
+	callerID := uuid.New()
+	_, err := svc.AssignRole(withCallerCtx(callerID), uuid.New(), "student")
+	if !errors.Is(err, iam.ErrInvalidInput) {
+		t.Errorf("AssignRole (user not found): got %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestService_AssignRole_CallsAssignAndAuditOnEveryCall(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.New()
+	repo := &fakeRepository{
+		getUserByIDRow: iamdb.GetUserByIDRow{
+			ID:    pgtype.UUID{Bytes: userID, Valid: true},
+			Email: "target@example.com",
+		},
+		assignRoleResult:   0, // 0 = idempotent (role already existed)
+		getUserRolesResult: []string{"teacher"},
+	}
+	svc := iam.NewService(repo)
+
+	callerID := uuid.New()
+	_, err := svc.AssignRole(withCallerCtx(callerID), userID, "teacher")
+	if err != nil {
+		t.Fatalf("AssignRole: unexpected error: %v", err)
+	}
+
+	if !repo.assignRoleCalled {
+		t.Error("AssignRole: repo.AssignRole was not called")
+	}
+	// Audit must be written even when rows==0 (idempotent re-assign, EC-05).
+	if !repo.insertAuditLogCalled {
+		t.Error("AssignRole: InsertAuditLog was not called (required on every call)")
+	}
+	if repo.insertAuditLogArgs.Action != "role.assign" {
+		t.Errorf("AssignRole: audit action = %q, want %q", repo.insertAuditLogArgs.Action, "role.assign")
+	}
+	if repo.insertAuditLogArgs.Entity != "users" {
+		t.Errorf("AssignRole: audit entity = %q, want %q", repo.insertAuditLogArgs.Entity, "users")
+	}
+	if repo.insertAuditLogArgs.EntityID != userID {
+		t.Errorf("AssignRole: audit entity_id = %v, want %v", repo.insertAuditLogArgs.EntityID, userID)
+	}
+	// Verify the detail JSON contains the role name.
+	var detail map[string]string
+	if err := json.Unmarshal(repo.insertAuditLogArgs.Detail, &detail); err != nil {
+		t.Fatalf("AssignRole: audit detail not valid JSON: %v", err)
+	}
+	if detail["role"] != "teacher" {
+		t.Errorf("AssignRole: audit detail role = %q, want %q", detail["role"], "teacher")
+	}
+}
+
+// --- RevokeRole service unit tests ---
+
+func TestService_RevokeRole_InvalidRoleName(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := iam.NewService(repo)
+
+	callerID := uuid.New()
+	_, err := svc.RevokeRole(withCallerCtx(callerID), uuid.New(), "wizard")
+	if !errors.Is(err, iam.ErrInvalidInput) {
+		t.Errorf("RevokeRole (invalid role): got %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestService_RevokeRole_SelfDemotionBlocked(t *testing.T) {
+	t.Parallel()
+
+	callerID := uuid.New()
+	repo := &fakeRepository{
+		getUserByIDRow: iamdb.GetUserByIDRow{
+			ID:    pgtype.UUID{Bytes: callerID, Valid: true},
+			Email: "admin@example.com",
+		},
+	}
+	svc := iam.NewService(repo)
+
+	// Caller tries to revoke their OWN admin role.
+	_, err := svc.RevokeRole(withCallerCtx(callerID), callerID, "admin")
+	if !errors.Is(err, iam.ErrSelfDemotion) {
+		t.Errorf("RevokeRole (self-demotion): got %v, want ErrSelfDemotion", err)
+	}
+	// RevokeRoleTx must NOT be called.
+	if repo.revokeRoleTxCalled {
+		t.Error("RevokeRole (self-demotion): RevokeRoleTx must not be called")
+	}
+}
+
+func TestService_RevokeRole_LastAdminBlocked(t *testing.T) {
+	t.Parallel()
+
+	callerID := uuid.New()
+	targetID := uuid.New()
+	repo := &fakeRepository{
+		getUserByIDRow: iamdb.GetUserByIDRow{
+			ID:    pgtype.UUID{Bytes: targetID, Valid: true},
+			Email: "target@example.com",
+		},
+		countAdminsResult: 1, // only one admin remains
+	}
+	svc := iam.NewService(repo)
+
+	_, err := svc.RevokeRole(withCallerCtx(callerID), targetID, "admin")
+	if !errors.Is(err, iam.ErrLastAdmin) {
+		t.Errorf("RevokeRole (last admin): got %v, want ErrLastAdmin", err)
+	}
+	if !repo.countAdminsCalled {
+		t.Error("RevokeRole (last admin): CountAdmins must be called")
+	}
+	if repo.revokeRoleTxCalled {
+		t.Error("RevokeRole (last admin): RevokeRoleTx must not be called")
+	}
+}
+
+// TestService_RevokeRole_SelfDemotionCheckedBeforeLastAdmin verifies EC-06:
+// when caller IS the target AND they are the last admin, the self-demotion error
+// is returned (not last-admin), because self-demotion is checked first.
+func TestService_RevokeRole_SelfDemotionCheckedBeforeLastAdmin(t *testing.T) {
+	t.Parallel()
+
+	callerID := uuid.New()
+	repo := &fakeRepository{
+		getUserByIDRow: iamdb.GetUserByIDRow{
+			ID:    pgtype.UUID{Bytes: callerID, Valid: true},
+			Email: "singleadmin@example.com",
+		},
+		countAdminsResult: 1, // would trigger last-admin too, but self-demotion fires first
+	}
+	svc := iam.NewService(repo)
+
+	_, err := svc.RevokeRole(withCallerCtx(callerID), callerID, "admin")
+	if !errors.Is(err, iam.ErrSelfDemotion) {
+		t.Errorf("RevokeRole (EC-06 order): got %v, want ErrSelfDemotion (not ErrLastAdmin)", err)
+	}
+	// CountAdmins must NOT be called — self-demotion fires before the count check.
+	if repo.countAdminsCalled {
+		t.Error("RevokeRole (EC-06 order): CountAdmins must not be called when self-demotion fires first")
+	}
+}
+
+func TestService_RevokeRole_MultipleAdminsSucceeds(t *testing.T) {
+	t.Parallel()
+
+	callerID := uuid.New()
+	targetID := uuid.New()
+	repo := &fakeRepository{
+		getUserByIDRow: iamdb.GetUserByIDRow{
+			ID:    pgtype.UUID{Bytes: targetID, Valid: true},
+			Email: "target@example.com",
+		},
+		countAdminsResult: 3, // multiple admins — safe to revoke
+		getUserRolesResult: []string{},
+	}
+	svc := iam.NewService(repo)
+
+	_, err := svc.RevokeRole(withCallerCtx(callerID), targetID, "admin")
+	if err != nil {
+		t.Fatalf("RevokeRole (multiple admins): unexpected error: %v", err)
+	}
+	if !repo.revokeRoleTxCalled {
+		t.Error("RevokeRole (multiple admins): RevokeRoleTx must be called")
+	}
+}
+
+func TestService_RevokeRole_NonAdminRoleSkipsGuard(t *testing.T) {
+	t.Parallel()
+
+	callerID := uuid.New()
+	targetID := uuid.New()
+	repo := &fakeRepository{
+		getUserByIDRow: iamdb.GetUserByIDRow{
+			ID:    pgtype.UUID{Bytes: targetID, Valid: true},
+			Email: "target@example.com",
+		},
+		getUserRolesResult: []string{"student"},
+	}
+	svc := iam.NewService(repo)
+
+	// Revoking "student" — no admin guard logic applies.
+	_, err := svc.RevokeRole(withCallerCtx(callerID), targetID, "student")
+	if err != nil {
+		t.Fatalf("RevokeRole (non-admin role): unexpected error: %v", err)
+	}
+	if repo.countAdminsCalled {
+		t.Error("RevokeRole (non-admin role): CountAdmins must NOT be called for non-admin roles")
+	}
+	if !repo.revokeRoleTxCalled {
+		t.Error("RevokeRole (non-admin role): RevokeRoleTx must be called")
 	}
 }
 
