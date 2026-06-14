@@ -278,8 +278,10 @@ func TestMain(m *testing.M) {
 		auditlogsv1connect.AuditLogsServiceListAuditLogsProcedure: authz.RequirePermission(authz.PermAuditRead),
 
 		// IAM procedures — all require users.manage.
-		iamv1connect.IamServiceListUsersProcedure: authz.RequirePermission(authz.PermUsersManage),
-		iamv1connect.IamServiceGetUserProcedure:   authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceListUsersProcedure:    authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceGetUserProcedure:      authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceAssignRoleProcedure:   authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceRevokeRoleProcedure:   authz.RequirePermission(authz.PermUsersManage),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)
@@ -366,7 +368,7 @@ func TestMain(m *testing.M) {
 
 	// IAM handler wiring — mirrors cmd/api/main.go exactly.
 	iamQueries := iamdb.New(pool)
-	iamRepo := iam.NewPostgresRepository(iamQueries)
+	iamRepo := iam.NewPostgresRepository(iamQueries, pool)
 	iamSvc := iam.NewService(iamRepo)
 	iamHandler := iam.NewHandler(iamSvc)
 	iamReg := func(mux *http.ServeMux) {

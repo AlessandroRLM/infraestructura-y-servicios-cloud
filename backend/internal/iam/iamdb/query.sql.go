@@ -11,6 +11,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const assignRole = `-- name: AssignRole :execrows
+INSERT INTO user_roles (user_id, role_id)
+SELECT $1, r.id FROM roles r WHERE r.name = $2
+ON CONFLICT (user_id, role_id) DO NOTHING
+`
+
+type AssignRoleParams struct {
+	UserID   pgtype.UUID
+	RoleName string
+}
+
+// Inserts a user_roles row for the given user and role name.
+// Idempotent: ON CONFLICT DO NOTHING on the composite PK means a re-assign
+// returns 0 affected rows without error. The service layer writes an audit
+// entry on every call (including the 0-row no-op) per EC-05.
+func (q *Queries) AssignRole(ctx context.Context, arg AssignRoleParams) (int64, error) {
+	result, err := q.db.Exec(ctx, assignRole, arg.UserID, arg.RoleName)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getUserByID = `-- name: GetUserByID :one
 SELECT u.id, u.email, u.disabled_at,
        p.given_names, p.last_name_paternal
@@ -68,6 +91,32 @@ func (q *Queries) GetUserRoles(ctx context.Context, userID pgtype.UUID) ([]strin
 		return nil, err
 	}
 	return items, nil
+}
+
+const insertAuditLog = `-- name: InsertAuditLog :exec
+INSERT INTO audit_logs (actor_id, action, entity, entity_id, detail)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertAuditLogParams struct {
+	ActorID  pgtype.UUID
+	Action   string
+	Entity   string
+	EntityID pgtype.UUID
+	Detail   []byte
+}
+
+// Records a role mutation audit event (role.assign or role.revoke).
+// Mirrors internal/grades/query.sql:InsertAuditLog (co-located per-slice copy).
+func (q *Queries) InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) error {
+	_, err := q.db.Exec(ctx, insertAuditLog,
+		arg.ActorID,
+		arg.Action,
+		arg.Entity,
+		arg.EntityID,
+		arg.Detail,
+	)
+	return err
 }
 
 const listUsers = `-- name: ListUsers :many
@@ -131,4 +180,56 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockAdminUserRoles = `-- name: LockAdminUserRoles :many
+SELECT ur.user_id FROM user_roles ur
+JOIN roles r ON r.id = ur.role_id
+WHERE r.name = 'admin'
+FOR UPDATE OF ur
+`
+
+// Locks the admin user_roles rows FOR UPDATE so the last-admin count and the
+// subsequent DELETE are serialized within one transaction (closes the TOCTOU
+// where two concurrent revokes could each see >1 admin and both delete).
+func (q *Queries) LockAdminUserRoles(ctx context.Context) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, lockAdminUserRoles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var user_id pgtype.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const revokeRole = `-- name: RevokeRole :execrows
+DELETE FROM user_roles ur USING roles r
+WHERE ur.role_id = r.id
+  AND ur.user_id = $1
+  AND r.name = $2
+`
+
+type RevokeRoleParams struct {
+	UserID   pgtype.UUID
+	RoleName string
+}
+
+// Hard-deletes the user_roles row for the given user and role name.
+// Returns 0 rows affected when the user does not have the role (→ ErrNotFound).
+func (q *Queries) RevokeRole(ctx context.Context, arg RevokeRoleParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeRole, arg.UserID, arg.RoleName)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

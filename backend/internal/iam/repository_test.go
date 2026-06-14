@@ -15,6 +15,8 @@ import (
 )
 
 // fakeQuerier is a stub implementing iamdb.Querier for repository unit tests.
+// All methods default to returning zero values unless their corresponding
+// field is set.
 type fakeQuerier struct {
 	listUsersRows   []iamdb.ListUsersRow
 	listUsersErr    error
@@ -27,6 +29,21 @@ type fakeQuerier struct {
 	getUserRolesResult []string
 	getUserRolesErr    error
 	getUserRolesCalled bool
+
+	assignRoleResult int64
+	assignRoleErr    error
+	assignRoleCalled bool
+
+	revokeRoleResult int64
+	revokeRoleErr    error
+	revokeRoleCalled bool
+
+	lockAdminUserRolesResult []pgtype.UUID
+	lockAdminUserRolesErr    error
+	lockAdminUserRolesCalled bool
+
+	insertAuditLogErr    error
+	insertAuditLogCalled bool
 }
 
 // Compile-time check: fakeQuerier must implement iamdb.Querier.
@@ -47,7 +64,33 @@ func (f *fakeQuerier) GetUserRoles(_ context.Context, _ pgtype.UUID) ([]string, 
 	return f.getUserRolesResult, f.getUserRolesErr
 }
 
-// --- Repository unit tests ---
+func (f *fakeQuerier) AssignRole(_ context.Context, _ iamdb.AssignRoleParams) (int64, error) {
+	f.assignRoleCalled = true
+	return f.assignRoleResult, f.assignRoleErr
+}
+
+func (f *fakeQuerier) RevokeRole(_ context.Context, _ iamdb.RevokeRoleParams) (int64, error) {
+	f.revokeRoleCalled = true
+	return f.revokeRoleResult, f.revokeRoleErr
+}
+
+func (f *fakeQuerier) LockAdminUserRoles(_ context.Context) ([]pgtype.UUID, error) {
+	f.lockAdminUserRolesCalled = true
+	return f.lockAdminUserRolesResult, f.lockAdminUserRolesErr
+}
+
+func (f *fakeQuerier) InsertAuditLog(_ context.Context, _ iamdb.InsertAuditLogParams) error {
+	f.insertAuditLogCalled = true
+	return f.insertAuditLogErr
+}
+
+// newTestRepo constructs a repository with a nil pool (safe for non-transactional tests).
+// Pool is nil because these tests only exercise non-transactional repository methods.
+func newTestRepo(q *fakeQuerier) iam.Repository {
+	return iam.NewPostgresRepository(q, nil)
+}
+
+// --- Repository unit tests (read side) ---
 
 func TestRepository_ListUsers_DelegatesToQuerier(t *testing.T) {
 	t.Parallel()
@@ -56,7 +99,7 @@ func TestRepository_ListUsers_DelegatesToQuerier(t *testing.T) {
 		{ID: pgtype.UUID{Bytes: uuid.New(), Valid: true}, Email: "alice@example.com"},
 	}
 	q := &fakeQuerier{listUsersRows: expected}
-	repo := iam.NewPostgresRepository(q)
+	repo := newTestRepo(q)
 
 	rows, err := repo.ListUsers(context.Background(), iam.ListUsersParams{RowLimit: 21})
 	if err != nil {
@@ -74,7 +117,7 @@ func TestRepository_ListUsers_TranslatesDBError(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{listUsersErr: &pgconn.PgError{Code: "23505"}}
-	repo := iam.NewPostgresRepository(q)
+	repo := newTestRepo(q)
 
 	_, err := repo.ListUsers(context.Background(), iam.ListUsersParams{RowLimit: 21})
 	if !errors.Is(err, iam.ErrAlreadyExists) {
@@ -91,7 +134,7 @@ func TestRepository_GetUserByID_DelegatesToQuerier(t *testing.T) {
 		Email: "bob@example.com",
 	}
 	q := &fakeQuerier{getUserByIDRow: expected}
-	repo := iam.NewPostgresRepository(q)
+	repo := newTestRepo(q)
 
 	row, err := repo.GetUserByID(context.Background(), userID)
 	if err != nil {
@@ -109,7 +152,7 @@ func TestRepository_GetUserByID_NotFound(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{getUserByIDErr: pgx.ErrNoRows}
-	repo := iam.NewPostgresRepository(q)
+	repo := newTestRepo(q)
 
 	_, err := repo.GetUserByID(context.Background(), uuid.New())
 	if !errors.Is(err, iam.ErrNotFound) {
@@ -121,7 +164,7 @@ func TestRepository_GetUserByID_TranslatesDBError(t *testing.T) {
 	t.Parallel()
 
 	q := &fakeQuerier{getUserByIDErr: &pgconn.PgError{Code: "23503"}}
-	repo := iam.NewPostgresRepository(q)
+	repo := newTestRepo(q)
 
 	_, err := repo.GetUserByID(context.Background(), uuid.New())
 	if !errors.Is(err, iam.ErrInvalidInput) {
@@ -134,7 +177,7 @@ func TestRepository_GetUserRoles_DelegatesToQuerier(t *testing.T) {
 
 	expected := []string{"admin", "teacher"}
 	q := &fakeQuerier{getUserRolesResult: expected}
-	repo := iam.NewPostgresRepository(q)
+	repo := newTestRepo(q)
 
 	roles, err := repo.GetUserRoles(context.Background(), uuid.New())
 	if err != nil {
@@ -156,9 +199,8 @@ func TestRepository_GetUserRoles_DelegatesToQuerier(t *testing.T) {
 func TestRepository_GetUserRoles_NilBecomesEmpty(t *testing.T) {
 	t.Parallel()
 
-	// When the querier returns nil (user has no roles), the repo returns an empty slice.
 	q := &fakeQuerier{getUserRolesResult: nil}
-	repo := iam.NewPostgresRepository(q)
+	repo := newTestRepo(q)
 
 	roles, err := repo.GetUserRoles(context.Background(), uuid.New())
 	if err != nil {
@@ -177,7 +219,7 @@ func TestRepository_GetUserRoles_TranslatesDBError(t *testing.T) {
 
 	inner := errors.New("connection reset")
 	q := &fakeQuerier{getUserRolesErr: inner}
-	repo := iam.NewPostgresRepository(q)
+	repo := newTestRepo(q)
 
 	_, err := repo.GetUserRoles(context.Background(), uuid.New())
 	if err == nil {
@@ -187,3 +229,4 @@ func TestRepository_GetUserRoles_TranslatesDBError(t *testing.T) {
 		t.Errorf("GetUserRoles (db error): original error not wrapped, got %v", err)
 	}
 }
+
