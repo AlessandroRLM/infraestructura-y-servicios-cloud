@@ -11,6 +11,7 @@ Sistema de gestión académica (matrículas, notas, reportes) sobre arquitectura
 | [Infraestructura (runbook)](infraestructura/README.md) | Guía de despliegue paso a paso: VPC, subredes, firewall, VMs, storage, backups. |
 | [Contenedores y Kubernetes](contenedores-kubernetes/README.md) | Empaquetado, manifiestos K8s, comunicación entre servicios, escalado y HA. |
 | [Monitoreo y costos](monitoreo-costos/README.md) | Dashboards, alertas, estimación mensual y optimización de costos. |
+| [Runbook local](local-dev/README.md) | Pruebas y despliegue en local (minikube) + validación del IaC sin tocar la nube. |
 
 ## Stack
 
