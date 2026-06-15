@@ -27,6 +27,8 @@ La aplicación se divide en **cuatro contenedores**, uno por responsabilidad:
 
 **Frontend estático.** React se compila a archivos estáticos con Vite y los sirve Nginx. No hay runtime de Node en producción.
 
+**Datos: imágenes oficiales sin Dockerfile propio.** `postgres` y `redis` corren sobre sus imágenes oficiales (`postgres:18-alpine`, `redis:7-alpine`), pinneadas por tag e inmutables. No tienen Dockerfile en el repo a propósito: construir uno solo agregaría superficie de mantenimiento sin aportar nada, porque su configuración se inyecta por ConfigMap/Secret y volúmenes, no en la capa de imagen. Por eso solo `web` y `api` tienen Dockerfile propio.
+
 ## 2. Comunicación entre servicios
 
 La API usa **Connect** (sobre el ecosistema gRPC). Un mismo puerto atiende gRPC, gRPC-Web y HTTP/JSON, así que el navegador habla con la API por HTTP/JSON sin necesidad de un proxy intermedio.
@@ -70,6 +72,8 @@ flowchart LR
 | PVC | volumen de `postgres` | Persistencia de datos. |
 | NetworkPolicy | por namespace | Aísla los ambientes entre sí. |
 
+> No se usa un Service de tipo `LoadBalancer`: el Ingress concentra el ingreso externo en un único balanceador HTTPS para todos los servicios, lo que centraliza el certificado TLS y reduce costo frente a un balanceador por servicio.
+
 Estructura de manifiestos (un overlay por ambiente):
 
 ```
@@ -90,7 +94,7 @@ k8s/
     └── prod/
 ```
 
-> Los Secrets no se versionan en el repositorio; se crean aparte o se inyectan desde un gestor de secretos.
+> Los Secrets no se versionan en el repositorio. En `dev` los genera el `secretGenerator` de Kustomize; en `test`/`prod` se inyectan fuera de banda (creados a mano o desde un gestor de secretos como Secret Manager). El detalle está en [`seguridad-y-endurecimiento.md`](./seguridad-y-endurecimiento.md) §4.
 
 El endurecimiento de seguridad de estos manifiestos (Pod Security Standards, nginx sin privilegios, NetworkPolicy deny por defecto, manejo de Secrets) está documentado en [`seguridad-y-endurecimiento.md`](./seguridad-y-endurecimiento.md).
 

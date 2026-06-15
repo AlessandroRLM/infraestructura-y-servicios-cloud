@@ -50,6 +50,8 @@ flowchart LR
 
 `[captura]` las tres alertas configuradas y un disparo de prueba.
 
+> La alerta de costo se evalúa sobre el gasto **mensual** del proyecto (GCP Budget Alerts), alineada con el alcance del proyecto (alarma de costos mensuales). La visibilidad del gasto diario queda cubierta por el dashboard de Costos (§2), que desglosa gasto diario y mensual por servicio.
+
 ## 4. Estimación de costos
 
 Región `us-central1`. Estimación mensual preliminar, ejecutando 24/7. Las cifras por servicio se validan con las calculadoras oficiales: [GCP Pricing Calculator](https://cloud.google.com/products/calculator) y [AWS Pricing Calculator](https://calculator.aws).

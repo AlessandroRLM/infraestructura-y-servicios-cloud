@@ -185,6 +185,8 @@ flowchart TB
 | S3       | Destino de los backups cross-cloud (versionado + lifecycle a almacenamiento frío). |
 | IAM      | Credencial de acceso mínimo para que la VM `ops` escriba en el bucket.             |
 
+> AWS no tiene VPC ni subredes propias a propósito: se usa exclusivamente como almacenamiento de objetos para DR. S3 es un servicio regional al que la VM `ops` accede por su endpoint público con una credencial IAM de acceso mínimo, sin necesidad de red privada del lado AWS.
+
 ## 6. Modelos de servicio
 
 | Modelo   | Componentes                                                      | Por qué                                                                                                           |
@@ -721,7 +723,7 @@ sequenceDiagram
 
 - **Frecuencia:** diaria → RPO 24 h.
 - **Doble destino:** GCS (rápido, misma nube) + S3 (otra nube, protege ante falla total de GCP).
-- **Prueba de restauración:** documentada en el runbook de infraestructura (restaurar el dump en un namespace de prueba y validar integridad).
+- **Prueba de restauración:** documentada en la guía de despliegue de infraestructura (restaurar el dump en un namespace de prueba y validar integridad).
 
 ## 16. Decisiones y alternativas
 
