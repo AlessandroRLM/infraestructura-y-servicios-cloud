@@ -283,7 +283,7 @@ describe("OwnGradesView — accordion sections", () => {
     expect(screen.getByText("Evaluación 2")).toBeInTheDocument();
   });
 
-  it("S-F3a: evaluation rows show Evaluación {position}, weight and value — no name field", async () => {
+  it("S-F3a: evaluation rows show Evaluación {position}, weight as % and value — no name field", async () => {
     const user = userEvent.setup();
     renderGrades({
       listOwnGrades: async () =>
@@ -304,8 +304,36 @@ describe("OwnGradesView — accordion sections", () => {
     await user.click(screen.getByText("Matemáticas"));
 
     await screen.findByText("Evaluación 2");
-    expect(screen.getByText(/0\.400/)).toBeInTheDocument();
+    // Weight renders as percentage, not raw decimal.
+    expect(screen.getByText(/40%/)).toBeInTheDocument();
+    expect(screen.queryByText(/0\.400/)).not.toBeInTheDocument();
     expect(screen.getByText("5.5")).toBeInTheDocument();
+  });
+
+  it("S-F3b: pending evaluation (empty value) renders — instead of empty", async () => {
+    const user = userEvent.setup();
+    renderGrades({
+      listOwnGrades: async () =>
+        create(ListOwnGradesResponseSchema, {
+          grades: [
+            makeGrade({
+              evaluationId: "e-pending",
+              evaluationPosition: 1,
+              evaluationWeight: "1.000",
+              value: "",
+            }),
+          ],
+          nextPageToken: "",
+        }),
+      listOwnGradePeriods: async () => ({ periods: [] }),
+    });
+
+    await screen.findByText("Matemáticas");
+    await user.click(screen.getByText("Matemáticas"));
+
+    await screen.findByText("Evaluación 1");
+    // Empty value renders as em-dash.
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -411,7 +439,7 @@ describe("OwnGradesView — URL filters", () => {
       term: 1,
     });
 
-    renderWithProviders({
+    const { router } = renderWithProviders({
       route: "/grades",
       transport: makeStubTransport(
         [
@@ -443,6 +471,12 @@ describe("OwnGradesView — URL filters", () => {
     );
     await user.click(await screen.findByText("2026-1"));
 
+    // URL search param must contain the period UUID.
+    await waitFor(() => {
+      expect(router.state.location.searchStr).toContain("ap-uuid-1");
+    });
+
+    // RPC must have been called with the selected period.
     await waitFor(() => {
       const calls = listOwnGrades.mock.calls as unknown as Array<
         [{ academicPeriodId?: string }]
@@ -493,5 +527,69 @@ describe("OwnGradesView — URL filters", () => {
     >;
     expect(calls[0][0]?.academicPeriodId).toBe("ap-uuid-1");
     expect(calls[0][0]?.programId).toBe("prog-uuid-1");
+  });
+
+  it("S-F4d: selecting a carrera updates URL and re-queries with that programId", async () => {
+    const user = userEvent.setup();
+    const listOwnGrades = vi.fn(async () =>
+      create(ListOwnGradesResponseSchema, { grades: [], nextPageToken: "" }),
+    );
+
+    const { router } = renderWithProviders({
+      route: "/grades",
+      transport: makeStubTransport(
+        [
+          GradesService,
+          {
+            listOwnGrades,
+            listOwnGradePeriods: async () => ({ periods: [] }),
+          },
+        ],
+        [
+          EnrollmentService,
+          {
+            listOwnEnrollments: async () => ({
+              enrollments: [
+                {
+                  id: "enr-1",
+                  studentId: "s1",
+                  programId: "prog-uuid-2",
+                  programName: "Ingeniería Civil",
+                  year: 2026,
+                  status: "paid",
+                  createdAt: "",
+                  updatedAt: "",
+                },
+              ],
+              nextPageToken: "",
+            }),
+          },
+        ],
+      ),
+      session: studentSession,
+      sessionSource: studentSessionSource,
+    });
+
+    await screen.findByText("Mis notas");
+
+    // Open the carrera selector and pick "Ingeniería Civil".
+    await user.click(
+      screen.getByRole("combobox", { name: /filtrar por carrera/i }),
+    );
+    await user.click(await screen.findByText("Ingeniería Civil"));
+
+    // URL search param must contain the program UUID.
+    await waitFor(() => {
+      expect(router.state.location.searchStr).toContain("prog-uuid-2");
+    });
+
+    // RPC must have been called with the selected programId.
+    await waitFor(() => {
+      const calls = listOwnGrades.mock.calls as unknown as Array<
+        [{ programId?: string }]
+      >;
+      const filtered = calls.find((c) => c[0]?.programId === "prog-uuid-2");
+      expect(filtered).toBeTruthy();
+    });
   });
 });

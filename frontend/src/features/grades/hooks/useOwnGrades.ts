@@ -1,13 +1,9 @@
-import { useTransport } from "@connectrpc/connect-query";
+import { useInfiniteQuery } from "@connectrpc/connect-query";
 import type {
   FetchNextPageOptions,
   InfiniteQueryObserverResult,
 } from "@tanstack/react-query";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import type { OwnGrade } from "@/gen/grades/v1/grades_pb";
 import { GradesService } from "@/gen/grades/v1/grades_pb";
-import { ownGradesQueryKey } from "../api/queries";
-import { createRpcOwnGradesSource } from "../api/rpc";
 import type { GradeSectionGroup } from "../groupBySection";
 import { groupBySection } from "../groupBySection";
 
@@ -34,7 +30,8 @@ export interface UseOwnGradesResult {
 /**
  * Infinite-cursor query for the authenticated student's own grades.
  * Filters are server-side: changing `academicPeriodId` or `programId`
- * remounts the query and resets to page 1.
+ * remounts the query and resets to page 1. `pageSize` is part of the
+ * connect-query key (method + input), so changing it also resets correctly.
  *
  * @param academicPeriodId - UUID string; empty string means no period filter.
  * @param programId - UUID string; empty string means no program filter.
@@ -45,26 +42,23 @@ export function useOwnGrades(
   programId: string,
   pageSize: number = OWN_GRADES_DEFAULT_PAGE_SIZE,
 ): UseOwnGradesResult {
-  const transport = useTransport();
-  const source = createRpcOwnGradesSource(transport);
-
-  const result = useInfiniteQuery({
-    queryKey: ownGradesQueryKey(academicPeriodId, programId),
-    queryFn: async ({ pageParam }) => {
-      return source.listOwnGrades({
-        pageSize,
-        pageToken: pageParam,
-        academicPeriodId: academicPeriodId || undefined,
-        programId: programId || undefined,
-      });
+  const result = useInfiniteQuery(
+    GradesService.method.listOwnGrades,
+    {
+      pageSize,
+      pageToken: "",
+      academicPeriodId: academicPeriodId || undefined,
+      programId: programId || undefined,
     },
-    initialPageParam: "",
-    getNextPageParam: (lastPage) => lastPage.nextPageToken || undefined,
-  });
+    {
+      pageParamKey: "pageToken",
+      getNextPageParam: (lastPage) => lastPage.nextPageToken || undefined,
+    },
+  );
 
-  const rawGrades: OwnGrade[] =
-    result.data?.pages.flatMap((page) => page.grades) ?? [];
-  const groups = groupBySection(rawGrades);
+  const groups = groupBySection(
+    result.data?.pages.flatMap((page) => page.grades) ?? [],
+  );
 
   const isFetchNextPageError = result.isFetchNextPageError;
   const isInitialLoadError = result.isError && !isFetchNextPageError;

@@ -1,6 +1,3 @@
-export type { OwnGradesSource } from "./api/rpc";
-export { createRpcOwnGradesSource } from "./api/rpc";
-export { makeOwnGradesStub } from "./api/stub";
 export { GradeSectionGroup } from "./components/GradeSectionGroup";
 export { GradesFilterBar } from "./components/GradesFilterBar";
 export { GradesPage } from "./components/GradesPage";
@@ -13,6 +10,7 @@ export type {
 export {
   formatPeriod,
   formatStatus,
+  formatWeight,
   groupBySection,
   STATUS_LABELS,
 } from "./groupBySection";

@@ -4,6 +4,7 @@ import { OwnGradeSchema } from "@/gen/grades/v1/grades_pb";
 import {
   formatPeriod,
   formatStatus,
+  formatWeight,
   groupBySection,
   STATUS_LABELS,
 } from "../groupBySection";
@@ -56,6 +57,20 @@ describe("formatStatus", () => {
     expect(Object.keys(STATUS_LABELS)).toEqual(
       expect.arrayContaining(["in_progress", "passed", "failed", "withdrawn"]),
     );
+  });
+});
+
+describe("formatWeight", () => {
+  it("converts decimal strings to rounded integer percentages", () => {
+    expect(formatWeight("0.300")).toBe("30%");
+    expect(formatWeight("0.500")).toBe("50%");
+    expect(formatWeight("0.400")).toBe("40%");
+    expect(formatWeight("1.000")).toBe("100%");
+  });
+
+  it("rounds to nearest integer percent", () => {
+    expect(formatWeight("0.333")).toBe("33%");
+    expect(formatWeight("0.667")).toBe("67%");
   });
 });
 
@@ -166,18 +181,27 @@ describe("groupBySection", () => {
     expect(groupBySection([])).toEqual([]);
   });
 
-  it("S-F3a: evaluation rows carry position, weight, and value — no name field", () => {
+  it("S-F3a: evaluation rows carry evaluationId, position, weight, and value — no name field", () => {
     const grade = makeGrade({
+      evaluationId: "eval-42",
       evaluationPosition: 2,
       evaluationWeight: "0.400",
       value: "5.5",
     });
     const [group] = groupBySection([grade]);
     const ev = group.evaluations[0];
+    expect(ev.evaluationId).toBe("eval-42");
     expect(ev.position).toBe(2);
     expect(ev.weight).toBe("0.400");
     expect(ev.value).toBe("5.5");
     // Evaluation rows must not have a name field.
     expect("name" in ev).toBe(false);
+  });
+
+  it("S-F3b: empty value passes through as empty string (UI renders —)", () => {
+    const grade = makeGrade({ evaluationId: "e-pending", value: "" });
+    const [group] = groupBySection([grade]);
+    // groupBySection does NOT substitute "—" — that is the UI's responsibility.
+    expect(group.evaluations[0].value).toBe("");
   });
 });

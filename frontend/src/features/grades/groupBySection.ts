@@ -32,15 +32,26 @@ export function formatPeriod(year: number, term: number): string {
 }
 
 /**
+ * Formats a decimal weight string as a rounded integer percentage.
+ * @param weight - Decimal string, e.g. "0.300".
+ * @returns Percentage string, e.g. "30%".
+ */
+export function formatWeight(weight: string): string {
+  return `${Math.round(Number(weight) * 100)}%`;
+}
+
+/**
  * One evaluation row inside a section group.
  * Evaluation name is intentionally absent — there is no name field in the data model.
  */
 export interface EvaluationRow {
+  /** Server-assigned UUID of the evaluation — used as the React list key. */
+  evaluationId: string;
   /** The 1-based ordinal of this evaluation in the course scheme. */
   position: number;
   /** Decimal weight string, e.g. "0.300". */
   weight: string;
-  /** The student's recorded grade value, e.g. "5.5". */
+  /** The student's recorded grade value, e.g. "5.5". Empty when not yet graded. */
   value: string;
 }
 
@@ -76,6 +87,7 @@ export function groupBySection(grades: OwnGrade[]): GradeSectionGroup[] {
   for (const grade of grades) {
     const existing = map.get(grade.sectionEnrollmentId);
     const evalRow: EvaluationRow = {
+      evaluationId: grade.evaluationId,
       position: grade.evaluationPosition,
       weight: grade.evaluationWeight,
       value: grade.value,

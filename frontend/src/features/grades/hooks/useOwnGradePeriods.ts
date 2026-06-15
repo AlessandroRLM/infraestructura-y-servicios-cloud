@@ -1,8 +1,5 @@
-import { useTransport } from "@connectrpc/connect-query";
-import { useQuery } from "@tanstack/react-query";
-import type { GradePeriod } from "@/gen/grades/v1/grades_pb";
-import { OWN_GRADE_PERIODS_QUERY_KEY } from "../api/queries";
-import { createRpcOwnGradesSource } from "../api/rpc";
+import { useQuery } from "@connectrpc/connect-query";
+import { GradesService } from "@/gen/grades/v1/grades_pb";
 import { formatPeriod } from "../groupBySection";
 
 /** One option in the período dropdown. */
@@ -24,21 +21,12 @@ export interface UseOwnGradePeriodsResult {
  * has grades. Used to populate the período filter dropdown.
  */
 export function useOwnGradePeriods(): UseOwnGradePeriodsResult {
-  const transport = useTransport();
-  const source = createRpcOwnGradesSource(transport);
+  const result = useQuery(GradesService.method.listOwnGradePeriods, {});
 
-  const result = useQuery({
-    queryKey: OWN_GRADE_PERIODS_QUERY_KEY,
-    queryFn: () => source.listOwnGradePeriods(),
-    staleTime: 60_000,
-  });
-
-  const periods: PeriodOption[] = (result.data ?? ([] as GradePeriod[])).map(
-    (p) => ({
-      id: p.academicPeriodId,
-      label: formatPeriod(p.year, p.term),
-    }),
-  );
+  const periods: PeriodOption[] = (result.data?.periods ?? []).map((p) => ({
+    id: p.academicPeriodId,
+    label: formatPeriod(p.year, p.term),
+  }));
 
   return {
     periods,

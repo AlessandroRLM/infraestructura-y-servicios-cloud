@@ -4,6 +4,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import type { GradeSectionGroup as GradeSectionGroupData } from "../groupBySection";
+import { formatWeight } from "../groupBySection";
 
 interface GradeSectionGroupProps {
   group: GradeSectionGroupData;
@@ -36,7 +37,7 @@ export function GradeSectionGroup({ group }: GradeSectionGroupProps) {
         <div className="flex flex-col gap-1">
           {group.evaluations.map((ev) => (
             <div
-              key={ev.position}
+              key={ev.evaluationId}
               className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm"
             >
               <span className="text-muted-foreground">
@@ -44,10 +45,10 @@ export function GradeSectionGroup({ group }: GradeSectionGroupProps) {
               </span>
               <div className="flex items-center gap-6">
                 <span className="text-muted-foreground text-xs">
-                  Peso: {ev.weight}
+                  Peso: {formatWeight(ev.weight)}
                 </span>
                 <span className="font-mono font-medium tabular-nums">
-                  {ev.value}
+                  {ev.value || "—"}
                 </span>
               </div>
             </div>
