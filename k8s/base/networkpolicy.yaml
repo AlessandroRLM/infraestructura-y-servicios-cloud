@@ -50,6 +50,26 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
 ---
+# cert-manager crea pods solver temporales para el challenge HTTP-01 de ACME,
+# etiquetados acme.cert-manager.io/http01-solver=true. Sin esta regla, el
+# default-deny-ingress bloquea que ingress-nginx alcance al solver y la emisión
+# del certificado queda colgada (timeout en /.well-known/acme-challenge).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-nginx-acme-solver
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+---
 # Egress a DNS por namespace (kube-system) en el puerto 53. NO se restringe con
 # podSelector k8s-app=kube-dns: en GKE Dataplane V2 (Cilium) el DNS va a la
 # ClusterIP de kube-dns y el podSelector no matchea el endpoint traducido, lo que
