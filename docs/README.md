@@ -8,11 +8,11 @@ Sistema de gestión académica (matrículas, notas, reportes) sobre arquitectura
 | Documento | Qué contiene |
 |-----------|--------------|
 | [Arquitectura](arquitectura/README.md) | Caso, requisitos, diagrama lógico multi-cloud, tabla de servicios, justificación de modelos. |
-| [Infraestructura (runbook)](infraestructura/README.md) | Guía de despliegue paso a paso: VPC, subredes, firewall, VMs, storage, backups. |
+| [Guía de despliegue de infraestructura](infraestructura/README.md) | Diseño y evidencia: VPC, subredes, firewall, VMs, storage, backups. El procedimiento copy-paste está en *Despliegue en GCP*. |
 | [Contenedores y Kubernetes](contenedores-kubernetes/README.md) | Empaquetado, manifiestos K8s, comunicación entre servicios, escalado y HA. |
 | [Monitoreo y costos](monitoreo-costos/README.md) | Dashboards, alertas, estimación mensual y optimización de costos. |
-| [Runbook local](local-dev/README.md) | Pruebas y despliegue en local (minikube) + validación del IaC sin tocar la nube. |
-| [Despliegue en GCP](despliegue-gcp/README.md) | Runbook copy-paste end-to-end del despliegue real (GCP + AWS): terraform, imágenes, app en GKE, TLS, backups. |
+| [Despliegue local](despliegue-local/README.md) | Pruebas y despliegue en local (minikube) + validación del IaC sin tocar la nube. |
+| [Despliegue en la nube](despliegue-cloud/README.md) | Runbook copy-paste end-to-end del despliegue real (GCP + AWS): terraform, imágenes, app en GKE, TLS, backups. |
 
 ## Stack
 

@@ -61,7 +61,7 @@ Un pod sin NetworkPolicy acepta todo el tráfico entrante y saliente. Las polít
 
 El egress importa tanto como el ingress: sin él, un pod comprometido puede exfiltrar datos a internet o alcanzar el endpoint de metadatos del proveedor cloud. Restringir el egress al mínimo (DNS + dependencias declaradas) cierra esa vía.
 
-**Enforcement**: las NetworkPolicy las aplica el CNI, no Kubernetes. El CNI por defecto de minikube (kindnet) no las aplica. Por eso este proyecto usa **Calico** en minikube (`minikube start --cni=calico`) y **Dataplane V2** en GKE. Ver [`docs/infraestructura`](../infraestructura/README.md) para el lado GKE.
+**Enforcement**: las NetworkPolicy las aplica el CNI, no Kubernetes. El CNI por defecto de minikube (kindnet) no las aplica. Por eso este proyecto usa **Calico** en minikube (`minikube start --cni=calico`) y **Dataplane V2** en GKE. Ver la [guía de despliegue de infraestructura](../infraestructura/README.md) para el lado GKE.
 
 Referencias:
 - [Network Policies — Kubernetes](https://kubernetes.io/docs/concepts/services-networking/network-policies/)

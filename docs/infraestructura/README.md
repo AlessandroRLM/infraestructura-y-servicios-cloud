@@ -1,7 +1,8 @@
-# Infraestructura — Guía de despliegue
+# Guía de despliegue de infraestructura
 
-Runbook para levantar la infraestructura en GCP (principal) y AWS (respaldo) con Terraform. Toda la infraestructura es reproducible: se crea con `terraform apply` y se elimina con `terraform destroy`.
+Diseño, implementación y evidencia de la infraestructura en GCP (principal) y AWS (respaldo) con Terraform. Toda la infraestructura es reproducible: se crea con `terraform apply` y se elimina con `terraform destroy`.
 
+> El procedimiento operativo copy-paste, comando por comando, está en el [runbook de despliegue](../despliegue-cloud/README.md). Este documento cubre el diseño, la estructura y la evidencia.
 > Las capturas de consola se agregan durante la ejecución real (marcadas con `[captura]`).
 
 ## Índice
@@ -67,7 +68,7 @@ El detalle archivo por archivo está en [`infra/README.md`](../../infra/README.m
 
 ## 4. Despliegue paso a paso
 
-El procedimiento operativo completo, comando por comando (terraform → imágenes → app en GKE → TLS → backups), está en el runbook copy-paste [`../despliegue-gcp`](../despliegue-gcp/README.md). En resumen, la parte de Terraform:
+El procedimiento operativo completo, comando por comando (terraform → imágenes → app en GKE → TLS → backups), está en el runbook copy-paste [`../despliegue-cloud`](../despliegue-cloud/README.md). En resumen, la parte de Terraform:
 
 ```bash
 cd infra
