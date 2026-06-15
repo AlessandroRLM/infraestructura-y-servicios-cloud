@@ -1,11 +1,7 @@
 import type { Area } from "./area";
 
 /** Destinations the entry redirect can send the user to. */
-export type EntryTarget =
-  | "/admin"
-  | "/app"
-  | "/choose-area"
-  | "/forbidden";
+export type EntryTarget = "/admin" | "/app" | "/choose-area" | "/forbidden";
 
 const AREA_ROOTS: Record<Area, EntryTarget> = {
   admin: "/admin",

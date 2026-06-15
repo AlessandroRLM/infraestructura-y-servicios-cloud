@@ -15,7 +15,9 @@ describe("resolveEntryTarget", () => {
   });
 
   it("returns /admin when dual-eligible and stored preference is 'admin'", () => {
-    expect(resolveEntryTarget(["admin", "participant"], "admin")).toBe("/admin");
+    expect(resolveEntryTarget(["admin", "participant"], "admin")).toBe(
+      "/admin",
+    );
   });
 
   it("returns /app when dual-eligible and stored preference is 'participant'", () => {

@@ -38,8 +38,7 @@ export function isEligibleFor(
   session: AuthenticatedSession,
   area: Area,
 ): boolean {
-  const set =
-    area === "admin" ? ADMIN_PERMISSIONS : PARTICIPANT_PERMISSIONS;
+  const set = area === "admin" ? ADMIN_PERMISSIONS : PARTICIPANT_PERMISSIONS;
   return set.some((p) => session.permissions.includes(p));
 }
 

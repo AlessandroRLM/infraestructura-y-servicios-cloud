@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_PERMISSIONS,
-  PARTICIPANT_PERMISSIONS,
   eligibleAreas,
   isEligibleFor,
+  PARTICIPANT_PERMISSIONS,
 } from "../area";
 import type { AuthenticatedSession } from "../types";
 
@@ -29,9 +29,9 @@ describe("isEligibleFor — admin area", () => {
 
 describe("isEligibleFor — participant area", () => {
   it("returns true when the session holds a permission in PARTICIPANT_PERMISSIONS", () => {
-    expect(
-      isEligibleFor(session(["grades.view_own"]), "participant"),
-    ).toBe(true);
+    expect(isEligibleFor(session(["grades.view_own"]), "participant")).toBe(
+      true,
+    );
   });
 
   it("returns true for every permission in PARTICIPANT_PERMISSIONS", () => {

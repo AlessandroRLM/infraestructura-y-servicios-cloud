@@ -2,7 +2,10 @@ import type { Area } from "./area";
 
 const STORAGE_KEY = "iyc.preferredArea";
 
-const VALID_AREAS: ReadonlySet<string> = new Set<Area>(["admin", "participant"]);
+const VALID_AREAS: ReadonlySet<string> = new Set<Area>([
+  "admin",
+  "participant",
+]);
 
 /**
  * Reads the stored area preference from localStorage.
