@@ -50,6 +50,11 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
 ---
+# Egress a DNS por namespace (kube-system) en el puerto 53. NO se restringe con
+# podSelector k8s-app=kube-dns: en GKE Dataplane V2 (Cilium) el DNS va a la
+# ClusterIP de kube-dns y el podSelector no matchea el endpoint traducido, lo que
+# rompe la resolución de nombres. El namespaceSelector a kube-system es el patrón
+# confiable.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -63,9 +68,6 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
       ports:
         - protocol: UDP
           port: 53
