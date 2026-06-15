@@ -81,7 +81,13 @@ function makeGrade(
   });
 }
 
-function renderGrades(gradeHandlers: GradesImpl, route = "/grades") {
+// Default route is the participant area grades route (/app/grades) where
+// OwnGradesView renders directly. Search params use the correct schema:
+// period + program + pageSize (all optional with defaults).
+function renderGrades(
+  gradeHandlers: GradesImpl,
+  route = "/app/grades?period=&program=&pageSize=20",
+) {
   return renderWithProviders({
     route,
     transport: makeStubTransport(
@@ -109,7 +115,7 @@ describe("GradesPage — role branch", () => {
       listOwnGradePeriods: async () => ({ periods: [] }),
     });
 
-    await screen.findByText("Mis notas");
+    await screen.findByRole("heading", { name: "Mis notas" });
     expect(screen.queryByText("próximamente")).not.toBeInTheDocument();
   });
 
@@ -137,7 +143,7 @@ describe("OwnGradesView — loading state", () => {
       listOwnGradePeriods: async () => ({ periods: [] }),
     });
 
-    await screen.findByText("Mis notas");
+    await screen.findByRole("heading", { name: "Mis notas" });
     const skeleton = await screen.findByRole("status", {
       name: "Cargando notas",
     });
@@ -167,7 +173,7 @@ describe("OwnGradesView — empty state", () => {
           }),
         listOwnGradePeriods: async () => ({ periods: [] }),
       },
-      "/grades?period=some-uuid",
+      "/app/grades?period=some-uuid&program=&pageSize=20",
     );
 
     await screen.findByText(/no hay notas que coincidan/i);
@@ -440,7 +446,7 @@ describe("OwnGradesView — URL filters", () => {
     });
 
     const { router } = renderWithProviders({
-      route: "/grades",
+      route: "/app/grades?period=&program=&pageSize=20",
       transport: makeStubTransport(
         [
           GradesService,
@@ -463,7 +469,7 @@ describe("OwnGradesView — URL filters", () => {
       sessionSource: studentSessionSource,
     });
 
-    await screen.findByText("Mis notas");
+    await screen.findByRole("heading", { name: "Mis notas" });
 
     // Open the period selector and pick "2026-1".
     await user.click(
@@ -495,7 +501,7 @@ describe("OwnGradesView — URL filters", () => {
 
     renderGrades(
       { listOwnGrades, listOwnGradePeriods: async () => ({ periods: [] }) },
-      "/grades?period=ap-uuid-deep",
+      "/app/grades?period=ap-uuid-deep&program=&pageSize=20",
     );
 
     await waitFor(() => {
@@ -515,7 +521,7 @@ describe("OwnGradesView — URL filters", () => {
 
     renderGrades(
       { listOwnGrades, listOwnGradePeriods: async () => ({ periods: [] }) },
-      "/grades?period=ap-uuid-1&program=prog-uuid-1",
+      "/app/grades?period=ap-uuid-1&program=prog-uuid-1&pageSize=20",
     );
 
     await waitFor(() => {
@@ -536,7 +542,7 @@ describe("OwnGradesView — URL filters", () => {
     );
 
     const { router } = renderWithProviders({
-      route: "/grades",
+      route: "/app/grades?period=&program=&pageSize=20",
       transport: makeStubTransport(
         [
           GradesService,
@@ -570,7 +576,7 @@ describe("OwnGradesView — URL filters", () => {
       sessionSource: studentSessionSource,
     });
 
-    await screen.findByText("Mis notas");
+    await screen.findByRole("heading", { name: "Mis notas" });
 
     // Open the carrera selector and pick "Ingeniería Civil".
     await user.click(

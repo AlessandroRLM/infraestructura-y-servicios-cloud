@@ -11,12 +11,15 @@ import { renderWithProviders } from "@/test";
 const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { error: toastError } }));
 
+// Use a permission that puts the user inside an area so AppSidebar renders
+// and LogoutButton is accessible. Zero-eligibility sessions redirect to
+// /forbidden which has no sidebar.
 const authenticatedSession = {
   status: "authenticated" as const,
   userId: "1",
   email: "user@test.com",
   roles: ["student"] as string[],
-  permissions: [] as string[],
+  permissions: ["grades.view_own"] as string[],
 };
 
 describe("LogoutButton", () => {

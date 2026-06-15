@@ -5,13 +5,13 @@ import { renderWithProviders } from "@/test";
 
 const unauthenticatedSession: SessionState = { status: "unauthenticated" };
 
-// grades.read → admin-eligible only → single area → redirects to /admin
+// catalog.manage → admin-eligible only → single area → redirects to /admin
 const adminSession: SessionState = {
   status: "authenticated",
   userId: "1",
   email: "user@test.com",
   roles: ["admin"],
-  permissions: ["grades.read"],
+  permissions: ["catalog.manage"],
 };
 
 // grades.view_own → participant-eligible only → single area → redirects to /app
@@ -53,22 +53,30 @@ describe("_authenticated route guard", () => {
 });
 
 describe("_authenticated index redirect (T-08)", () => {
-  it("admin-only session redirects to /admin", async () => {
+  // / → /admin (area root) → /admin/academics (area index default).
+  // The test verifies the user lands inside the admin area.
+  it("admin-only session redirects to the admin area", async () => {
     const { router } = renderWithProviders({
       route: "/",
       session: adminSession,
     });
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/admin"));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toMatch(/^\/admin/),
+    );
   });
 
-  it("participant-only session redirects to /app", async () => {
+  // / → /app (area root) → /app/grades (area index default).
+  // The test verifies the user lands inside the participant area.
+  it("participant-only session redirects to the participant area", async () => {
     const { router } = renderWithProviders({
       route: "/",
       session: studentSession,
     });
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/app"));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toMatch(/^\/app/),
+    );
   });
 
   it("dual-eligible session with no stored preference redirects to /choose-area", async () => {

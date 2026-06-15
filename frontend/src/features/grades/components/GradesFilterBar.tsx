@@ -5,7 +5,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Route } from "@/routes/_authenticated/grades";
 import type { ProgramOption } from "../hooks/useOwnEnrollmentsForFilter";
 import type { PeriodOption } from "../hooks/useOwnGradePeriods";
 
@@ -13,6 +12,12 @@ interface GradesFilterBarProps {
   periods: PeriodOption[];
   programs: ProgramOption[];
   isLoadingPeriods: boolean;
+  /** Current academic-period filter value; empty string means no filter. */
+  period: string;
+  /** Current program filter value; empty string means no filter. */
+  program: string;
+  onPeriodChange: (periodId: string) => void;
+  onProgramChange: (programId: string) => void;
 }
 
 /** Sentinel value representing "no filter applied" in the Select. */
@@ -22,33 +27,24 @@ const ALL_VALUE = "__all__";
  * Filter bar for the "Mis notas" view. Renders two Select controls:
  * - Período: academic period filter
  * - Carrera: program (carrera) filter
- * Both controls read their current value from the URL and navigate to update it,
- * following the academics q/pageSize URL-state pattern.
+ * Both controls receive their current value and change handlers from the parent;
+ * URL-state management lives in OwnGradesView.
  */
 export function GradesFilterBar({
   periods,
   programs,
   isLoadingPeriods,
+  period,
+  program,
+  onPeriodChange,
+  onProgramChange,
 }: GradesFilterBarProps) {
-  const { period, program } = Route.useSearch();
-  const navigate = Route.useNavigate();
-
   const handlePeriodChange = (value: string) => {
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        period: value === ALL_VALUE ? "" : value,
-      }),
-    });
+    onPeriodChange(value === ALL_VALUE ? "" : value);
   };
 
   const handleProgramChange = (value: string) => {
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        program: value === ALL_VALUE ? "" : value,
-      }),
-    });
+    onProgramChange(value === ALL_VALUE ? "" : value);
   };
 
   return (

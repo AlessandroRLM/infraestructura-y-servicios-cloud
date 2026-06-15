@@ -11,12 +11,8 @@ export function GradesPage() {
   const canViewOwn = hasPermission(session, "grades.view_own");
 
   if (canViewOwn) {
-    return (
-      <div className="space-y-6">
-        <h1 className="font-semibold text-2xl tracking-tight">Mis notas</h1>
-        <OwnGradesView />
-      </div>
-    );
+    // OwnGradesView includes its own "Mis notas" heading.
+    return <OwnGradesView />;
   }
 
   return (

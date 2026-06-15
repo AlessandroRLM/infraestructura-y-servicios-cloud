@@ -1,13 +1,9 @@
 import { Outlet } from "@tanstack/react-router";
-import { AppSidebar } from "./AppSidebar";
 
+// The _authenticated route is a pathless layout that enforces session auth and
+// computes eligibility. Its children (admin/route.tsx, app/route.tsx) each
+// provide their own sidebar + shell layout. Shared routes (/profile, /forbidden,
+// /choose-area) render without an area-specific sidebar.
 export function AuthenticatedLayout() {
-  return (
-    <div className="flex h-svh">
-      <AppSidebar />
-      <main className="flex-1 overflow-y-auto p-8">
-        <Outlet />
-      </main>
-    </div>
-  );
+  return <Outlet />;
 }

@@ -4,9 +4,7 @@ import {
   ChartColumn,
   ClipboardList,
   GraduationCap,
-  LayoutDashboard,
   ListChecks,
-  type LucideIcon,
   PenLine,
   ShieldCheck,
   Users,
@@ -14,118 +12,92 @@ import {
 import {
   hasPermission,
   LogoutButton,
-  type Permission,
-  primaryRoleLabel,
   routePermissions,
   type SessionState,
   useSession,
 } from "@/features/auth";
+import { SwitchAreaControl } from "./SwitchAreaControl";
 
-interface NavMeta {
-  label: string;
-  icon: LucideIcon;
-  /**
-   * The ROUTE_PERMISSIONS key used to derive visibility.
-   * Prefixed paths (e.g. "/admin/academics") are used here so visibility
-   * derives from the authoritative permissions map even while the route files
-   * are temporarily at their old flat paths during the area-routing migration.
-   * Mutually exclusive with `permissions`.
-   */
-  permissionKey?: string;
-  /**
-   * Explicit permission list for items that span multiple permission sets
-   * during the migration period (e.g. flat /grades accepts admin + participant).
-   * Takes precedence over `permissionKey` when present.
-   */
-  permissions?: readonly [Permission, ...Permission[]];
-}
+// No array annotation on purpose: `satisfies` validates the shape while
+// preserving each linkOptions() return type so Link receives a typed `to`.
+// The type alias below is inferred from the arrays — never declared by hand.
 
-// No array annotation on purpose: `satisfies` validates the meta fields while
-// preserving each linkOptions() return type. linkOptions checks `to` against
-// the generated route tree at build time, so a non-existent path fails tsc.
-const NAV = [
-  { label: "Inicio", icon: LayoutDashboard, options: linkOptions({ to: "/" }) },
+/** Admin area navigation — links to every /admin/* feature route. */
+export const ADMIN_NAV = [
   {
     label: "Académico",
     icon: BookOpen,
-    permissionKey: "/admin/academics",
     options: linkOptions({
-      to: "/academics",
+      to: "/admin/academics",
       search: { tab: "programs", q: "", pageSize: 20 },
     }),
   },
   {
     label: "Inscripciones",
     icon: ClipboardList,
-    permissionKey: "/admin/enrollments",
-    options: linkOptions({ to: "/enrollments" }),
+    options: linkOptions({ to: "/admin/enrollments" }),
   },
   {
     label: "Secciones",
     icon: ListChecks,
-    // Migration shim: flat /section-enrollments accepts both admin and participant
-    // section-enrollment permissions. Replaced by area-split nav in Slice 2.
-    permissions: [
-      "enrollment.manage",
-      "section_enrollment.view_own",
-      "sections.enroll",
-    ],
-    options: linkOptions({ to: "/section-enrollments" }),
+    options: linkOptions({ to: "/admin/section-enrollments" }),
   },
   {
     label: "Notas",
     icon: PenLine,
-    // Migration shim: flat /grades accepts admin + participant grade permissions.
-    // Explicitly lists all three so students (grades.view_own) and teachers
-    // (grades.read / grades.write) all see the link.
-    // Replaced by area-split nav entries in Slice 2.
-    permissions: ["grades.read", "grades.write", "grades.view_own"],
     options: linkOptions({
-      to: "/grades",
+      to: "/admin/grades",
       search: { period: "", program: "", pageSize: 20 },
     }),
   },
   {
     label: "Reportes",
     icon: ChartColumn,
-    permissionKey: "/admin/reports",
-    options: linkOptions({ to: "/reports" }),
+    options: linkOptions({ to: "/admin/reports" }),
   },
   {
     label: "Usuarios",
     icon: Users,
-    permissionKey: "/admin/users",
-    options: linkOptions({ to: "/users", search: { q: "", pageSize: 20 } }),
+    options: linkOptions({
+      to: "/admin/users",
+      search: { q: "", pageSize: 20 },
+    }),
   },
   {
     label: "Control de acceso",
     icon: ShieldCheck,
-    permissionKey: "/admin/access-control",
-    options: linkOptions({ to: "/access-control" }),
+    options: linkOptions({ to: "/admin/access-control" }),
   },
-] satisfies readonly (NavMeta & { options: object })[];
+] as const;
 
-type NavItem = (typeof NAV)[number];
+/** Participant area navigation — links to every /app/* feature route. */
+export const PARTICIPANT_NAV = [
+  {
+    label: "Mis notas",
+    icon: PenLine,
+    options: linkOptions({
+      to: "/app/grades",
+      search: { period: "", program: "", pageSize: 20 },
+    }),
+  },
+  {
+    label: "Mis secciones",
+    icon: ListChecks,
+    options: linkOptions({ to: "/app/section-enrollments" }),
+  },
+] as const;
+
+/** A navigation entry from either area nav array. */
+export type NavItem =
+  | (typeof ADMIN_NAV)[number]
+  | (typeof PARTICIPANT_NAV)[number];
 
 // Visibility derives from the same ROUTE_PERMISSIONS map the route guards use:
 // a link shows when its route is unguarded or the session holds one of the
 // route's permissions (ANY). Single source of truth, no duplication.
-//
-// Resolution order for the permission set:
-//   1. `permissions` — explicit list (migration shim for multi-set routes)
-//   2. `permissionKey` — ROUTE_PERMISSIONS lookup (migration shim for prefixed keys)
-//   3. `item.options.to` — default: look up by route path (standard path)
 function isVisible(session: SessionState, item: NavItem): boolean {
-  if ("permissions" in item && item.permissions) {
-    return item.permissions.some((permission) =>
-      hasPermission(session, permission),
-    );
-  }
-  const key = "permissionKey" in item ? item.permissionKey : item.options.to;
-  const permissions = routePermissions(key as string);
-  if (!permissions) {
-    return true;
-  }
+  const permissions = routePermissions(item.options.to);
+  if (!permissions) return true;
   return permissions.some((permission) => hasPermission(session, permission));
 }
 
@@ -140,14 +112,26 @@ function initials(name: string): string {
   return raw.toUpperCase();
 }
 
+interface AppSidebarProps {
+  /** Navigation entries for the current area. */
+  nav: readonly NavItem[];
+  /**
+   * When `true`, renders a "Cambiar área" control in the sidebar footer.
+   * Should be `true` only for dual-eligible users.
+   */
+  showSwitchArea?: boolean;
+}
+
 // Same background as the canvas + a border, so the shell reads as one space
 // rather than fragmenting into "sidebar world" vs "content world".
-export function AppSidebar() {
+export function AppSidebar({ nav, showSwitchArea = false }: AppSidebarProps) {
   const session = useSession();
   const isAuth = session.status === "authenticated";
   const name = isAuth ? displayName(session.email) : "";
-  const role = isAuth ? primaryRoleLabel(session.roles) : "";
-  const items = NAV.filter((item) => isVisible(session, item));
+  const role_label = isAuth
+    ? ((session.roles[0] as string | undefined) ?? "")
+    : "";
+  const items = nav.filter((item) => isVisible(session, item));
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r bg-background">
@@ -161,9 +145,8 @@ export function AppSidebar() {
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {items.map((item) => (
           <Link
-            key={String(item.options.to)}
+            key={item.options.to}
             {...item.options}
-            activeOptions={{ exact: item.options.to === "/" }}
             activeProps={{ "data-active": "true" }}
             className="flex items-center gap-3 rounded-md px-3 py-2 text-muted-foreground text-sm transition-colors hover:bg-accent hover:text-foreground data-[active=true]:bg-accent data-[active=true]:font-medium data-[active=true]:text-foreground"
           >
@@ -174,6 +157,7 @@ export function AppSidebar() {
       </nav>
 
       <div className="flex flex-col gap-3 border-t p-3">
+        {showSwitchArea && <SwitchAreaControl />}
         <Link
           {...linkOptions({ to: "/profile" })}
           activeProps={{ "data-active": "true" }}
@@ -184,7 +168,9 @@ export function AppSidebar() {
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium text-sm">{name}</div>
-            <div className="truncate text-muted-foreground text-xs">{role}</div>
+            <div className="truncate text-muted-foreground text-xs">
+              {role_label}
+            </div>
           </div>
         </Link>
         <LogoutButton className="w-full justify-start" />

@@ -59,6 +59,65 @@ describe("route permission guards", () => {
   });
 });
 
+// Area-guard integration tests: verify that the layout-level eligibility guard
+// in admin/route.tsx and app/route.tsx enforces cross-area redirects before
+// any feature guard or page component runs.
+describe("area eligibility guard (admin/route.tsx + app/route.tsx)", () => {
+  it("participant-only session navigating to /admin/* is redirected to /app", async () => {
+    // grades.view_own → participantEligible=true, adminEligible=false.
+    // admin/route.tsx beforeLoad sees no "admin" in eligibility and has "participant",
+    // so it throws redirect({ to: "/app" }).
+    const { router } = renderWithProviders({
+      route: "/admin/academics",
+      session: authenticated(["grades.view_own"]),
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toMatch(/^\/app/),
+    );
+  });
+
+  it("admin-only session navigating to /app/* is redirected to /admin", async () => {
+    // catalog.manage → adminEligible=true, participantEligible=false.
+    // app/route.tsx beforeLoad sees no "participant" in eligibility and has "admin",
+    // so it throws redirect({ to: "/admin" }).
+    const { router } = renderWithProviders({
+      route: "/app/grades",
+      session: authenticated(["catalog.manage"]),
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toMatch(/^\/admin/),
+    );
+  });
+
+  it("zero-eligibility session navigating to /admin/* is redirected to /forbidden", async () => {
+    // No permissions → adminEligible=false, participantEligible=false.
+    // admin/route.tsx beforeLoad: not admin, not participant → redirect to /forbidden.
+    const { router } = renderWithProviders({
+      route: "/admin/academics",
+      session: authenticated([]),
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/forbidden"),
+    );
+  });
+
+  it("zero-eligibility session navigating to /app/* is redirected to /forbidden", async () => {
+    // No permissions → adminEligible=false, participantEligible=false.
+    // app/route.tsx beforeLoad: not participant, not admin → redirect to /forbidden.
+    const { router } = renderWithProviders({
+      route: "/app/grades",
+      session: authenticated([]),
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/forbidden"),
+    );
+  });
+});
+
 /**
  * During the area-routing migration (Slice 1), the flat route files still live
  * at their original paths but their guards now reference the prefixed keys in
@@ -67,8 +126,6 @@ describe("route permission guards", () => {
  * This map ties the existing flat paths to the permission key they use so
  * the data-driven guard test can assert "path X without permission Y → /forbidden"
  * without needing the new prefixed route files to exist yet.
- *
- * Slice 2 replaces this map with a test over the new /admin/* and /app/* paths.
  */
 const FLAT_ROUTE_TO_PERMISSION_KEY: Record<string, string> = {
   "/academics": "/admin/academics",
@@ -117,22 +174,28 @@ describe("every flat route (migration period) is guarded with its prefixed permi
 // session holds the route's permission (resolved via the new prefixed key).
 describe("nav link visibility derives from ROUTE_PERMISSIONS", () => {
   it("shows a guarded link when the session holds the permission", async () => {
-    // Navigate directly to a flat route the session can access so the sidebar
-    // renders within the authenticated shell (/ now redirects to /admin which
-    // has no route file yet in Slice 1).
+    // Navigate directly to an admin area route the session can access so the
+    // admin sidebar renders. /admin/users requires users.manage.
+    // /forbidden no longer renders inside an area shell (no sidebar), so we
+    // use a real area route to get AppSidebar.
+    // /admin/access-control page does not call Route.useSearch() so it renders
+    // without the flat-route coupling issue. The admin sidebar is always present.
     renderWithProviders({
-      route: "/forbidden",
+      route: "/admin/access-control",
       session: authenticated(["users.manage"]),
     });
 
-    // The forbidden page renders inside the authenticated shell — sidebar is present.
-    await screen.findByText("No tienes acceso a esta sección");
-    expect(screen.getByRole("link", { name: /usuarios/i })).toBeInTheDocument();
+    // Wait for the admin area to render (admin sidebar is present).
+    await waitFor(() =>
+      expect(
+        screen.getByRole("link", { name: /usuarios/i }),
+      ).toBeInTheDocument(),
+    );
   });
 
   it("hides a guarded link when the session lacks the permission", async () => {
-    // A zero-permission session has no area eligibility; navigate directly to
-    // /forbidden to get the authenticated shell with a sidebar but no navigation.
+    // A zero-permission session has no area eligibility; /forbidden renders
+    // without an area sidebar — no nav links present.
     renderWithProviders({ route: "/forbidden", session: authenticated([]) });
 
     await screen.findByText("No tienes acceso a esta sección");
