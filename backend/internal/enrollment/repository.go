@@ -36,9 +36,10 @@ type Repository interface {
 	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
 	ListEnrollments(ctx context.Context, p ListEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error)
 
-	// ListOwnEnrollments returns a page of live enrollments for the given student.
+	// ListOwnEnrollments returns a page of live enrollments for the given student,
+	// each row enriched with the program display name via an INNER JOIN on programs.
 	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
-	ListOwnEnrollments(ctx context.Context, p ListOwnEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error)
+	ListOwnEnrollments(ctx context.Context, p ListOwnEnrollmentsRepoParams) ([]enrollmentdb.ListOwnEnrollmentsRow, error)
 }
 
 // CreateEnrollmentParams holds the validated inputs for a new enrollment.
@@ -264,9 +265,10 @@ func (r *postgresRepository) ListEnrollments(ctx context.Context, p ListEnrollme
 	return rows, nil
 }
 
-// ListOwnEnrollments returns a page of live enrollments for the given student.
+// ListOwnEnrollments returns a page of live enrollments for the given student,
+// enriched with the program display name from an INNER JOIN on programs.
 // The keyset cursor (PageToken) is translated to a pgtype.UUID for the sqlc query.
-func (r *postgresRepository) ListOwnEnrollments(ctx context.Context, p ListOwnEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error) {
+func (r *postgresRepository) ListOwnEnrollments(ctx context.Context, p ListOwnEnrollmentsRepoParams) ([]enrollmentdb.ListOwnEnrollmentsRow, error) {
 	params := enrollmentdb.ListOwnEnrollmentsParams{
 		StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
 		RowLimit:  p.RowLimit,

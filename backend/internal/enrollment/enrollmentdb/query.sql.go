@@ -202,10 +202,24 @@ func (q *Queries) ListEnrollments(ctx context.Context, arg ListEnrollmentsParams
 }
 
 const listOwnEnrollments = `-- name: ListOwnEnrollments :many
-SELECT id, student_id, program_id, year, status, paid_at, created_at, updated_at, deleted_at, created_by, updated_by FROM enrollments
-WHERE student_id = $1::uuid AND deleted_at IS NULL
-  AND ($2::uuid IS NULL OR id < $2::uuid)
-ORDER BY id DESC
+SELECT
+  e.id,
+  e.student_id,
+  e.program_id,
+  e.year,
+  e.status,
+  e.paid_at,
+  e.created_at,
+  e.updated_at,
+  e.deleted_at,
+  e.created_by,
+  e.updated_by,
+  p.name AS program_name
+FROM enrollments e
+JOIN programs p ON p.id = e.program_id
+WHERE e.student_id = $1::uuid AND e.deleted_at IS NULL
+  AND ($2::uuid IS NULL OR e.id < $2::uuid)
+ORDER BY e.id DESC
 LIMIT $3::int
 `
 
@@ -215,15 +229,30 @@ type ListOwnEnrollmentsParams struct {
 	RowLimit  int32
 }
 
-func (q *Queries) ListOwnEnrollments(ctx context.Context, arg ListOwnEnrollmentsParams) ([]Enrollment, error) {
+type ListOwnEnrollmentsRow struct {
+	ID          pgtype.UUID
+	StudentID   pgtype.UUID
+	ProgramID   pgtype.UUID
+	Year        int32
+	Status      string
+	PaidAt      pgtype.Timestamptz
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+	DeletedAt   pgtype.Timestamptz
+	CreatedBy   pgtype.UUID
+	UpdatedBy   pgtype.UUID
+	ProgramName string
+}
+
+func (q *Queries) ListOwnEnrollments(ctx context.Context, arg ListOwnEnrollmentsParams) ([]ListOwnEnrollmentsRow, error) {
 	rows, err := q.db.Query(ctx, listOwnEnrollments, arg.StudentID, arg.PageToken, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Enrollment
+	var items []ListOwnEnrollmentsRow
 	for rows.Next() {
-		var i Enrollment
+		var i ListOwnEnrollmentsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.StudentID,
@@ -236,6 +265,7 @@ func (q *Queries) ListOwnEnrollments(ctx context.Context, arg ListOwnEnrollments
 			&i.DeletedAt,
 			&i.CreatedBy,
 			&i.UpdatedBy,
+			&i.ProgramName,
 		); err != nil {
 			return nil, err
 		}

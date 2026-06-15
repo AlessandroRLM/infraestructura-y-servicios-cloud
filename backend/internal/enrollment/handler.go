@@ -159,8 +159,9 @@ func (h *Handler) ListEnrollments(
 
 // --- View-own RPCs ---
 
-// ListOwnEnrollments returns a paginated page of enrollments for the authenticated student.
-// The student identity is injected from context; the request carries no student_id field.
+// ListOwnEnrollments returns a paginated page of enrollments for the authenticated student,
+// each enriched with the program display name. The student identity is injected from context;
+// the request carries no student_id field.
 func (h *Handler) ListOwnEnrollments(
 	ctx context.Context,
 	req *connect.Request[enrollmentv1.ListOwnEnrollmentsRequest],
@@ -171,7 +172,7 @@ func (h *Handler) ListOwnEnrollments(
 	}
 	protos := make([]*enrollmentv1.Enrollment, 0, len(result.Enrollments))
 	for _, r := range result.Enrollments {
-		protos = append(protos, enrollmentToProto(r))
+		protos = append(protos, ownEnrollmentRowToProto(r))
 	}
 	return connect.NewResponse(&enrollmentv1.ListEnrollmentsResponse{
 		Enrollments:   protos,
@@ -205,6 +206,39 @@ func enrollmentToProto(r enrollmentdb.Enrollment) *enrollmentv1.Enrollment {
 		Status:    r.Status,
 		CreatedAt: r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt: r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+	}
+	if r.PaidAt.Valid {
+		s := r.PaidAt.Time.Format("2006-01-02T15:04:05Z07:00")
+		e.PaidAt = &s
+	}
+	if r.DeletedAt.Valid {
+		s := r.DeletedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+		e.DeletedAt = &s
+	}
+	if r.CreatedBy.Valid {
+		s := uuidToString(r.CreatedBy)
+		e.CreatedBy = &s
+	}
+	if r.UpdatedBy.Valid {
+		s := uuidToString(r.UpdatedBy)
+		e.UpdatedBy = &s
+	}
+	return e
+}
+
+// ownEnrollmentRowToProto converts a ListOwnEnrollmentsRow (which carries the joined
+// program_name) to its proto representation. Optional fields follow the same nil-check
+// rules as enrollmentToProto; program_name is always set from the NOT NULL join column.
+func ownEnrollmentRowToProto(r enrollmentdb.ListOwnEnrollmentsRow) *enrollmentv1.Enrollment {
+	e := &enrollmentv1.Enrollment{
+		Id:          uuidToString(r.ID),
+		StudentId:   uuidToString(r.StudentID),
+		ProgramId:   uuidToString(r.ProgramID),
+		Year:        r.Year,
+		Status:      r.Status,
+		CreatedAt:   r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:   r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		ProgramName: r.ProgramName,
 	}
 	if r.PaidAt.Valid {
 		s := r.PaidAt.Time.Format("2006-01-02T15:04:05Z07:00")
