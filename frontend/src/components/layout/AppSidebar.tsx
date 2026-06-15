@@ -51,7 +51,10 @@ const NAV = [
   {
     label: "Notas",
     icon: PenLine,
-    options: linkOptions({ to: "/grades" }),
+    options: linkOptions({
+      to: "/grades",
+      search: { period: "", program: "", pageSize: 20 },
+    }),
   },
   {
     label: "Reportes",
