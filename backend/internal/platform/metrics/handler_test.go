@@ -102,3 +102,42 @@ func TestHandler_ConstantTimeCompareSafety(t *testing.T) {
 		t.Errorf("prefix token: status = %d, want 401 (constant-time compare must reject length mismatch)", rec.Code)
 	}
 }
+
+// TestHandler_ValidBearerToken_200 verifies the token is accepted via Authorization: Bearer (what Prometheus scrapers send).
+func TestHandler_ValidBearerToken_200(t *testing.T) {
+	t.Parallel()
+
+	reg := metrics.New()
+	handler := reg.Handler(testToken)
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rec.Code)
+	}
+	if rec.Body.Len() == 0 {
+		t.Error("response body is empty, want Prometheus text exposition")
+	}
+}
+
+// TestHandler_WrongBearerToken_401 verifies a wrong token in Authorization: Bearer is rejected.
+func TestHandler_WrongBearerToken_401(t *testing.T) {
+	t.Parallel()
+
+	reg := metrics.New()
+	handler := reg.Handler(testToken)
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req.Header.Set("Authorization", "Bearer wrong")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", rec.Code)
+	}
+}
