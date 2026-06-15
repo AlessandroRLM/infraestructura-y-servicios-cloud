@@ -39,7 +39,7 @@ const adminSessionSource = {
 };
 
 function renderAcademicsPage(
-  route = "/academics",
+  route = "/admin/academics",
   handlers: CatalogImpl = emptyHandlers,
 ) {
   return renderWithProviders({
@@ -51,8 +51,8 @@ function renderAcademicsPage(
 }
 
 describe("AcademicsPage tab shell", () => {
-  it("SC-01: /academics with no ?tab shows programs tab as default and programs content", async () => {
-    const { router } = renderAcademicsPage("/academics");
+  it("SC-01: /admin/academics with no ?tab shows programs tab as default and programs content", async () => {
+    const { router } = renderAcademicsPage("/admin/academics");
 
     await screen.findByRole("heading", { name: "Académico" });
 
@@ -77,7 +77,7 @@ describe("AcademicsPage tab shell", () => {
 
   it("SC-02: clicking 'Asignaturas' tab updates URL search to tab=courses", async () => {
     const user = userEvent.setup();
-    const { router } = renderAcademicsPage("/academics");
+    const { router } = renderAcademicsPage("/admin/academics");
 
     await screen.findByRole("heading", { name: "Académico" });
 
@@ -93,7 +93,7 @@ describe("AcademicsPage tab shell", () => {
 
   it("SC-03: clicking 'Carreras' tab from courses updates URL search to tab=programs", async () => {
     const user = userEvent.setup();
-    const { router } = renderAcademicsPage("/academics?tab=courses");
+    const { router } = renderAcademicsPage("/admin/academics?tab=courses");
 
     await screen.findByRole("heading", { name: "Académico" });
 
@@ -107,8 +107,8 @@ describe("AcademicsPage tab shell", () => {
     expect(programsTab).toHaveAttribute("aria-selected", "true");
   });
 
-  it("SC-05: /academics?tab=bogus falls back to programs (catch in validateSearch)", async () => {
-    renderAcademicsPage("/academics?tab=bogus");
+  it("SC-05: /admin/academics?tab=bogus falls back to programs (catch in validateSearch)", async () => {
+    renderAcademicsPage("/admin/academics?tab=bogus");
 
     await screen.findByRole("heading", { name: "Académico" });
 

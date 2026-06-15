@@ -28,7 +28,7 @@ type CatalogImpl = Partial<ServiceImpl<typeof CatalogService>>;
 
 async function renderAcademicsPage(handlers: CatalogImpl = {}) {
   renderWithProviders({
-    route: "/academics",
+    route: "/admin/academics",
     transport: makeStubTransport([CatalogService, handlers]),
     session: {
       status: "authenticated",

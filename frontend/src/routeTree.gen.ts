@@ -12,16 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
-import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
-import { Route as AuthenticatedSectionEnrollmentsRouteImport } from './routes/_authenticated/section-enrollments'
-import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedGradesRouteImport } from './routes/_authenticated/grades'
 import { Route as AuthenticatedForbiddenRouteImport } from './routes/_authenticated/forbidden'
-import { Route as AuthenticatedEnrollmentsRouteImport } from './routes/_authenticated/enrollments'
 import { Route as AuthenticatedChooseAreaRouteImport } from './routes/_authenticated/choose-area'
-import { Route as AuthenticatedAccessControlRouteImport } from './routes/_authenticated/access-control'
-import { Route as AuthenticatedAcademicsRouteImport } from './routes/_authenticated/academics'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/app/route'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
@@ -50,30 +43,9 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSectionEnrollmentsRoute =
-  AuthenticatedSectionEnrollmentsRouteImport.update({
-    id: '/section-enrollments',
-    path: '/section-enrollments',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedGradesRoute = AuthenticatedGradesRouteImport.update({
-  id: '/grades',
-  path: '/grades',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedForbiddenRoute = AuthenticatedForbiddenRouteImport.update({
@@ -81,26 +53,9 @@ const AuthenticatedForbiddenRoute = AuthenticatedForbiddenRouteImport.update({
   path: '/forbidden',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedEnrollmentsRoute =
-  AuthenticatedEnrollmentsRouteImport.update({
-    id: '/enrollments',
-    path: '/enrollments',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedChooseAreaRoute = AuthenticatedChooseAreaRouteImport.update({
   id: '/choose-area',
   path: '/choose-area',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAccessControlRoute =
-  AuthenticatedAccessControlRouteImport.update({
-    id: '/access-control',
-    path: '/access-control',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedAcademicsRoute = AuthenticatedAcademicsRouteImport.update({
-  id: '/academics',
-  path: '/academics',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAppRouteRoute = AuthenticatedAppRouteRouteImport.update({
@@ -181,16 +136,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/app': typeof AuthenticatedAppRouteRouteWithChildren
-  '/academics': typeof AuthenticatedAcademicsRoute
-  '/access-control': typeof AuthenticatedAccessControlRoute
   '/choose-area': typeof AuthenticatedChooseAreaRoute
-  '/enrollments': typeof AuthenticatedEnrollmentsRoute
   '/forbidden': typeof AuthenticatedForbiddenRoute
-  '/grades': typeof AuthenticatedGradesRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/reports': typeof AuthenticatedReportsRoute
-  '/section-enrollments': typeof AuthenticatedSectionEnrollmentsRoute
-  '/users': typeof AuthenticatedUsersRoute
   '/admin/academics': typeof AuthenticatedAdminAcademicsRoute
   '/admin/access-control': typeof AuthenticatedAdminAccessControlRoute
   '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
@@ -205,16 +153,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
-  '/academics': typeof AuthenticatedAcademicsRoute
-  '/access-control': typeof AuthenticatedAccessControlRoute
   '/choose-area': typeof AuthenticatedChooseAreaRoute
-  '/enrollments': typeof AuthenticatedEnrollmentsRoute
   '/forbidden': typeof AuthenticatedForbiddenRoute
-  '/grades': typeof AuthenticatedGradesRoute
   '/profile': typeof AuthenticatedProfileRoute
-  '/reports': typeof AuthenticatedReportsRoute
-  '/section-enrollments': typeof AuthenticatedSectionEnrollmentsRoute
-  '/users': typeof AuthenticatedUsersRoute
   '/': typeof AuthenticatedIndexRoute
   '/admin/academics': typeof AuthenticatedAdminAcademicsRoute
   '/admin/access-control': typeof AuthenticatedAdminAccessControlRoute
@@ -234,16 +175,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/_authenticated/app': typeof AuthenticatedAppRouteRouteWithChildren
-  '/_authenticated/academics': typeof AuthenticatedAcademicsRoute
-  '/_authenticated/access-control': typeof AuthenticatedAccessControlRoute
   '/_authenticated/choose-area': typeof AuthenticatedChooseAreaRoute
-  '/_authenticated/enrollments': typeof AuthenticatedEnrollmentsRoute
   '/_authenticated/forbidden': typeof AuthenticatedForbiddenRoute
-  '/_authenticated/grades': typeof AuthenticatedGradesRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
-  '/_authenticated/reports': typeof AuthenticatedReportsRoute
-  '/_authenticated/section-enrollments': typeof AuthenticatedSectionEnrollmentsRoute
-  '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/academics': typeof AuthenticatedAdminAcademicsRoute
   '/_authenticated/admin/access-control': typeof AuthenticatedAdminAccessControlRoute
@@ -264,16 +198,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin'
     | '/app'
-    | '/academics'
-    | '/access-control'
     | '/choose-area'
-    | '/enrollments'
     | '/forbidden'
-    | '/grades'
     | '/profile'
-    | '/reports'
-    | '/section-enrollments'
-    | '/users'
     | '/admin/academics'
     | '/admin/access-control'
     | '/admin/enrollments'
@@ -288,16 +215,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
-    | '/academics'
-    | '/access-control'
     | '/choose-area'
-    | '/enrollments'
     | '/forbidden'
-    | '/grades'
     | '/profile'
-    | '/reports'
-    | '/section-enrollments'
-    | '/users'
     | '/'
     | '/admin/academics'
     | '/admin/access-control'
@@ -316,16 +236,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authenticated/admin'
     | '/_authenticated/app'
-    | '/_authenticated/academics'
-    | '/_authenticated/access-control'
     | '/_authenticated/choose-area'
-    | '/_authenticated/enrollments'
     | '/_authenticated/forbidden'
-    | '/_authenticated/grades'
     | '/_authenticated/profile'
-    | '/_authenticated/reports'
-    | '/_authenticated/section-enrollments'
-    | '/_authenticated/users'
     | '/_authenticated/'
     | '/_authenticated/admin/academics'
     | '/_authenticated/admin/access-control'
@@ -368,39 +281,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/users': {
-      id: '/_authenticated/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof AuthenticatedUsersRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/section-enrollments': {
-      id: '/_authenticated/section-enrollments'
-      path: '/section-enrollments'
-      fullPath: '/section-enrollments'
-      preLoaderRoute: typeof AuthenticatedSectionEnrollmentsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/reports': {
-      id: '/_authenticated/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof AuthenticatedReportsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/grades': {
-      id: '/_authenticated/grades'
-      path: '/grades'
-      fullPath: '/grades'
-      preLoaderRoute: typeof AuthenticatedGradesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/forbidden': {
@@ -410,32 +295,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedForbiddenRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/enrollments': {
-      id: '/_authenticated/enrollments'
-      path: '/enrollments'
-      fullPath: '/enrollments'
-      preLoaderRoute: typeof AuthenticatedEnrollmentsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/choose-area': {
       id: '/_authenticated/choose-area'
       path: '/choose-area'
       fullPath: '/choose-area'
       preLoaderRoute: typeof AuthenticatedChooseAreaRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/access-control': {
-      id: '/_authenticated/access-control'
-      path: '/access-control'
-      fullPath: '/access-control'
-      preLoaderRoute: typeof AuthenticatedAccessControlRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/academics': {
-      id: '/_authenticated/academics'
-      path: '/academics'
-      fullPath: '/academics'
-      preLoaderRoute: typeof AuthenticatedAcademicsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/app': {
@@ -582,32 +446,18 @@ const AuthenticatedAppRouteRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRouteRoute: typeof AuthenticatedAdminRouteRouteWithChildren
   AuthenticatedAppRouteRoute: typeof AuthenticatedAppRouteRouteWithChildren
-  AuthenticatedAcademicsRoute: typeof AuthenticatedAcademicsRoute
-  AuthenticatedAccessControlRoute: typeof AuthenticatedAccessControlRoute
   AuthenticatedChooseAreaRoute: typeof AuthenticatedChooseAreaRoute
-  AuthenticatedEnrollmentsRoute: typeof AuthenticatedEnrollmentsRoute
   AuthenticatedForbiddenRoute: typeof AuthenticatedForbiddenRoute
-  AuthenticatedGradesRoute: typeof AuthenticatedGradesRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
-  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
-  AuthenticatedSectionEnrollmentsRoute: typeof AuthenticatedSectionEnrollmentsRoute
-  AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRouteRoute: AuthenticatedAdminRouteRouteWithChildren,
   AuthenticatedAppRouteRoute: AuthenticatedAppRouteRouteWithChildren,
-  AuthenticatedAcademicsRoute: AuthenticatedAcademicsRoute,
-  AuthenticatedAccessControlRoute: AuthenticatedAccessControlRoute,
   AuthenticatedChooseAreaRoute: AuthenticatedChooseAreaRoute,
-  AuthenticatedEnrollmentsRoute: AuthenticatedEnrollmentsRoute,
   AuthenticatedForbiddenRoute: AuthenticatedForbiddenRoute,
-  AuthenticatedGradesRoute: AuthenticatedGradesRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
-  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
-  AuthenticatedSectionEnrollmentsRoute: AuthenticatedSectionEnrollmentsRoute,
-  AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 

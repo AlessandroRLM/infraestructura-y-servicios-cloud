@@ -62,7 +62,7 @@ const pcMat101 = create(ProgramCourseSchema, {
 async function renderWithSheet(handlers: CatalogImpl) {
   const user = userEvent.setup();
   renderWithProviders({
-    route: "/academics",
+    route: "/admin/academics",
     transport: makeStubTransport([CatalogService, handlers]),
     session: {
       status: "authenticated",
@@ -152,7 +152,7 @@ describe("ProgramCoursesManager — section error + retry", () => {
     });
 
     renderWithProviders({
-      route: "/academics",
+      route: "/admin/academics",
       transport: makeStubTransport([
         CatalogService,
         {

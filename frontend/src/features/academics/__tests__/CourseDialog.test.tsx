@@ -29,7 +29,7 @@ type CatalogImpl = Partial<ServiceImpl<typeof CatalogService>>;
 
 async function renderCoursesPage(handlers: CatalogImpl = {}) {
   renderWithProviders({
-    route: "/academics?tab=courses",
+    route: "/admin/academics?tab=courses",
     transport: makeStubTransport([CatalogService, handlers]),
     session: {
       status: "authenticated",

@@ -58,7 +58,7 @@ const adminSessionSource = {
 
 function renderPage(handlers: CatalogImpl) {
   return renderWithProviders({
-    route: "/academics",
+    route: "/admin/academics",
     transport: makeStubTransport([CatalogService, handlers]),
     session: adminSession,
     sessionSource: adminSessionSource,
@@ -198,7 +198,7 @@ describe("ProgramsTable", () => {
       create(ListProgramsResponseSchema, { programs: [], nextPageToken: "" }),
     );
 
-    renderPageWithRoute("/academics?q=ing", { listPrograms });
+    renderPageWithRoute("/admin/academics?q=ing", { listPrograms });
 
     await waitFor(() => {
       expect(listPrograms).toHaveBeenCalled();

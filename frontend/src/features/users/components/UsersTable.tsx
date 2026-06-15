@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageSizeSelector, SearchInput } from "@/core/components";
-import { Route } from "@/routes/_authenticated/users";
+import { Route } from "@/routes/_authenticated/admin/users";
 import { SEARCH_DEBOUNCE_MS } from "../constants";
 import { useUsersList } from "../hooks/useUsersList";
 import { UserStatusBadge } from "./UserStatusBadge";

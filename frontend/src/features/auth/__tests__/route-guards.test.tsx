@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { makeStubTransport } from "@/core/test";
 import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
 import { renderWithProviders } from "@/test";
-import { ROUTE_PERMISSIONS } from "../routePermissions";
 import type { SessionState } from "../types";
 
 function authenticated(permissions: string[]): SessionState {
@@ -17,9 +16,14 @@ function authenticated(permissions: string[]): SessionState {
 }
 
 describe("route permission guards", () => {
-  it("redirects an authenticated user lacking the permission to the 403 screen", async () => {
-    // /academics still exists as a flat route; its guard now checks /admin/academics.
-    renderWithProviders({ route: "/academics", session: authenticated([]) });
+  it("redirects an admin-eligible user lacking the feature permission to the 403 screen", async () => {
+    // catalog.manage makes the user admin-eligible (area guard passes),
+    // but /admin/academics itself requires catalog.manage — using grades.read
+    // triggers the feature guard and produces a /forbidden redirect.
+    renderWithProviders({
+      route: "/admin/academics",
+      session: authenticated(["grades.read"]),
+    });
 
     expect(
       await screen.findByText("No tienes acceso a esta sección"),
@@ -28,7 +32,7 @@ describe("route permission guards", () => {
 
   it("lets an authenticated user with the permission reach the page", async () => {
     renderWithProviders({
-      route: "/academics",
+      route: "/admin/academics",
       session: authenticated(["catalog.manage"]),
       transport: makeStubTransport([
         CatalogService,
@@ -118,55 +122,27 @@ describe("area eligibility guard (admin/route.tsx + app/route.tsx)", () => {
   });
 });
 
-/**
- * During the area-routing migration (Slice 1), the flat route files still live
- * at their original paths but their guards now reference the prefixed keys in
- * ROUTE_PERMISSIONS (e.g. "/academics" guards with "/admin/academics").
- *
- * This map ties the existing flat paths to the permission key they use so
- * the data-driven guard test can assert "path X without permission Y → /forbidden"
- * without needing the new prefixed route files to exist yet.
- */
-const FLAT_ROUTE_TO_PERMISSION_KEY: Record<string, string> = {
-  "/academics": "/admin/academics",
-  "/enrollments": "/admin/enrollments",
-  "/section-enrollments": "/admin/section-enrollments",
-  "/grades": "/admin/grades",
-  "/reports": "/admin/reports",
-  "/users": "/admin/users",
-  "/access-control": "/admin/access-control",
-};
+// R-10 — old flat paths must yield the 404 not-found route (no redirect, no crash).
+describe("R-10 — old flat paths yield 404 after route deletion", () => {
+  const oldFlatPaths = [
+    "/academics",
+    "/enrollments",
+    "/section-enrollments",
+    "/grades",
+    "/reports",
+    "/users",
+    "/access-control",
+  ];
 
-const flatRoutePairs = Object.entries(FLAT_ROUTE_TO_PERMISSION_KEY) as [
-  string,
-  keyof typeof ROUTE_PERMISSIONS,
-][];
-
-// Asserts that the guard runs in beforeLoad before the page — the redirect
-// happens before the component renders, so no per-page transport stub is needed.
-describe("every flat route (migration period) is guarded with its prefixed permission key", () => {
-  it.each(
-    flatRoutePairs,
-  )("%s redirects to /forbidden without the required permission", async (route) => {
+  it.each(oldFlatPaths)("%s renders the 404 not-found route", async (route) => {
     const { router } = renderWithProviders({
       route,
-      session: authenticated([]),
-    });
-
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/forbidden"),
-    );
-  });
-
-  it.each(
-    flatRoutePairs,
-  )("%s is reachable when the session holds its permission", async (route, permKey) => {
-    const { router } = renderWithProviders({
-      route,
-      session: authenticated([ROUTE_PERMISSIONS[permKey][0]]),
+      session: authenticated(["catalog.manage"]),
     });
 
     await waitFor(() => expect(router.state.location.pathname).toBe(route));
+
+    await screen.findByText("Página no encontrada");
   });
 });
 
