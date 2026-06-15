@@ -59,6 +59,65 @@ describe("route permission guards", () => {
   });
 });
 
+// Area-guard integration tests: verify that the layout-level eligibility guard
+// in admin/route.tsx and app/route.tsx enforces cross-area redirects before
+// any feature guard or page component runs.
+describe("area eligibility guard (admin/route.tsx + app/route.tsx)", () => {
+  it("participant-only session navigating to /admin/* is redirected to /app", async () => {
+    // grades.view_own → participantEligible=true, adminEligible=false.
+    // admin/route.tsx beforeLoad sees no "admin" in eligibility and has "participant",
+    // so it throws redirect({ to: "/app" }).
+    const { router } = renderWithProviders({
+      route: "/admin/academics",
+      session: authenticated(["grades.view_own"]),
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toMatch(/^\/app/),
+    );
+  });
+
+  it("admin-only session navigating to /app/* is redirected to /admin", async () => {
+    // catalog.manage → adminEligible=true, participantEligible=false.
+    // app/route.tsx beforeLoad sees no "participant" in eligibility and has "admin",
+    // so it throws redirect({ to: "/admin" }).
+    const { router } = renderWithProviders({
+      route: "/app/grades",
+      session: authenticated(["catalog.manage"]),
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toMatch(/^\/admin/),
+    );
+  });
+
+  it("zero-eligibility session navigating to /admin/* is redirected to /forbidden", async () => {
+    // No permissions → adminEligible=false, participantEligible=false.
+    // admin/route.tsx beforeLoad: not admin, not participant → redirect to /forbidden.
+    const { router } = renderWithProviders({
+      route: "/admin/academics",
+      session: authenticated([]),
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/forbidden"),
+    );
+  });
+
+  it("zero-eligibility session navigating to /app/* is redirected to /forbidden", async () => {
+    // No permissions → adminEligible=false, participantEligible=false.
+    // app/route.tsx beforeLoad: not participant, not admin → redirect to /forbidden.
+    const { router } = renderWithProviders({
+      route: "/app/grades",
+      session: authenticated([]),
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/forbidden"),
+    );
+  });
+});
+
 /**
  * During the area-routing migration (Slice 1), the flat route files still live
  * at their original paths but their guards now reference the prefixed keys in
@@ -67,8 +126,6 @@ describe("route permission guards", () => {
  * This map ties the existing flat paths to the permission key they use so
  * the data-driven guard test can assert "path X without permission Y → /forbidden"
  * without needing the new prefixed route files to exist yet.
- *
- * Slice 2 replaces this map with a test over the new /admin/* and /app/* paths.
  */
 const FLAT_ROUTE_TO_PERMISSION_KEY: Record<string, string> = {
   "/academics": "/admin/academics",
