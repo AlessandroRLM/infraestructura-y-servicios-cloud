@@ -154,18 +154,52 @@ ORDER BY g.id DESC
 LIMIT sqlc.arg('row_limit');
 
 -- name: ListOwnGradesPaged :many
--- Keyset-paginated list of grades for a student (via enrollments join).
+-- Keyset-paginated list of grades for a student with enriched label columns.
+-- Joins evaluations, sections, courses, academic_periods for display labels.
+-- program_id and program_name are sourced from the student's enrollment program
+-- (enrollments.program_id → programs), not from the catalog M:N program_courses table.
+-- Optional academic_period_id and program_id predicates narrow results without fan-out.
 -- Ordered by g.id DESC. page_token is the exclusive upper bound on g.id (NULL = start).
-SELECT g.*
+SELECT
+    g.id,
+    g.evaluation_id,
+    g.section_enrollment_id,
+    g.graded_by,
+    g.value,
+    g.evaluated_at,
+    g.version,
+    g.created_at,
+    g.updated_at,
+    g.created_by,
+    g.updated_by,
+    g.deleted_at,
+    ev.position                                   AS evaluation_position,
+    ev.weight                                     AS evaluation_weight,
+    c.code                                        AS course_code,
+    c.name                                        AS course_name,
+    se.final_grade                                AS section_final_grade,
+    se.status                                     AS section_status,
+    ap.year                                       AS academic_period_year,
+    ap.term                                       AS academic_period_term,
+    en.program_id                                 AS program_id,
+    p.name                                        AS program_name
 FROM grades g
 JOIN section_enrollments se ON se.id = g.section_enrollment_id
-JOIN enrollments e ON e.id = se.enrollment_id
-WHERE e.student_id = sqlc.arg('student_id')
+JOIN enrollments en ON en.id = se.enrollment_id
+JOIN programs p ON p.id = en.program_id
+JOIN evaluations ev ON ev.id = g.evaluation_id
+JOIN sections s ON s.id = se.section_id
+JOIN courses c ON c.id = s.course_id
+JOIN academic_periods ap ON ap.id = s.academic_period_id
+WHERE en.student_id = sqlc.arg('student_id')::uuid
   AND g.deleted_at IS NULL
   AND se.deleted_at IS NULL
+  AND en.deleted_at IS NULL
   AND (sqlc.narg('page_token')::uuid IS NULL OR g.id < sqlc.narg('page_token')::uuid)
+  AND (sqlc.narg('academic_period_id')::uuid IS NULL OR s.academic_period_id = sqlc.narg('academic_period_id')::uuid)
+  AND (sqlc.narg('program_id')::uuid IS NULL OR en.program_id = sqlc.narg('program_id')::uuid)
 ORDER BY g.id DESC
-LIMIT sqlc.arg('row_limit');
+LIMIT sqlc.arg('row_limit')::int;
 
 -- name: GetGradeByIDForTeacher :one
 -- Fetches a grade by primary key only if the caller is in section_teachers for the grade's section.
@@ -188,7 +222,26 @@ JOIN section_enrollments se ON se.id = g.section_enrollment_id
 JOIN enrollments e ON e.id = se.enrollment_id
 WHERE e.student_id = $1
   AND g.deleted_at IS NULL
-  AND se.deleted_at IS NULL;
+  AND se.deleted_at IS NULL
+  AND e.deleted_at IS NULL;
+
+-- name: ListOwnGradePeriods :many
+-- Returns the distinct academic periods in which the student has grades.
+-- Ordered by year DESC, term DESC for most-recent-first display.
+SELECT DISTINCT
+    ap.id   AS academic_period_id,
+    ap.year AS year,
+    ap.term AS term
+FROM grades g
+JOIN section_enrollments se ON se.id = g.section_enrollment_id
+JOIN enrollments e ON e.id = se.enrollment_id
+JOIN sections s ON s.id = se.section_id
+JOIN academic_periods ap ON ap.id = s.academic_period_id
+WHERE e.student_id = sqlc.arg('student_id')::uuid
+  AND g.deleted_at IS NULL
+  AND se.deleted_at IS NULL
+  AND e.deleted_at IS NULL
+ORDER BY ap.year DESC, ap.term DESC;
 
 -- name: IsTeacherForSection :one
 -- Checks whether a user is in section_teachers for the given section.

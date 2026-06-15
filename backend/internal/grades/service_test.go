@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/grades/gradesdb"
@@ -66,9 +67,14 @@ type fakeRepository struct {
 	listForSectionByTeacherPagedRows   []gradesdb.Grade
 	listForSectionByTeacherPagedErr    error
 
-	listOwnPagedCalled bool
-	listOwnPagedRows   []gradesdb.Grade
-	listOwnPagedErr    error
+	listOwnPagedCalled      bool
+	listOwnPagedRows        []gradesdb.ListOwnGradesPagedRow
+	listOwnPagedErr         error
+	listOwnPagedLastParams  ListOwnGradesRepoParams
+
+	listOwnPeriodsCalled bool
+	listOwnPeriodsRows   []gradesdb.ListOwnGradePeriodsRow
+	listOwnPeriodsErr    error
 
 	getGradeCalled bool
 	getGradeResult gradesdb.Grade
@@ -127,9 +133,15 @@ func (f *fakeRepository) ListGradesForSectionByTeacherPaged(_ context.Context, _
 	return f.listForSectionByTeacherPagedRows, f.listForSectionByTeacherPagedErr
 }
 
-func (f *fakeRepository) ListOwnGradesPaged(_ context.Context, _ ListOwnGradesRepoParams) ([]gradesdb.Grade, error) {
+func (f *fakeRepository) ListOwnGradesPaged(_ context.Context, p ListOwnGradesRepoParams) ([]gradesdb.ListOwnGradesPagedRow, error) {
 	f.listOwnPagedCalled = true
+	f.listOwnPagedLastParams = p
 	return f.listOwnPagedRows, f.listOwnPagedErr
+}
+
+func (f *fakeRepository) ListOwnGradePeriods(_ context.Context, _ uuid.UUID) ([]gradesdb.ListOwnGradePeriodsRow, error) {
+	f.listOwnPeriodsCalled = true
+	return f.listOwnPeriodsRows, f.listOwnPeriodsErr
 }
 
 func (f *fakeRepository) GetGrade(_ context.Context, _ uuid.UUID) (gradesdb.Grade, error) {
@@ -575,7 +587,7 @@ func TestService_ListOwnGrades_InvalidToken_DoesNotCallRepo(t *testing.T) {
 	svc := NewService(repo)
 
 	ctx := contextWithUser(uuid.New())
-	_, err := svc.ListOwnGrades(ctx, 20, "not-a-uuid")
+	_, err := svc.ListOwnGrades(ctx, 20, "not-a-uuid", "", "")
 	if repo.listOwnPagedCalled {
 		t.Error("repository must not be called when page_token is invalid")
 	}
@@ -590,7 +602,7 @@ func TestService_ListOwnGrades_NoUser_DoesNotCallRepo(t *testing.T) {
 	repo := &fakeRepository{}
 	svc := NewService(repo)
 
-	_, err := svc.ListOwnGrades(context.Background(), 20, "")
+	_, err := svc.ListOwnGrades(context.Background(), 20, "", "", "")
 	if repo.listOwnPagedCalled {
 		t.Error("repository must not be called when user is absent from context")
 	}
@@ -602,12 +614,12 @@ func TestService_ListOwnGrades_NoUser_DoesNotCallRepo(t *testing.T) {
 func TestService_ListOwnGrades_ClampMin_AppliedBeforeRepoCall(t *testing.T) {
 	t.Parallel()
 
-	rows := make([]gradesdb.Grade, 25)
+	rows := make([]gradesdb.ListOwnGradesPagedRow, 25)
 	repo := &fakeRepository{listOwnPagedRows: rows}
 	svc := NewService(repo)
 
 	ctx := contextWithUser(uuid.New())
-	result, err := svc.ListOwnGrades(ctx, 0, "")
+	result, err := svc.ListOwnGrades(ctx, 0, "", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -625,12 +637,12 @@ func TestService_ListOwnGrades_ClampMin_AppliedBeforeRepoCall(t *testing.T) {
 func TestService_ListOwnGrades_LastPage_EmptyToken(t *testing.T) {
 	t.Parallel()
 
-	rows := make([]gradesdb.Grade, 3)
+	rows := make([]gradesdb.ListOwnGradesPagedRow, 3)
 	repo := &fakeRepository{listOwnPagedRows: rows}
 	svc := NewService(repo)
 
 	ctx := contextWithUser(uuid.New())
-	result, err := svc.ListOwnGrades(ctx, 20, "")
+	result, err := svc.ListOwnGrades(ctx, 20, "", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -643,16 +655,226 @@ func TestService_ListOwnGrades_ValidToken_ForwardedToRepo(t *testing.T) {
 	t.Parallel()
 
 	token := uuid.New()
-	repo := &fakeRepository{listOwnPagedRows: []gradesdb.Grade{}}
+	repo := &fakeRepository{listOwnPagedRows: []gradesdb.ListOwnGradesPagedRow{}}
 	svc := NewService(repo)
 
 	ctx := contextWithUser(uuid.New())
-	_, err := svc.ListOwnGrades(ctx, 20, token.String())
+	_, err := svc.ListOwnGrades(ctx, 20, token.String(), "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !repo.listOwnPagedCalled {
 		t.Fatal("ListOwnGradesPaged must be called with a valid token")
+	}
+	// Assert PageToken was forwarded with the exact UUID value.
+	if repo.listOwnPagedLastParams.PageToken == nil {
+		t.Fatal("PageToken must be forwarded to the repository")
+	}
+	if *repo.listOwnPagedLastParams.PageToken != token {
+		t.Errorf("PageToken = %v, want %v", *repo.listOwnPagedLastParams.PageToken, token)
+	}
+	// No filter supplied — both filter params must be nil.
+	if repo.listOwnPagedLastParams.AcademicPeriodID != nil {
+		t.Error("AcademicPeriodID must be nil when not supplied")
+	}
+	if repo.listOwnPagedLastParams.ProgramID != nil {
+		t.Error("ProgramID must be nil when not supplied")
+	}
+}
+
+// =====================================================================================
+// ListOwnGrades filter passthrough — service unit tests
+// =====================================================================================
+
+func TestService_ListOwnGrades_AcademicPeriodFilter_PassedToRepo(t *testing.T) {
+	t.Parallel()
+
+	periodID := uuid.New()
+	repo := &fakeRepository{listOwnPagedRows: []gradesdb.ListOwnGradesPagedRow{}}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListOwnGrades(ctx, 20, "", periodID.String(), "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repo.listOwnPagedCalled {
+		t.Fatal("ListOwnGradesPaged must be called")
+	}
+	if repo.listOwnPagedLastParams.AcademicPeriodID == nil {
+		t.Fatal("AcademicPeriodID must be forwarded to the repository")
+	}
+	if *repo.listOwnPagedLastParams.AcademicPeriodID != periodID {
+		t.Errorf("AcademicPeriodID = %v, want %v", *repo.listOwnPagedLastParams.AcademicPeriodID, periodID)
+	}
+}
+
+func TestService_ListOwnGrades_ProgramFilter_PassedToRepo(t *testing.T) {
+	t.Parallel()
+
+	programID := uuid.New()
+	repo := &fakeRepository{listOwnPagedRows: []gradesdb.ListOwnGradesPagedRow{}}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListOwnGrades(ctx, 20, "", "", programID.String())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repo.listOwnPagedCalled {
+		t.Fatal("ListOwnGradesPaged must be called")
+	}
+	if repo.listOwnPagedLastParams.ProgramID == nil {
+		t.Fatal("ProgramID must be forwarded to the repository")
+	}
+	if *repo.listOwnPagedLastParams.ProgramID != programID {
+		t.Errorf("ProgramID = %v, want %v", *repo.listOwnPagedLastParams.ProgramID, programID)
+	}
+}
+
+func TestService_ListOwnGrades_BothFilters_PassedToRepo(t *testing.T) {
+	t.Parallel()
+
+	periodID := uuid.New()
+	programID := uuid.New()
+	repo := &fakeRepository{listOwnPagedRows: []gradesdb.ListOwnGradesPagedRow{}}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListOwnGrades(ctx, 20, "", periodID.String(), programID.String())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.listOwnPagedLastParams.AcademicPeriodID == nil || repo.listOwnPagedLastParams.ProgramID == nil {
+		t.Fatal("both filters must be forwarded to the repository")
+	}
+}
+
+func TestService_ListOwnGrades_EmptyFilters_NilInRepo(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{listOwnPagedRows: []gradesdb.ListOwnGradesPagedRow{}}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListOwnGrades(ctx, 20, "", "", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.listOwnPagedLastParams.AcademicPeriodID != nil {
+		t.Error("AcademicPeriodID must be nil when filter is empty")
+	}
+	if repo.listOwnPagedLastParams.ProgramID != nil {
+		t.Error("ProgramID must be nil when filter is empty")
+	}
+}
+
+func TestService_ListOwnGrades_InvalidAcademicPeriodID_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListOwnGrades(ctx, 20, "", "not-a-uuid", "")
+	if repo.listOwnPagedCalled {
+		t.Error("repository must not be called with invalid academic_period_id")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("ListOwnGrades(bad period id) = %v; want ErrInvalidInput", err)
+	}
+}
+
+func TestService_ListOwnGrades_InvalidProgramID_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListOwnGrades(ctx, 20, "", "", "not-a-uuid")
+	if repo.listOwnPagedCalled {
+		t.Error("repository must not be called with invalid program_id")
+	}
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("ListOwnGrades(bad program id) = %v; want ErrInvalidInput", err)
+	}
+}
+
+// =====================================================================================
+// ListOwnGradePeriods — service unit tests
+// =====================================================================================
+
+func TestService_ListOwnGradePeriods_DelegatesAndReturns(t *testing.T) {
+	t.Parallel()
+
+	id0 := uuid.New()
+	id1 := uuid.New()
+	rows := []gradesdb.ListOwnGradePeriodsRow{
+		{AcademicPeriodID: pgtype.UUID{Bytes: id0, Valid: true}, Year: 2026, Term: 1},
+		{AcademicPeriodID: pgtype.UUID{Bytes: id1, Valid: true}, Year: 2025, Term: 2},
+	}
+	repo := &fakeRepository{listOwnPeriodsRows: rows}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	got, err := svc.ListOwnGradePeriods(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repo.listOwnPeriodsCalled {
+		t.Fatal("ListOwnGradePeriods must be called on the repository")
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d periods, want 2", len(got))
+	}
+	// Assert mapped values so a year↔term swap or field mismatch is caught.
+	if got[0].AcademicPeriodID.Bytes != id0 {
+		t.Errorf("got[0].AcademicPeriodID = %v, want %v", got[0].AcademicPeriodID.Bytes, id0)
+	}
+	if got[0].Year != 2026 {
+		t.Errorf("got[0].Year = %d, want 2026", got[0].Year)
+	}
+	if got[0].Term != 1 {
+		t.Errorf("got[0].Term = %d, want 1", got[0].Term)
+	}
+	if got[1].AcademicPeriodID.Bytes != id1 {
+		t.Errorf("got[1].AcademicPeriodID = %v, want %v", got[1].AcademicPeriodID.Bytes, id1)
+	}
+	if got[1].Year != 2025 {
+		t.Errorf("got[1].Year = %d, want 2025", got[1].Year)
+	}
+	if got[1].Term != 2 {
+		t.Errorf("got[1].Term = %d, want 2", got[1].Term)
+	}
+}
+
+func TestService_ListOwnGradePeriods_NoUser_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	_, err := svc.ListOwnGradePeriods(context.Background())
+	if repo.listOwnPeriodsCalled {
+		t.Error("repository must not be called when user is absent from context")
+	}
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("ListOwnGradePeriods(no user) = %v; want ErrNotFound", err)
+	}
+}
+
+func TestService_ListOwnGradePeriods_RepoError_Propagates(t *testing.T) {
+	t.Parallel()
+
+	injectedErr := errors.New("db failure")
+	repo := &fakeRepository{listOwnPeriodsErr: injectedErr}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListOwnGradePeriods(ctx)
+	if !errors.Is(err, injectedErr) {
+		t.Errorf("ListOwnGradePeriods error = %v; want wrapped %v", err, injectedErr)
 	}
 }
 

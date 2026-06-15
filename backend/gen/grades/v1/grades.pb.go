@@ -258,16 +258,41 @@ func (x *Grade) GetUpdatedAt() string {
 }
 
 // OwnGrade is the student-facing grade record. graded_by is intentionally absent.
+// Fields 1–7 are stable; fields 8–17 were added for self-contained display labels.
 type OwnGrade struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	EvaluationId        string                 `protobuf:"bytes,2,opt,name=evaluation_id,json=evaluationId,proto3" json:"evaluation_id,omitempty"`
 	SectionEnrollmentId string                 `protobuf:"bytes,3,opt,name=section_enrollment_id,json=sectionEnrollmentId,proto3" json:"section_enrollment_id,omitempty"`
 	// value is a decimal string (e.g. "5.5").
-	Value         string `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
-	Version       int32  `protobuf:"varint,5,opt,name=version,proto3" json:"version,omitempty"`
-	CreatedAt     string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Value     string `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	Version   int32  `protobuf:"varint,5,opt,name=version,proto3" json:"version,omitempty"`
+	CreatedAt string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// course_code is the short code for the course (e.g. "MAT101").
+	CourseCode string `protobuf:"bytes,8,opt,name=course_code,json=courseCode,proto3" json:"course_code,omitempty"`
+	// course_name is the display name of the course.
+	CourseName string `protobuf:"bytes,9,opt,name=course_name,json=courseName,proto3" json:"course_name,omitempty"`
+	// evaluation_position is the 1-based ordinal of this evaluation in the course scheme.
+	EvaluationPosition int32 `protobuf:"varint,10,opt,name=evaluation_position,json=evaluationPosition,proto3" json:"evaluation_position,omitempty"`
+	// evaluation_weight is the decimal weight string (e.g. "0.300").
+	EvaluationWeight string `protobuf:"bytes,11,opt,name=evaluation_weight,json=evaluationWeight,proto3" json:"evaluation_weight,omitempty"`
+	// section_final_grade is the computed decimal final grade for the section enrollment.
+	// Empty string when the final grade has not yet been computed (section still in progress).
+	SectionFinalGrade string `protobuf:"bytes,12,opt,name=section_final_grade,json=sectionFinalGrade,proto3" json:"section_final_grade,omitempty"`
+	// section_status is the raw status of the section enrollment.
+	// One of: in_progress, passed, failed, withdrawn.
+	SectionStatus string `protobuf:"bytes,13,opt,name=section_status,json=sectionStatus,proto3" json:"section_status,omitempty"`
+	// academic_period_year is the calendar year of the academic period.
+	AcademicPeriodYear int32 `protobuf:"varint,14,opt,name=academic_period_year,json=academicPeriodYear,proto3" json:"academic_period_year,omitempty"`
+	// academic_period_term is the term number within the academic period year.
+	AcademicPeriodTerm int32 `protobuf:"varint,15,opt,name=academic_period_term,json=academicPeriodTerm,proto3" json:"academic_period_term,omitempty"`
+	// program_id is the UUID of the program filter that was active when this grade was fetched.
+	// Empty string when no program filter was applied.
+	ProgramId string `protobuf:"bytes,16,opt,name=program_id,json=programId,proto3" json:"program_id,omitempty"`
+	// program_name is the display name of the program when a program filter was active.
+	// Empty string when no program filter was applied.
+	ProgramName   string `protobuf:"bytes,17,opt,name=program_name,json=programName,proto3" json:"program_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -347,6 +372,76 @@ func (x *OwnGrade) GetCreatedAt() string {
 func (x *OwnGrade) GetUpdatedAt() string {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *OwnGrade) GetCourseCode() string {
+	if x != nil {
+		return x.CourseCode
+	}
+	return ""
+}
+
+func (x *OwnGrade) GetCourseName() string {
+	if x != nil {
+		return x.CourseName
+	}
+	return ""
+}
+
+func (x *OwnGrade) GetEvaluationPosition() int32 {
+	if x != nil {
+		return x.EvaluationPosition
+	}
+	return 0
+}
+
+func (x *OwnGrade) GetEvaluationWeight() string {
+	if x != nil {
+		return x.EvaluationWeight
+	}
+	return ""
+}
+
+func (x *OwnGrade) GetSectionFinalGrade() string {
+	if x != nil {
+		return x.SectionFinalGrade
+	}
+	return ""
+}
+
+func (x *OwnGrade) GetSectionStatus() string {
+	if x != nil {
+		return x.SectionStatus
+	}
+	return ""
+}
+
+func (x *OwnGrade) GetAcademicPeriodYear() int32 {
+	if x != nil {
+		return x.AcademicPeriodYear
+	}
+	return 0
+}
+
+func (x *OwnGrade) GetAcademicPeriodTerm() int32 {
+	if x != nil {
+		return x.AcademicPeriodTerm
+	}
+	return 0
+}
+
+func (x *OwnGrade) GetProgramId() string {
+	if x != nil {
+		return x.ProgramId
+	}
+	return ""
+}
+
+func (x *OwnGrade) GetProgramName() string {
+	if x != nil {
+		return x.ProgramName
 	}
 	return ""
 }
@@ -1073,7 +1168,14 @@ type ListOwnGradesRequest struct {
 	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// page_token is the opaque cursor from the previous page's next_page_token.
 	// Omit or leave empty to start from the most recent grades.
-	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// academic_period_id optionally filters grades to a single academic period.
+	// Omit or leave empty to return grades from all periods.
+	AcademicPeriodId *string `protobuf:"bytes,3,opt,name=academic_period_id,json=academicPeriodId,proto3,oneof" json:"academic_period_id,omitempty"`
+	// program_id optionally filters grades to courses belonging to a specific program.
+	// Uses an EXISTS subquery to avoid row duplication from M:N program_courses.
+	// Omit or leave empty to return grades from all programs.
+	ProgramId     *string `protobuf:"bytes,4,opt,name=program_id,json=programId,proto3,oneof" json:"program_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1118,6 +1220,20 @@ func (x *ListOwnGradesRequest) GetPageSize() int32 {
 func (x *ListOwnGradesRequest) GetPageToken() string {
 	if x != nil {
 		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListOwnGradesRequest) GetAcademicPeriodId() string {
+	if x != nil && x.AcademicPeriodId != nil {
+		return *x.AcademicPeriodId
+	}
+	return ""
+}
+
+func (x *ListOwnGradesRequest) GetProgramId() string {
+	if x != nil && x.ProgramId != nil {
+		return *x.ProgramId
 	}
 	return ""
 }
@@ -1176,6 +1292,151 @@ func (x *ListOwnGradesResponse) GetNextPageToken() string {
 	return ""
 }
 
+// GradePeriod carries the identifying information for one academic period
+// in which a student has grades.
+type GradePeriod struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	AcademicPeriodId string                 `protobuf:"bytes,1,opt,name=academic_period_id,json=academicPeriodId,proto3" json:"academic_period_id,omitempty"`
+	Year             int32                  `protobuf:"varint,2,opt,name=year,proto3" json:"year,omitempty"`
+	Term             int32                  `protobuf:"varint,3,opt,name=term,proto3" json:"term,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *GradePeriod) Reset() {
+	*x = GradePeriod{}
+	mi := &file_grades_v1_grades_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GradePeriod) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GradePeriod) ProtoMessage() {}
+
+func (x *GradePeriod) ProtoReflect() protoreflect.Message {
+	mi := &file_grades_v1_grades_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GradePeriod.ProtoReflect.Descriptor instead.
+func (*GradePeriod) Descriptor() ([]byte, []int) {
+	return file_grades_v1_grades_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *GradePeriod) GetAcademicPeriodId() string {
+	if x != nil {
+		return x.AcademicPeriodId
+	}
+	return ""
+}
+
+func (x *GradePeriod) GetYear() int32 {
+	if x != nil {
+		return x.Year
+	}
+	return 0
+}
+
+func (x *GradePeriod) GetTerm() int32 {
+	if x != nil {
+		return x.Term
+	}
+	return 0
+}
+
+// ListOwnGradePeriodsRequest is the request for ListOwnGradePeriods.
+// No parameters beyond the session context; student identity is derived server-side.
+type ListOwnGradePeriodsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOwnGradePeriodsRequest) Reset() {
+	*x = ListOwnGradePeriodsRequest{}
+	mi := &file_grades_v1_grades_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOwnGradePeriodsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOwnGradePeriodsRequest) ProtoMessage() {}
+
+func (x *ListOwnGradePeriodsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_grades_v1_grades_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOwnGradePeriodsRequest.ProtoReflect.Descriptor instead.
+func (*ListOwnGradePeriodsRequest) Descriptor() ([]byte, []int) {
+	return file_grades_v1_grades_proto_rawDescGZIP(), []int{21}
+}
+
+// ListOwnGradePeriodsResponse is the response for ListOwnGradePeriods.
+type ListOwnGradePeriodsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Periods       []*GradePeriod         `protobuf:"bytes,1,rep,name=periods,proto3" json:"periods,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOwnGradePeriodsResponse) Reset() {
+	*x = ListOwnGradePeriodsResponse{}
+	mi := &file_grades_v1_grades_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOwnGradePeriodsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOwnGradePeriodsResponse) ProtoMessage() {}
+
+func (x *ListOwnGradePeriodsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_grades_v1_grades_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOwnGradePeriodsResponse.ProtoReflect.Descriptor instead.
+func (*ListOwnGradePeriodsResponse) Descriptor() ([]byte, []int) {
+	return file_grades_v1_grades_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ListOwnGradePeriodsResponse) GetPeriods() []*GradePeriod {
+	if x != nil {
+		return x.Periods
+	}
+	return nil
+}
+
 var File_grades_v1_grades_proto protoreflect.FileDescriptor
 
 const file_grades_v1_grades_proto_rawDesc = "" +
@@ -1203,7 +1464,7 @@ const file_grades_v1_grades_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\b \x01(\tR\tupdatedAt\"\xe1\x01\n" +
+	"updated_at\x18\b \x01(\tR\tupdatedAt\"\xfe\x04\n" +
 	"\bOwnGrade\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
 	"\revaluation_id\x18\x02 \x01(\tR\fevaluationId\x122\n" +
@@ -1213,7 +1474,21 @@ const file_grades_v1_grades_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\tR\tupdatedAt\"z\n" +
+	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\x1f\n" +
+	"\vcourse_code\x18\b \x01(\tR\n" +
+	"courseCode\x12\x1f\n" +
+	"\vcourse_name\x18\t \x01(\tR\n" +
+	"courseName\x12/\n" +
+	"\x13evaluation_position\x18\n" +
+	" \x01(\x05R\x12evaluationPosition\x12+\n" +
+	"\x11evaluation_weight\x18\v \x01(\tR\x10evaluationWeight\x12.\n" +
+	"\x13section_final_grade\x18\f \x01(\tR\x11sectionFinalGrade\x12%\n" +
+	"\x0esection_status\x18\r \x01(\tR\rsectionStatus\x120\n" +
+	"\x14academic_period_year\x18\x0e \x01(\x05R\x12academicPeriodYear\x120\n" +
+	"\x14academic_period_term\x18\x0f \x01(\x05R\x12academicPeriodTerm\x12\x1d\n" +
+	"\n" +
+	"program_id\x18\x10 \x01(\tR\tprogramId\x12!\n" +
+	"\fprogram_name\x18\x11 \x01(\tR\vprogramName\"z\n" +
 	"\x1dCreateEvaluationSchemeRequest\x12\x1b\n" +
 	"\tcourse_id\x18\x01 \x01(\tR\bcourseId\x12<\n" +
 	"\vevaluations\x18\x02 \x03(\v2\x1a.grades.v1.EvaluationInputR\vevaluations\"Y\n" +
@@ -1256,14 +1531,26 @@ const file_grades_v1_grades_proto_rawDesc = "" +
 	"\x0fGetGradeRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\":\n" +
 	"\x10GetGradeResponse\x12&\n" +
-	"\x05grade\x18\x01 \x01(\v2\x10.grades.v1.GradeR\x05grade\"R\n" +
+	"\x05grade\x18\x01 \x01(\v2\x10.grades.v1.GradeR\x05grade\"\xcf\x01\n" +
 	"\x14ListOwnGradesRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x02 \x01(\tR\tpageToken\"l\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\x121\n" +
+	"\x12academic_period_id\x18\x03 \x01(\tH\x00R\x10academicPeriodId\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"program_id\x18\x04 \x01(\tH\x01R\tprogramId\x88\x01\x01B\x15\n" +
+	"\x13_academic_period_idB\r\n" +
+	"\v_program_id\"l\n" +
 	"\x15ListOwnGradesResponse\x12+\n" +
 	"\x06grades\x18\x01 \x03(\v2\x13.grades.v1.OwnGradeR\x06grades\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xf1\x05\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"c\n" +
+	"\vGradePeriod\x12,\n" +
+	"\x12academic_period_id\x18\x01 \x01(\tR\x10academicPeriodId\x12\x12\n" +
+	"\x04year\x18\x02 \x01(\x05R\x04year\x12\x12\n" +
+	"\x04term\x18\x03 \x01(\x05R\x04term\"\x1c\n" +
+	"\x1aListOwnGradePeriodsRequest\"O\n" +
+	"\x1bListOwnGradePeriodsResponse\x120\n" +
+	"\aperiods\x18\x01 \x03(\v2\x16.grades.v1.GradePeriodR\aperiods2\xd7\x06\n" +
 	"\rGradesService\x12m\n" +
 	"\x16CreateEvaluationScheme\x12(.grades.v1.CreateEvaluationSchemeRequest\x1a).grades.v1.CreateEvaluationSchemeResponse\x12s\n" +
 	"\x18RecreateEvaluationScheme\x12*.grades.v1.RecreateEvaluationSchemeRequest\x1a+.grades.v1.RecreateEvaluationSchemeResponse\x12X\n" +
@@ -1272,7 +1559,8 @@ const file_grades_v1_grades_proto_rawDesc = "" +
 	"\rOverrideGrade\x12\x1f.grades.v1.OverrideGradeRequest\x1a .grades.v1.OverrideGradeResponse\x12g\n" +
 	"\x14ListGradesForSection\x12&.grades.v1.ListGradesForSectionRequest\x1a'.grades.v1.ListGradesForSectionResponse\x12C\n" +
 	"\bGetGrade\x12\x1a.grades.v1.GetGradeRequest\x1a\x1b.grades.v1.GetGradeResponse\x12R\n" +
-	"\rListOwnGrades\x12\x1f.grades.v1.ListOwnGradesRequest\x1a .grades.v1.ListOwnGradesResponseB[ZYgithub.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1;gradesv1b\x06proto3"
+	"\rListOwnGrades\x12\x1f.grades.v1.ListOwnGradesRequest\x1a .grades.v1.ListOwnGradesResponse\x12d\n" +
+	"\x13ListOwnGradePeriods\x12%.grades.v1.ListOwnGradePeriodsRequest\x1a&.grades.v1.ListOwnGradePeriodsResponseB[ZYgithub.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/grades/v1;gradesv1b\x06proto3"
 
 var (
 	file_grades_v1_grades_proto_rawDescOnce sync.Once
@@ -1286,7 +1574,7 @@ func file_grades_v1_grades_proto_rawDescGZIP() []byte {
 	return file_grades_v1_grades_proto_rawDescData
 }
 
-var file_grades_v1_grades_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_grades_v1_grades_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_grades_v1_grades_proto_goTypes = []any{
 	(*EvaluationInput)(nil),                  // 0: grades.v1.EvaluationInput
 	(*Evaluation)(nil),                       // 1: grades.v1.Evaluation
@@ -1308,6 +1596,9 @@ var file_grades_v1_grades_proto_goTypes = []any{
 	(*GetGradeResponse)(nil),                 // 17: grades.v1.GetGradeResponse
 	(*ListOwnGradesRequest)(nil),             // 18: grades.v1.ListOwnGradesRequest
 	(*ListOwnGradesResponse)(nil),            // 19: grades.v1.ListOwnGradesResponse
+	(*GradePeriod)(nil),                      // 20: grades.v1.GradePeriod
+	(*ListOwnGradePeriodsRequest)(nil),       // 21: grades.v1.ListOwnGradePeriodsRequest
+	(*ListOwnGradePeriodsResponse)(nil),      // 22: grades.v1.ListOwnGradePeriodsResponse
 }
 var file_grades_v1_grades_proto_depIdxs = []int32{
 	0,  // 0: grades.v1.CreateEvaluationSchemeRequest.evaluations:type_name -> grades.v1.EvaluationInput
@@ -1320,27 +1611,30 @@ var file_grades_v1_grades_proto_depIdxs = []int32{
 	2,  // 7: grades.v1.ListGradesForSectionResponse.grades:type_name -> grades.v1.Grade
 	2,  // 8: grades.v1.GetGradeResponse.grade:type_name -> grades.v1.Grade
 	3,  // 9: grades.v1.ListOwnGradesResponse.grades:type_name -> grades.v1.OwnGrade
-	4,  // 10: grades.v1.GradesService.CreateEvaluationScheme:input_type -> grades.v1.CreateEvaluationSchemeRequest
-	6,  // 11: grades.v1.GradesService.RecreateEvaluationScheme:input_type -> grades.v1.RecreateEvaluationSchemeRequest
-	8,  // 12: grades.v1.GradesService.ListEvaluations:input_type -> grades.v1.ListEvaluationsRequest
-	10, // 13: grades.v1.GradesService.RecordGrade:input_type -> grades.v1.RecordGradeRequest
-	12, // 14: grades.v1.GradesService.OverrideGrade:input_type -> grades.v1.OverrideGradeRequest
-	14, // 15: grades.v1.GradesService.ListGradesForSection:input_type -> grades.v1.ListGradesForSectionRequest
-	16, // 16: grades.v1.GradesService.GetGrade:input_type -> grades.v1.GetGradeRequest
-	18, // 17: grades.v1.GradesService.ListOwnGrades:input_type -> grades.v1.ListOwnGradesRequest
-	5,  // 18: grades.v1.GradesService.CreateEvaluationScheme:output_type -> grades.v1.CreateEvaluationSchemeResponse
-	7,  // 19: grades.v1.GradesService.RecreateEvaluationScheme:output_type -> grades.v1.RecreateEvaluationSchemeResponse
-	9,  // 20: grades.v1.GradesService.ListEvaluations:output_type -> grades.v1.ListEvaluationsResponse
-	11, // 21: grades.v1.GradesService.RecordGrade:output_type -> grades.v1.RecordGradeResponse
-	13, // 22: grades.v1.GradesService.OverrideGrade:output_type -> grades.v1.OverrideGradeResponse
-	15, // 23: grades.v1.GradesService.ListGradesForSection:output_type -> grades.v1.ListGradesForSectionResponse
-	17, // 24: grades.v1.GradesService.GetGrade:output_type -> grades.v1.GetGradeResponse
-	19, // 25: grades.v1.GradesService.ListOwnGrades:output_type -> grades.v1.ListOwnGradesResponse
-	18, // [18:26] is the sub-list for method output_type
-	10, // [10:18] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	20, // 10: grades.v1.ListOwnGradePeriodsResponse.periods:type_name -> grades.v1.GradePeriod
+	4,  // 11: grades.v1.GradesService.CreateEvaluationScheme:input_type -> grades.v1.CreateEvaluationSchemeRequest
+	6,  // 12: grades.v1.GradesService.RecreateEvaluationScheme:input_type -> grades.v1.RecreateEvaluationSchemeRequest
+	8,  // 13: grades.v1.GradesService.ListEvaluations:input_type -> grades.v1.ListEvaluationsRequest
+	10, // 14: grades.v1.GradesService.RecordGrade:input_type -> grades.v1.RecordGradeRequest
+	12, // 15: grades.v1.GradesService.OverrideGrade:input_type -> grades.v1.OverrideGradeRequest
+	14, // 16: grades.v1.GradesService.ListGradesForSection:input_type -> grades.v1.ListGradesForSectionRequest
+	16, // 17: grades.v1.GradesService.GetGrade:input_type -> grades.v1.GetGradeRequest
+	18, // 18: grades.v1.GradesService.ListOwnGrades:input_type -> grades.v1.ListOwnGradesRequest
+	21, // 19: grades.v1.GradesService.ListOwnGradePeriods:input_type -> grades.v1.ListOwnGradePeriodsRequest
+	5,  // 20: grades.v1.GradesService.CreateEvaluationScheme:output_type -> grades.v1.CreateEvaluationSchemeResponse
+	7,  // 21: grades.v1.GradesService.RecreateEvaluationScheme:output_type -> grades.v1.RecreateEvaluationSchemeResponse
+	9,  // 22: grades.v1.GradesService.ListEvaluations:output_type -> grades.v1.ListEvaluationsResponse
+	11, // 23: grades.v1.GradesService.RecordGrade:output_type -> grades.v1.RecordGradeResponse
+	13, // 24: grades.v1.GradesService.OverrideGrade:output_type -> grades.v1.OverrideGradeResponse
+	15, // 25: grades.v1.GradesService.ListGradesForSection:output_type -> grades.v1.ListGradesForSectionResponse
+	17, // 26: grades.v1.GradesService.GetGrade:output_type -> grades.v1.GetGradeResponse
+	19, // 27: grades.v1.GradesService.ListOwnGrades:output_type -> grades.v1.ListOwnGradesResponse
+	22, // 28: grades.v1.GradesService.ListOwnGradePeriods:output_type -> grades.v1.ListOwnGradePeriodsResponse
+	20, // [20:29] is the sub-list for method output_type
+	11, // [11:20] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_grades_v1_grades_proto_init() }
@@ -1350,13 +1644,14 @@ func file_grades_v1_grades_proto_init() {
 	}
 	file_grades_v1_grades_proto_msgTypes[10].OneofWrappers = []any{}
 	file_grades_v1_grades_proto_msgTypes[12].OneofWrappers = []any{}
+	file_grades_v1_grades_proto_msgTypes[18].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_grades_v1_grades_proto_rawDesc), len(file_grades_v1_grades_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

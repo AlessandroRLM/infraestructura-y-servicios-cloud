@@ -150,7 +150,15 @@ func (h *Handler) ListOwnGrades(
 	ctx context.Context,
 	req *connect.Request[gradesv1.ListOwnGradesRequest],
 ) (*connect.Response[gradesv1.ListOwnGradesResponse], error) {
-	result, err := h.svc.ListOwnGrades(ctx, req.Msg.PageSize, req.Msg.PageToken)
+	periodID := ""
+	if req.Msg.AcademicPeriodId != nil {
+		periodID = *req.Msg.AcademicPeriodId
+	}
+	programID := ""
+	if req.Msg.ProgramId != nil {
+		programID = *req.Msg.ProgramId
+	}
+	result, err := h.svc.ListOwnGrades(ctx, req.Msg.PageSize, req.Msg.PageToken, periodID, programID)
 	if err != nil {
 		return nil, MapError(ctx, err)
 	}
@@ -161,6 +169,27 @@ func (h *Handler) ListOwnGrades(
 	return connect.NewResponse(&gradesv1.ListOwnGradesResponse{
 		Grades:        grades,
 		NextPageToken: result.NextPageToken,
+	}), nil
+}
+
+func (h *Handler) ListOwnGradePeriods(
+	ctx context.Context,
+	_ *connect.Request[gradesv1.ListOwnGradePeriodsRequest],
+) (*connect.Response[gradesv1.ListOwnGradePeriodsResponse], error) {
+	rows, err := h.svc.ListOwnGradePeriods(ctx)
+	if err != nil {
+		return nil, MapError(ctx, err)
+	}
+	periods := make([]*gradesv1.GradePeriod, len(rows))
+	for i, r := range rows {
+		periods[i] = &gradesv1.GradePeriod{
+			AcademicPeriodId: uuidToString(r.AcademicPeriodID),
+			Year:             r.Year,
+			Term:             r.Term,
+		}
+	}
+	return connect.NewResponse(&gradesv1.ListOwnGradePeriodsResponse{
+		Periods: periods,
 	}), nil
 }
 
@@ -199,8 +228,11 @@ func gradeToProto(g gradesdb.Grade) *gradesv1.Grade {
 	}
 }
 
-// ownGradeToProto converts a DB grade to the student-facing wire format (NO graded_by).
-func ownGradeToProto(g gradesdb.Grade) *gradesv1.OwnGrade {
+// ownGradeToProto converts an enriched DB grade row to the student-facing wire format.
+// graded_by is intentionally absent. program_id and program_name are sourced from the
+// student's enrollment program (enrollments.program_id → programs) and are always present.
+func ownGradeToProto(g gradesdb.ListOwnGradesPagedRow) *gradesv1.OwnGrade {
+	programIDStr := uuidToString(g.ProgramID)
 	return &gradesv1.OwnGrade{
 		Id:                  uuidToString(g.ID),
 		EvaluationId:        uuidToString(g.EvaluationID),
@@ -209,6 +241,16 @@ func ownGradeToProto(g gradesdb.Grade) *gradesv1.OwnGrade {
 		Version:             g.Version,
 		CreatedAt:           g.CreatedAt.Time.UTC().Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:           g.UpdatedAt.Time.UTC().Format("2006-01-02T15:04:05Z"),
+		CourseCode:          g.CourseCode,
+		CourseName:          g.CourseName,
+		EvaluationPosition:  g.EvaluationPosition,
+		EvaluationWeight:    pgconv.NumericToString(g.EvaluationWeight),
+		SectionFinalGrade:   pgconv.NumericToString(g.SectionFinalGrade),
+		SectionStatus:       g.SectionStatus,
+		AcademicPeriodYear:  g.AcademicPeriodYear,
+		AcademicPeriodTerm:  g.AcademicPeriodTerm,
+		ProgramId:           programIDStr,
+		ProgramName:         g.ProgramName,
 	}
 }
 
