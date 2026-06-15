@@ -14,7 +14,7 @@ const usersSearchSchema = z.object({
 export const Route = createFileRoute("/_authenticated/users")({
   validateSearch: usersSearchSchema,
   beforeLoad: ({ context }) => {
-    requireRoutePermission(context.session, "/users");
+    requireRoutePermission(context.session, "/admin/users");
   },
   component: UsersPage,
 });

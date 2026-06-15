@@ -4,7 +4,7 @@ import { requireRoutePermission } from "@/features/auth";
 
 export const Route = createFileRoute("/_authenticated/access-control")({
   beforeLoad: ({ context }) => {
-    requireRoutePermission(context.session, "/access-control");
+    requireRoutePermission(context.session, "/admin/access-control");
   },
   component: AccessControlPage,
 });

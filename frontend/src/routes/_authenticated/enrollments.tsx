@@ -4,7 +4,7 @@ import { EnrollmentsPage } from "@/features/enrollments";
 
 export const Route = createFileRoute("/_authenticated/enrollments")({
   beforeLoad: ({ context }) => {
-    requireRoutePermission(context.session, "/enrollments");
+    requireRoutePermission(context.session, "/admin/enrollments");
   },
   component: EnrollmentsPage,
 });

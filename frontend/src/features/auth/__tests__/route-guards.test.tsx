@@ -6,10 +6,6 @@ import { renderWithProviders } from "@/test";
 import { ROUTE_PERMISSIONS } from "../routePermissions";
 import type { SessionState } from "../types";
 
-const guardedRoutes = Object.keys(
-  ROUTE_PERMISSIONS,
-) as (keyof typeof ROUTE_PERMISSIONS)[];
-
 function authenticated(permissions: string[]): SessionState {
   return {
     status: "authenticated",
@@ -22,6 +18,7 @@ function authenticated(permissions: string[]): SessionState {
 
 describe("route permission guards", () => {
   it("redirects an authenticated user lacking the permission to the 403 screen", async () => {
+    // /academics still exists as a flat route; its guard now checks /admin/academics.
     renderWithProviders({ route: "/academics", session: authenticated([]) });
 
     expect(
@@ -62,13 +59,37 @@ describe("route permission guards", () => {
   });
 });
 
-// Data-driven over the map so a route added to ROUTE_PERMISSIONS without a
-// matching beforeLoad (fail-open), or wired to the wrong permission key, fails
-// here instead of shipping. Asserts the post-navigation pathname, so it needs
-// no per-page transport stub — the guard runs in beforeLoad, before the page.
-describe("every route in ROUTE_PERMISSIONS is actually guarded", () => {
+/**
+ * During the area-routing migration (Slice 1), the flat route files still live
+ * at their original paths but their guards now reference the prefixed keys in
+ * ROUTE_PERMISSIONS (e.g. "/academics" guards with "/admin/academics").
+ *
+ * This map ties the existing flat paths to the permission key they use so
+ * the data-driven guard test can assert "path X without permission Y → /forbidden"
+ * without needing the new prefixed route files to exist yet.
+ *
+ * Slice 2 replaces this map with a test over the new /admin/* and /app/* paths.
+ */
+const FLAT_ROUTE_TO_PERMISSION_KEY: Record<string, string> = {
+  "/academics": "/admin/academics",
+  "/enrollments": "/admin/enrollments",
+  "/section-enrollments": "/admin/section-enrollments",
+  "/grades": "/admin/grades",
+  "/reports": "/admin/reports",
+  "/users": "/admin/users",
+  "/access-control": "/admin/access-control",
+};
+
+const flatRoutePairs = Object.entries(FLAT_ROUTE_TO_PERMISSION_KEY) as [
+  string,
+  keyof typeof ROUTE_PERMISSIONS,
+][];
+
+// Asserts that the guard runs in beforeLoad before the page — the redirect
+// happens before the component renders, so no per-page transport stub is needed.
+describe("every flat route (migration period) is guarded with its prefixed permission key", () => {
   it.each(
-    guardedRoutes,
+    flatRoutePairs,
   )("%s redirects to /forbidden without the required permission", async (route) => {
     const { router } = renderWithProviders({
       route,
@@ -81,11 +102,11 @@ describe("every route in ROUTE_PERMISSIONS is actually guarded", () => {
   });
 
   it.each(
-    guardedRoutes,
-  )("%s is reachable when the session holds its permission", async (route) => {
+    flatRoutePairs,
+  )("%s is reachable when the session holds its permission", async (route, permKey) => {
     const { router } = renderWithProviders({
       route,
-      session: authenticated([ROUTE_PERMISSIONS[route][0]]),
+      session: authenticated([ROUTE_PERMISSIONS[permKey][0]]),
     });
 
     await waitFor(() => expect(router.state.location.pathname).toBe(route));
@@ -93,7 +114,7 @@ describe("every route in ROUTE_PERMISSIONS is actually guarded", () => {
 });
 
 // Locks the nav to the same source of truth: a guarded link shows only when the
-// session holds the route's permission.
+// session holds the route's permission (resolved via the new prefixed key).
 describe("nav link visibility derives from ROUTE_PERMISSIONS", () => {
   it("shows a guarded link when the session holds the permission", async () => {
     renderWithProviders({
