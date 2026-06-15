@@ -69,7 +69,7 @@ function renderPage(
   permissions: string[] = ["users.manage"],
 ) {
   return renderWithProviders({
-    route: "/users",
+    route: "/admin/users",
     transport: makeStubTransport([IamService, handlers]),
     session: { ...adminSession, permissions },
     sessionSource: adminSessionSource,
@@ -176,7 +176,7 @@ describe("UsersTable", () => {
       create(ListUsersResponseSchema, { users: [], nextPageToken: "" }),
     );
 
-    renderPageWithRoute("/users?q=bob", { listUsers });
+    renderPageWithRoute("/admin/users?q=bob", { listUsers });
 
     await waitFor(() => {
       expect(listUsers).toHaveBeenCalled();
@@ -194,7 +194,7 @@ describe("UsersTable", () => {
       create(ListUsersResponseSchema, { users: [], nextPageToken: "" }),
     );
 
-    renderPageWithRoute("/users?q=alice", { listUsers });
+    renderPageWithRoute("/admin/users?q=alice", { listUsers });
 
     await screen.findByText("No se encontraron usuarios.");
 

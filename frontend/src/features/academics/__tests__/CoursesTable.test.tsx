@@ -60,7 +60,7 @@ const adminSessionSource = {
 
 function renderCoursesTab(handlers: CatalogImpl) {
   return renderWithProviders({
-    route: "/academics?tab=courses",
+    route: "/admin/academics?tab=courses",
     transport: makeStubTransport([CatalogService, handlers]),
     session: adminSession,
     sessionSource: adminSessionSource,
@@ -204,7 +204,9 @@ describe("CoursesTable", () => {
       create(ListCoursesResponseSchema, { courses: [], nextPageToken: "" }),
     );
 
-    renderCoursesWithRoute("/academics?tab=courses&q=cal", { listCourses });
+    renderCoursesWithRoute("/admin/academics?tab=courses&q=cal", {
+      listCourses,
+    });
 
     await waitFor(() => {
       expect(listCourses).toHaveBeenCalled();

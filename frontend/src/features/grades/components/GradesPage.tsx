@@ -1,20 +1,8 @@
-import { hasPermission, useSession } from "@/features/auth";
-import { OwnGradesView } from "./OwnGradesView";
-
 /**
- * Entry-point for the /grades route. Branches on the session permission:
- * - `grades.view_own` → renders the student "Mis notas" accordion view.
- * - Anything else → renders a placeholder for roles that lack own-grade access.
+ * Admin/teacher grades placeholder at /admin/grades.
+ * Renders a coming-soon state; full grade-management UI lands in a later feature slice.
  */
 export function GradesPage() {
-  const session = useSession();
-  const canViewOwn = hasPermission(session, "grades.view_own");
-
-  if (canViewOwn) {
-    // OwnGradesView includes its own "Mis notas" heading.
-    return <OwnGradesView />;
-  }
-
   return (
     <div className="space-y-1">
       <h1 className="font-semibold text-2xl tracking-tight">Notas</h1>

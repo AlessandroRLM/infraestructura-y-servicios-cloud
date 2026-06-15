@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasPermission, useSession } from "@/features/auth";
-import { Route } from "@/routes/_authenticated/academics";
+import { Route } from "@/routes/_authenticated/admin/academics";
 import { CourseDialog } from "./CourseDialog";
 import { CoursesTable } from "./CoursesTable";
 import { ProgramDialog } from "./ProgramDialog";

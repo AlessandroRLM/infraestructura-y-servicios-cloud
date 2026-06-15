@@ -70,7 +70,7 @@ const teacherOnlyUser = create(UserSummarySchema, {
 
 function renderSheet(iamHandlers: IamImpl, profileHandlers: ProfileImpl = {}) {
   return renderWithProviders({
-    route: "/users",
+    route: "/admin/users",
     transport: makeStubTransport(
       [IamService, iamHandlers],
       [ProfileService, profileHandlers],

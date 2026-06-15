@@ -29,7 +29,7 @@ import {
 import { PageSizeSelector, SearchInput } from "@/core/components";
 import { hasPermission, useSession } from "@/features/auth";
 import type { Program } from "@/gen/catalog/v1/catalog_pb";
-import { Route } from "@/routes/_authenticated/academics";
+import { Route } from "@/routes/_authenticated/admin/academics";
 import { SEARCH_DEBOUNCE_MS } from "../constants";
 import { usePrograms } from "../hooks/usePrograms";
 import { DeleteProgramDialog } from "./DeleteProgramDialog";

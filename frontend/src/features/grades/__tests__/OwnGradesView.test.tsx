@@ -39,23 +39,6 @@ const studentSessionSource = {
   }),
 };
 
-const teacherSession = {
-  status: "authenticated" as const,
-  userId: "t1",
-  email: "teacher@test.com",
-  roles: ["teacher"],
-  permissions: ["grades.read"],
-};
-
-const teacherSessionSource = {
-  getSession: async (): Promise<AuthenticatedSession> => ({
-    userId: teacherSession.userId,
-    email: teacherSession.email,
-    roles: teacherSession.roles,
-    permissions: teacherSession.permissions,
-  }),
-};
-
 function makeGrade(
   overrides: Partial<Parameters<typeof create<typeof OwnGradeSchema>>[1]> = {},
 ) {
@@ -107,8 +90,8 @@ function renderGrades(
   });
 }
 
-describe("GradesPage — role branch", () => {
-  it("S-F1a: student with grades.view_own sees Mis notas heading", async () => {
+describe("OwnGradesView — /app/grades renders Mis notas", () => {
+  it("S-F1a: student with grades.view_own sees Mis notas heading at /app/grades", async () => {
     renderGrades({
       listOwnGrades: async () =>
         create(ListOwnGradesResponseSchema, { grades: [], nextPageToken: "" }),
@@ -118,20 +101,21 @@ describe("GradesPage — role branch", () => {
     await screen.findByRole("heading", { name: "Mis notas" });
     expect(screen.queryByText("próximamente")).not.toBeInTheDocument();
   });
+});
 
-  it("S-F1b: non-student role sees placeholder", async () => {
+describe("R-10 — old flat grades path yields 404 (not-found route)", () => {
+  it("S-08d: navigating to /grades renders the 404 not-found route", async () => {
     renderWithProviders({
       route: "/grades",
       transport: makeStubTransport(
         [GradesService, {}],
         [EnrollmentService, {}],
       ),
-      session: teacherSession,
-      sessionSource: teacherSessionSource,
+      session: studentSession,
+      sessionSource: studentSessionSource,
     });
 
-    await screen.findByText(/próximamente/i);
-    expect(screen.queryByText("Mis notas")).not.toBeInTheDocument();
+    await screen.findByText("Página no encontrada");
   });
 });
 
