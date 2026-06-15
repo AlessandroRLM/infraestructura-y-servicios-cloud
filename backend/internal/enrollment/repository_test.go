@@ -51,7 +51,7 @@ type fakeQuerier struct {
 	listResult []enrollmentdb.Enrollment
 	listErr    error
 
-	listOwnResult []enrollmentdb.Enrollment
+	listOwnResult []enrollmentdb.ListOwnEnrollmentsRow
 	listOwnErr    error
 }
 
@@ -100,7 +100,7 @@ func (f *fakeQuerier) ListEnrollments(_ context.Context, _ enrollmentdb.ListEnro
 	return f.listResult, f.listErr
 }
 
-func (f *fakeQuerier) ListOwnEnrollments(_ context.Context, _ enrollmentdb.ListOwnEnrollmentsParams) ([]enrollmentdb.Enrollment, error) {
+func (f *fakeQuerier) ListOwnEnrollments(_ context.Context, _ enrollmentdb.ListOwnEnrollmentsParams) ([]enrollmentdb.ListOwnEnrollmentsRow, error) {
 	return f.listOwnResult, f.listOwnErr
 }
 
@@ -285,10 +285,14 @@ func TestListEnrollments_DelegatesWithFilter(t *testing.T) {
 
 // ---- ListOwnEnrollments unit tests ----
 
-// TestListOwnEnrollments_Delegates verifies delegation to the querier.
+// TestListOwnEnrollments_Delegates verifies delegation to the querier and that
+// the program_name from the joined row is preserved.
 func TestListOwnEnrollments_Delegates(t *testing.T) {
 	studentID := uuid.New()
-	want := []enrollmentdb.Enrollment{{StudentID: pgUUID(studentID)}}
+	want := []enrollmentdb.ListOwnEnrollmentsRow{{
+		StudentID:   pgUUID(studentID),
+		ProgramName: "Systems Engineering",
+	}}
 	q := &fakeQuerier{listOwnResult: want}
 	repo := &postgresRepository{q: q}
 	got, err := repo.ListOwnEnrollments(context.Background(), ListOwnEnrollmentsRepoParams{StudentID: studentID, RowLimit: 21})
@@ -297,6 +301,9 @@ func TestListOwnEnrollments_Delegates(t *testing.T) {
 	}
 	if len(got) != len(want) {
 		t.Errorf("ListOwnEnrollments: got %d rows, want %d", len(got), len(want))
+	}
+	if got[0].ProgramName != "Systems Engineering" {
+		t.Errorf("ListOwnEnrollments: got program_name %q, want %q", got[0].ProgramName, "Systems Engineering")
 	}
 }
 
@@ -342,7 +349,7 @@ func TestListEnrollments_TokenTranslation(t *testing.T) {
 func TestListOwnEnrollments_TokenTranslation(t *testing.T) {
 	studentID := uuid.New()
 	token := uuid.New()
-	q := &fakeQuerier{listOwnResult: []enrollmentdb.Enrollment{}}
+	q := &fakeQuerier{listOwnResult: []enrollmentdb.ListOwnEnrollmentsRow{}}
 	repo := &postgresRepository{q: q}
 
 	_, err := repo.ListOwnEnrollments(context.Background(), ListOwnEnrollmentsRepoParams{

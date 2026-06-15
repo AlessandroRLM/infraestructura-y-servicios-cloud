@@ -287,11 +287,11 @@ type OwnGrade struct {
 	AcademicPeriodYear int32 `protobuf:"varint,14,opt,name=academic_period_year,json=academicPeriodYear,proto3" json:"academic_period_year,omitempty"`
 	// academic_period_term is the term number within the academic period year.
 	AcademicPeriodTerm int32 `protobuf:"varint,15,opt,name=academic_period_term,json=academicPeriodTerm,proto3" json:"academic_period_term,omitempty"`
-	// program_id is the UUID of the program filter that was active when this grade was fetched.
-	// Empty string when no program filter was applied.
+	// program_id is the UUID of the program (carrera) from the student's enrollment.
+	// Always present; sourced from enrollments.program_id, not from a filter parameter.
 	ProgramId string `protobuf:"bytes,16,opt,name=program_id,json=programId,proto3" json:"program_id,omitempty"`
-	// program_name is the display name of the program when a program filter was active.
-	// Empty string when no program filter was applied.
+	// program_name is the display name of the program (carrera) from the student's enrollment.
+	// Always present; sourced from enrollments.program_id → programs.name.
 	ProgramName   string `protobuf:"bytes,17,opt,name=program_name,json=programName,proto3" json:"program_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1172,8 +1172,8 @@ type ListOwnGradesRequest struct {
 	// academic_period_id optionally filters grades to a single academic period.
 	// Omit or leave empty to return grades from all periods.
 	AcademicPeriodId *string `protobuf:"bytes,3,opt,name=academic_period_id,json=academicPeriodId,proto3,oneof" json:"academic_period_id,omitempty"`
-	// program_id optionally filters grades to courses belonging to a specific program.
-	// Uses an EXISTS subquery to avoid row duplication from M:N program_courses.
+	// program_id optionally filters grades to those whose enrollment program matches.
+	// Compares enrollments.program_id = program_id directly (no M:N fan-out).
 	// Omit or leave empty to return grades from all programs.
 	ProgramId     *string `protobuf:"bytes,4,opt,name=program_id,json=programId,proto3,oneof" json:"program_id,omitempty"`
 	unknownFields protoimpl.UnknownFields

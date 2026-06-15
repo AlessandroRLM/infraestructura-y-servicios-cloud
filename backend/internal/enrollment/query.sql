@@ -51,8 +51,22 @@ ORDER BY id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
 -- name: ListOwnEnrollments :many
-SELECT * FROM enrollments
-WHERE student_id = sqlc.arg('student_id')::uuid AND deleted_at IS NULL
-  AND (sqlc.narg('page_token')::uuid IS NULL OR id < sqlc.narg('page_token')::uuid)
-ORDER BY id DESC
+SELECT
+  e.id,
+  e.student_id,
+  e.program_id,
+  e.year,
+  e.status,
+  e.paid_at,
+  e.created_at,
+  e.updated_at,
+  e.deleted_at,
+  e.created_by,
+  e.updated_by,
+  p.name AS program_name
+FROM enrollments e
+JOIN programs p ON p.id = e.program_id
+WHERE e.student_id = sqlc.arg('student_id')::uuid AND e.deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR e.id < sqlc.narg('page_token')::uuid)
+ORDER BY e.id DESC
 LIMIT sqlc.arg('row_limit')::int;

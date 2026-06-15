@@ -33,7 +33,7 @@ type fakeRepository struct {
 	listErr    error
 
 	listOwnCalled bool
-	listOwnResult []enrollmentdb.Enrollment
+	listOwnResult []enrollmentdb.ListOwnEnrollmentsRow
 	listOwnErr    error
 }
 
@@ -62,7 +62,7 @@ func (f *fakeRepository) ListEnrollments(_ context.Context, _ ListEnrollmentsRep
 	return f.listResult, f.listErr
 }
 
-func (f *fakeRepository) ListOwnEnrollments(_ context.Context, _ ListOwnEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error) {
+func (f *fakeRepository) ListOwnEnrollments(_ context.Context, _ ListOwnEnrollmentsRepoParams) ([]enrollmentdb.ListOwnEnrollmentsRow, error) {
 	f.listOwnCalled = true
 	return f.listOwnResult, f.listOwnErr
 }
@@ -169,7 +169,7 @@ func TestCancelEnrollment_PropagatesInvalidTransition(t *testing.T) {
 // ID from context and delegates to the repository using that ID.
 func TestListOwnEnrollments_InjectsContextUser(t *testing.T) {
 	userID := uuid.New()
-	repo := &fakeRepository{listOwnResult: []enrollmentdb.Enrollment{}}
+	repo := &fakeRepository{listOwnResult: []enrollmentdb.ListOwnEnrollmentsRow{}}
 	svc := NewService(repo)
 	ctx := ctxWithUser(userID)
 
@@ -352,12 +352,39 @@ func TestListEnrollments_EmptyTokenOnLastPage(t *testing.T) {
 	}
 }
 
+// TestListOwnEnrollments_CarriesProgramName verifies that when the repository returns a row
+// with a program name, ListOwnEnrollments propagates it to the result.
+func TestListOwnEnrollments_CarriesProgramName(t *testing.T) {
+	userID := uuid.New()
+	wantName := "Computer Science"
+	row := enrollmentdb.ListOwnEnrollmentsRow{
+		ID:          pgUUID(uuid.New()),
+		StudentID:   pgUUID(userID),
+		ProgramName: wantName,
+		Status:      "pending",
+	}
+	repo := &fakeRepository{listOwnResult: []enrollmentdb.ListOwnEnrollmentsRow{row}}
+	svc := NewService(repo)
+	ctx := ctxWithUser(userID)
+
+	result, err := svc.ListOwnEnrollments(ctx, 20, "")
+	if err != nil {
+		t.Fatalf("ListOwnEnrollments: %v", err)
+	}
+	if len(result.Enrollments) != 1 {
+		t.Fatalf("got %d enrollments, want 1", len(result.Enrollments))
+	}
+	if result.Enrollments[0].ProgramName != wantName {
+		t.Errorf("program_name: got %q, want %q", result.Enrollments[0].ProgramName, wantName)
+	}
+}
+
 // ---- ListOwnEnrollments pagination unit tests ----
 
 // TestListOwnEnrollments_ClampMin verifies page_size=0 is clamped to 20 (min).
 func TestListOwnEnrollments_ClampMin(t *testing.T) {
 	userID := uuid.New()
-	repo := &fakeRepository{listOwnResult: []enrollmentdb.Enrollment{}}
+	repo := &fakeRepository{listOwnResult: []enrollmentdb.ListOwnEnrollmentsRow{}}
 	svc := NewService(repo)
 	ctx := ctxWithUser(userID)
 
@@ -386,9 +413,9 @@ func TestListOwnEnrollments_InvalidToken(t *testing.T) {
 // TestListOwnEnrollments_NextTokenSetWhenHasNext verifies that 21 rows → non-empty token.
 func TestListOwnEnrollments_NextTokenSetWhenHasNext(t *testing.T) {
 	userID := uuid.New()
-	rows := make([]enrollmentdb.Enrollment, 21)
+	rows := make([]enrollmentdb.ListOwnEnrollmentsRow, 21)
 	for i := range rows {
-		rows[i] = enrollmentdb.Enrollment{ID: pgUUID(uuid.New())}
+		rows[i] = enrollmentdb.ListOwnEnrollmentsRow{ID: pgUUID(uuid.New()), ProgramName: "Computer Science"}
 	}
 	repo := &fakeRepository{listOwnResult: rows}
 	svc := NewService(repo)
