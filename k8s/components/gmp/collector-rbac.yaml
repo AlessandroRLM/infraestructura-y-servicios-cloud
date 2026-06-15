@@ -1,6 +1,5 @@
-# Lets the Managed Prometheus collector (gmp-system/collector) read app-secrets for the
-# /metrics scrape token. Apply directly (kubectl apply -f), NOT via the kustomize overlay:
-# the namespace transformer would rewrite the gmp-system subject and break the binding.
+# Lets the Managed Prometheus collector read app-secrets for the /metrics scrape token.
+# Apply directly, NOT via kustomize: the namespace transformer would break the gmp-system subject.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

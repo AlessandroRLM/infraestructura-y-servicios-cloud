@@ -1,5 +1,5 @@
-# Enforcement requiere un CNI con soporte de NetworkPolicy (Calico en minikube, Dataplane V2 en GKE).
-# Detalle y fundamento en docs/contenedores-kubernetes/seguridad-y-endurecimiento.md
+# Enforcement needs a NetworkPolicy-capable CNI (Calico on minikube, Dataplane V2 on GKE).
+# Rationale in docs/contenedores-kubernetes/seguridad-y-endurecimiento.md
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -50,10 +50,8 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
 ---
-# cert-manager crea pods solver temporales para el challenge HTTP-01 de ACME,
-# etiquetados acme.cert-manager.io/http01-solver=true. Sin esta regla, el
-# default-deny-ingress bloquea que ingress-nginx alcance al solver y la emisión
-# del certificado queda colgada (timeout en /.well-known/acme-challenge).
+# cert-manager's temporary HTTP-01 solver pods (acme.cert-manager.io/http01-solver=true)
+# need this, else default-deny-ingress blocks ingress-nginx and cert issuance hangs.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -70,11 +68,8 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: ingress-nginx
 ---
-# Egress a DNS por namespace (kube-system) en el puerto 53. NO se restringe con
-# podSelector k8s-app=kube-dns: en GKE Dataplane V2 (Cilium) el DNS va a la
-# ClusterIP de kube-dns y el podSelector no matchea el endpoint traducido, lo que
-# rompe la resolución de nombres. El namespaceSelector a kube-system es el patrón
-# confiable.
+# DNS egress to kube-system:53. No k8s-app=kube-dns podSelector: on Dataplane V2 (Cilium) the
+# query hits the kube-dns ClusterIP and the podSelector misses it, breaking name resolution.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
