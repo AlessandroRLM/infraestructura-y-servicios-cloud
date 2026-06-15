@@ -10,11 +10,11 @@ import { GradeSectionGroup } from "./GradeSectionGroup";
 import { GradesFilterBar } from "./GradesFilterBar";
 
 interface OwnGradesViewProps {
-  period?: string;
-  program?: string;
-  pageSize?: 20 | 50 | 100;
-  onPeriodChange?: (periodId: string) => void;
-  onProgramChange?: (programId: string) => void;
+  period: string;
+  program: string;
+  pageSize: 20 | 50 | 100;
+  onPeriodChange: (periodId: string) => void;
+  onProgramChange: (programId: string) => void;
 }
 
 /**
@@ -26,14 +26,11 @@ interface OwnGradesViewProps {
  * reads from Route.useSearch() and passes values + handlers as props.
  * This decoupling prevents a circular import between the route file and
  * this component.
- *
- * Props are optional for backward-compatibility with the migration-period
- * flat /grades shim (GradesPage). WU-8 removes the shim and makes them required.
  */
 export function OwnGradesView({
-  period = "",
-  program = "",
-  pageSize = 20,
+  period,
+  program,
+  pageSize,
   onPeriodChange,
   onProgramChange,
 }: OwnGradesViewProps) {
@@ -55,11 +52,11 @@ export function OwnGradesView({
   const hasActiveFilter = Boolean(period || program);
 
   const handlePeriodChange = (periodId: string) => {
-    onPeriodChange?.(periodId);
+    onPeriodChange(periodId);
   };
 
   const handleProgramChange = (programId: string) => {
-    onProgramChange?.(programId);
+    onProgramChange(programId);
   };
 
   return (
