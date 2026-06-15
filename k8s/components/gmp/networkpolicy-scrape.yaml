@@ -1,0 +1,20 @@
+# Allows the Managed Prometheus collector (gmp-system) to scrape the api /metrics endpoint.
+# Without this, default-deny-ingress drops the scrape (up=0) and app metrics never ingest.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gmp-scrape
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: gmp-system
+      ports:
+        - protocol: TCP
+          port: 8080

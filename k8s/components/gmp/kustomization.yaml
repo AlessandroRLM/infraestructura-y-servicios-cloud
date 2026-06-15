@@ -5,3 +5,4 @@ kind: Component
 # Included by the test/prod overlays; excluded from dev (minikube has no GMP CRD).
 resources:
   - podmonitoring.yaml
+  - networkpolicy-scrape.yaml
