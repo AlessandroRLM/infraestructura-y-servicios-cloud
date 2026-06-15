@@ -58,11 +58,18 @@ type Querier interface {
 	// Keyset-paginated list of grades for a section (admin path, no teacher scope).
 	// Ordered by g.id DESC. page_token is the exclusive upper bound on g.id (NULL = start).
 	ListGradesForSectionPaged(ctx context.Context, arg ListGradesForSectionPagedParams) ([]Grade, error)
+	// Returns the distinct academic periods in which the student has grades.
+	// Ordered by year DESC, term DESC for most-recent-first display.
+	ListOwnGradePeriods(ctx context.Context, studentID pgtype.UUID) ([]ListOwnGradePeriodsRow, error)
 	// Lists all grades for a student by joining through enrollments.
 	ListOwnGrades(ctx context.Context, studentID pgtype.UUID) ([]Grade, error)
-	// Keyset-paginated list of grades for a student (via enrollments join).
+	// Keyset-paginated list of grades for a student with enriched label columns.
+	// Joins evaluations, sections, courses, academic_periods for display labels.
+	// program_id and program_name are sourced from the student's enrollment program
+	// (enrollments.program_id → programs), not from the catalog M:N program_courses table.
+	// Optional academic_period_id and program_id predicates narrow results without fan-out.
 	// Ordered by g.id DESC. page_token is the exclusive upper bound on g.id (NULL = start).
-	ListOwnGradesPaged(ctx context.Context, arg ListOwnGradesPagedParams) ([]Grade, error)
+	ListOwnGradesPaged(ctx context.Context, arg ListOwnGradesPagedParams) ([]ListOwnGradesPagedRow, error)
 	// Acquires FOR UPDATE row locks on all live evaluation rows for a course.
 	// Must run before CountGradesForEvaluations inside RecreateEvaluationSchemeTx so that
 	// a concurrent RecordGradeTx (which holds FOR KEY SHARE on the evaluation via the FK)

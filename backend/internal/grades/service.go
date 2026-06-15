@@ -32,7 +32,7 @@ type ListGradesForSectionResult struct {
 
 // ListOwnGradesResult holds the paginated result for ListOwnGrades.
 type ListOwnGradesResult struct {
-	Grades        []gradesdb.Grade
+	Grades        []gradesdb.ListOwnGradesPagedRow
 	NextPageToken string
 }
 
@@ -270,10 +270,11 @@ func callerIsAdmin(ctx context.Context) bool {
 	return perms.Has(authz.PermGradesOverride)
 }
 
-// ListOwnGrades returns a paginated page of grades for the authenticated student.
+// ListOwnGrades returns a paginated page of enriched grades for the authenticated student.
 // pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// academicPeriodID and programID are optional UUID strings that filter the result; empty means no filter.
 // Student identity is derived exclusively from the context; no student_id in the request.
-func (s *Service) ListOwnGrades(ctx context.Context, pageSize int32, pageToken string) (ListOwnGradesResult, error) {
+func (s *Service) ListOwnGrades(ctx context.Context, pageSize int32, pageToken, academicPeriodID, programID string) (ListOwnGradesResult, error) {
 	callerID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		return ListOwnGradesResult{}, fmt.Errorf("%w: no authenticated user", ErrNotFound)
@@ -290,17 +291,37 @@ func (s *Service) ListOwnGrades(ctx context.Context, pageSize int32, pageToken s
 		tokenUUID = &id
 	}
 
+	var periodUUID *uuid.UUID
+	if academicPeriodID != "" {
+		id, err := uuid.Parse(academicPeriodID)
+		if err != nil {
+			return ListOwnGradesResult{}, fmt.Errorf("%w: academic_period_id is not a valid UUID: %q", ErrInvalidInput, academicPeriodID)
+		}
+		periodUUID = &id
+	}
+
+	var programUUID *uuid.UUID
+	if programID != "" {
+		id, err := uuid.Parse(programID)
+		if err != nil {
+			return ListOwnGradesResult{}, fmt.Errorf("%w: program_id is not a valid UUID: %q", ErrInvalidInput, programID)
+		}
+		programUUID = &id
+	}
+
 	rows, err := s.repo.ListOwnGradesPaged(ctx, ListOwnGradesRepoParams{
-		StudentID: callerID,
-		PageToken: tokenUUID,
-		RowLimit:  int32(clamped + 1),
+		StudentID:        callerID,
+		PageToken:        tokenUUID,
+		AcademicPeriodID: periodUUID,
+		ProgramID:        programUUID,
+		RowLimit:         int32(clamped + 1),
 	})
 	if err != nil {
 		return ListOwnGradesResult{}, err
 	}
 
 	page := pagination.Paginate(rows, clamped)
-	nextToken := pagination.TokenOf(page, func(g gradesdb.Grade) uuid.UUID {
+	nextToken := pagination.TokenOf(page, func(g gradesdb.ListOwnGradesPagedRow) uuid.UUID {
 		return uuid.UUID(g.ID.Bytes)
 	})
 
@@ -308,6 +329,16 @@ func (s *Service) ListOwnGrades(ctx context.Context, pageSize int32, pageToken s
 		Grades:        page.Items,
 		NextPageToken: nextToken,
 	}, nil
+}
+
+// ListOwnGradePeriods returns the distinct academic periods in which the authenticated
+// student has grades, ordered most-recent first. Student identity is derived from the context.
+func (s *Service) ListOwnGradePeriods(ctx context.Context) ([]gradesdb.ListOwnGradePeriodsRow, error) {
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("%w: no authenticated user", ErrNotFound)
+	}
+	return s.repo.ListOwnGradePeriods(ctx, callerID)
 }
 
 // --- Arithmetic ---

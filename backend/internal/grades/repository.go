@@ -79,13 +79,19 @@ type ListGradesForSectionByTeacherRepoParams struct {
 	RowLimit int32
 }
 
-// ListOwnGradesRepoParams holds pagination parameters for ListOwnGradesPaged.
+// ListOwnGradesRepoParams holds pagination and filter parameters for ListOwnGradesPaged.
 type ListOwnGradesRepoParams struct {
 	StudentID uuid.UUID
 	// PageToken is the exclusive upper bound on g.id (nil = start from most recent).
 	PageToken *uuid.UUID
 	// RowLimit is the number of rows to fetch (clampedPageSize + 1).
 	RowLimit int32
+	// AcademicPeriodID optionally filters to grades whose section belongs to this period.
+	// nil means no period filter.
+	AcademicPeriodID *uuid.UUID
+	// ProgramID optionally filters to grades whose enrollment program matches en.program_id = ProgramID.
+	// nil means no program filter.
+	ProgramID *uuid.UUID
 }
 
 // Repository is the data-access contract for the grades slice.
@@ -122,9 +128,13 @@ type Repository interface {
 	// section_teachers. Results are ordered by g.id DESC.
 	ListGradesForSectionByTeacherPaged(ctx context.Context, p ListGradesForSectionByTeacherRepoParams) ([]gradesdb.Grade, error)
 
-	// ListOwnGradesPaged returns a keyset-paginated page of grades for a student.
+	// ListOwnGradesPaged returns a keyset-paginated page of enriched grades for a student.
 	// Results are ordered by g.id DESC.
-	ListOwnGradesPaged(ctx context.Context, p ListOwnGradesRepoParams) ([]gradesdb.Grade, error)
+	ListOwnGradesPaged(ctx context.Context, p ListOwnGradesRepoParams) ([]gradesdb.ListOwnGradesPagedRow, error)
+
+	// ListOwnGradePeriods returns the distinct academic periods in which the student has grades.
+	// Results are ordered by year DESC, term DESC.
+	ListOwnGradePeriods(ctx context.Context, studentID uuid.UUID) ([]gradesdb.ListOwnGradePeriodsRow, error)
 
 	// GetGrade returns a single grade by id.
 	GetGrade(ctx context.Context, id uuid.UUID) (gradesdb.Grade, error)
@@ -528,18 +538,38 @@ func (r *postgresRepository) ListGradesForSectionByTeacherPaged(ctx context.Cont
 	return rows, nil
 }
 
-// ListOwnGradesPaged returns a keyset-paginated page of grades for a student.
-// Ordered by g.id DESC.
-func (r *postgresRepository) ListOwnGradesPaged(ctx context.Context, p ListOwnGradesRepoParams) ([]gradesdb.Grade, error) {
+// ListOwnGradesPaged returns a keyset-paginated page of enriched grades for a student.
+// Ordered by g.id DESC. Optional AcademicPeriodID and ProgramID narrow the result set.
+func (r *postgresRepository) ListOwnGradesPaged(ctx context.Context, p ListOwnGradesRepoParams) ([]gradesdb.ListOwnGradesPagedRow, error) {
 	var tokenPG pgtype.UUID
 	if p.PageToken != nil {
 		tokenPG = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
 	}
+	var periodPG pgtype.UUID
+	if p.AcademicPeriodID != nil {
+		periodPG = pgtype.UUID{Bytes: *p.AcademicPeriodID, Valid: true}
+	}
+	var programPG pgtype.UUID
+	if p.ProgramID != nil {
+		programPG = pgtype.UUID{Bytes: *p.ProgramID, Valid: true}
+	}
 	rows, err := r.q.ListOwnGradesPaged(ctx, gradesdb.ListOwnGradesPagedParams{
-		StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
-		PageToken: tokenPG,
-		RowLimit:  p.RowLimit,
+		StudentID:        pgtype.UUID{Bytes: p.StudentID, Valid: true},
+		PageToken:        tokenPG,
+		AcademicPeriodID: periodPG,
+		ProgramID:        programPG,
+		RowLimit:         p.RowLimit,
 	})
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
+}
+
+// ListOwnGradePeriods returns the distinct academic periods in which the student has grades.
+// Ordered by year DESC, term DESC.
+func (r *postgresRepository) ListOwnGradePeriods(ctx context.Context, studentID uuid.UUID) ([]gradesdb.ListOwnGradePeriodsRow, error) {
+	rows, err := r.q.ListOwnGradePeriods(ctx, pgtype.UUID{Bytes: studentID, Valid: true})
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}

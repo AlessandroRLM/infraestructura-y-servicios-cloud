@@ -56,6 +56,9 @@ const (
 	// GradesServiceListOwnGradesProcedure is the fully-qualified name of the GradesService's
 	// ListOwnGrades RPC.
 	GradesServiceListOwnGradesProcedure = "/grades.v1.GradesService/ListOwnGrades"
+	// GradesServiceListOwnGradePeriodsProcedure is the fully-qualified name of the GradesService's
+	// ListOwnGradePeriods RPC.
+	GradesServiceListOwnGradePeriodsProcedure = "/grades.v1.GradesService/ListOwnGradePeriods"
 )
 
 // GradesServiceClient is a client for the grades.v1.GradesService service.
@@ -84,6 +87,10 @@ type GradesServiceClient interface {
 	// ListOwnGrades returns all grades for the authenticated student.
 	// Requires grades.view_own. Student identity derived from session context.
 	ListOwnGrades(context.Context, *connect.Request[v1.ListOwnGradesRequest]) (*connect.Response[v1.ListOwnGradesResponse], error)
+	// ListOwnGradePeriods returns the distinct academic periods in which the
+	// authenticated student has grades, ordered most-recent first.
+	// Requires grades.view_own. Student identity derived from session context.
+	ListOwnGradePeriods(context.Context, *connect.Request[v1.ListOwnGradePeriodsRequest]) (*connect.Response[v1.ListOwnGradePeriodsResponse], error)
 }
 
 // NewGradesServiceClient constructs a client for the grades.v1.GradesService service. By default,
@@ -145,6 +152,12 @@ func NewGradesServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(gradesServiceMethods.ByName("ListOwnGrades")),
 			connect.WithClientOptions(opts...),
 		),
+		listOwnGradePeriods: connect.NewClient[v1.ListOwnGradePeriodsRequest, v1.ListOwnGradePeriodsResponse](
+			httpClient,
+			baseURL+GradesServiceListOwnGradePeriodsProcedure,
+			connect.WithSchema(gradesServiceMethods.ByName("ListOwnGradePeriods")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -158,6 +171,7 @@ type gradesServiceClient struct {
 	listGradesForSection     *connect.Client[v1.ListGradesForSectionRequest, v1.ListGradesForSectionResponse]
 	getGrade                 *connect.Client[v1.GetGradeRequest, v1.GetGradeResponse]
 	listOwnGrades            *connect.Client[v1.ListOwnGradesRequest, v1.ListOwnGradesResponse]
+	listOwnGradePeriods      *connect.Client[v1.ListOwnGradePeriodsRequest, v1.ListOwnGradePeriodsResponse]
 }
 
 // CreateEvaluationScheme calls grades.v1.GradesService.CreateEvaluationScheme.
@@ -200,6 +214,11 @@ func (c *gradesServiceClient) ListOwnGrades(ctx context.Context, req *connect.Re
 	return c.listOwnGrades.CallUnary(ctx, req)
 }
 
+// ListOwnGradePeriods calls grades.v1.GradesService.ListOwnGradePeriods.
+func (c *gradesServiceClient) ListOwnGradePeriods(ctx context.Context, req *connect.Request[v1.ListOwnGradePeriodsRequest]) (*connect.Response[v1.ListOwnGradePeriodsResponse], error) {
+	return c.listOwnGradePeriods.CallUnary(ctx, req)
+}
+
 // GradesServiceHandler is an implementation of the grades.v1.GradesService service.
 type GradesServiceHandler interface {
 	// CreateEvaluationScheme defines a course's complete evaluation scheme in one atomic call.
@@ -226,6 +245,10 @@ type GradesServiceHandler interface {
 	// ListOwnGrades returns all grades for the authenticated student.
 	// Requires grades.view_own. Student identity derived from session context.
 	ListOwnGrades(context.Context, *connect.Request[v1.ListOwnGradesRequest]) (*connect.Response[v1.ListOwnGradesResponse], error)
+	// ListOwnGradePeriods returns the distinct academic periods in which the
+	// authenticated student has grades, ordered most-recent first.
+	// Requires grades.view_own. Student identity derived from session context.
+	ListOwnGradePeriods(context.Context, *connect.Request[v1.ListOwnGradePeriodsRequest]) (*connect.Response[v1.ListOwnGradePeriodsResponse], error)
 }
 
 // NewGradesServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -283,6 +306,12 @@ func NewGradesServiceHandler(svc GradesServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(gradesServiceMethods.ByName("ListOwnGrades")),
 		connect.WithHandlerOptions(opts...),
 	)
+	gradesServiceListOwnGradePeriodsHandler := connect.NewUnaryHandler(
+		GradesServiceListOwnGradePeriodsProcedure,
+		svc.ListOwnGradePeriods,
+		connect.WithSchema(gradesServiceMethods.ByName("ListOwnGradePeriods")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/grades.v1.GradesService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case GradesServiceCreateEvaluationSchemeProcedure:
@@ -301,6 +330,8 @@ func NewGradesServiceHandler(svc GradesServiceHandler, opts ...connect.HandlerOp
 			gradesServiceGetGradeHandler.ServeHTTP(w, r)
 		case GradesServiceListOwnGradesProcedure:
 			gradesServiceListOwnGradesHandler.ServeHTTP(w, r)
+		case GradesServiceListOwnGradePeriodsProcedure:
+			gradesServiceListOwnGradePeriodsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -340,4 +371,8 @@ func (UnimplementedGradesServiceHandler) GetGrade(context.Context, *connect.Requ
 
 func (UnimplementedGradesServiceHandler) ListOwnGrades(context.Context, *connect.Request[v1.ListOwnGradesRequest]) (*connect.Response[v1.ListOwnGradesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("grades.v1.GradesService.ListOwnGrades is not implemented"))
+}
+
+func (UnimplementedGradesServiceHandler) ListOwnGradePeriods(context.Context, *connect.Request[v1.ListOwnGradePeriodsRequest]) (*connect.Response[v1.ListOwnGradePeriodsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("grades.v1.GradesService.ListOwnGradePeriods is not implemented"))
 }

@@ -611,6 +611,51 @@ func (q *Queries) ListGradesForSectionPaged(ctx context.Context, arg ListGradesF
 	return items, nil
 }
 
+const listOwnGradePeriods = `-- name: ListOwnGradePeriods :many
+SELECT DISTINCT
+    ap.id   AS academic_period_id,
+    ap.year AS year,
+    ap.term AS term
+FROM grades g
+JOIN section_enrollments se ON se.id = g.section_enrollment_id
+JOIN enrollments e ON e.id = se.enrollment_id
+JOIN sections s ON s.id = se.section_id
+JOIN academic_periods ap ON ap.id = s.academic_period_id
+WHERE e.student_id = $1::uuid
+  AND g.deleted_at IS NULL
+  AND se.deleted_at IS NULL
+  AND e.deleted_at IS NULL
+ORDER BY ap.year DESC, ap.term DESC
+`
+
+type ListOwnGradePeriodsRow struct {
+	AcademicPeriodID pgtype.UUID
+	Year             int32
+	Term             int32
+}
+
+// Returns the distinct academic periods in which the student has grades.
+// Ordered by year DESC, term DESC for most-recent-first display.
+func (q *Queries) ListOwnGradePeriods(ctx context.Context, studentID pgtype.UUID) ([]ListOwnGradePeriodsRow, error) {
+	rows, err := q.db.Query(ctx, listOwnGradePeriods, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOwnGradePeriodsRow
+	for rows.Next() {
+		var i ListOwnGradePeriodsRow
+		if err := rows.Scan(&i.AcademicPeriodID, &i.Year, &i.Term); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOwnGrades = `-- name: ListOwnGrades :many
 SELECT g.id, g.evaluation_id, g.section_enrollment_id, g.graded_by, g.value, g.evaluated_at, g.version, g.created_at, g.updated_at, g.created_by, g.updated_by, g.deleted_at
 FROM grades g
@@ -619,6 +664,7 @@ JOIN enrollments e ON e.id = se.enrollment_id
 WHERE e.student_id = $1
   AND g.deleted_at IS NULL
   AND se.deleted_at IS NULL
+  AND e.deleted_at IS NULL
 `
 
 // Lists all grades for a student by joining through enrollments.
@@ -656,35 +702,102 @@ func (q *Queries) ListOwnGrades(ctx context.Context, studentID pgtype.UUID) ([]G
 }
 
 const listOwnGradesPaged = `-- name: ListOwnGradesPaged :many
-SELECT g.id, g.evaluation_id, g.section_enrollment_id, g.graded_by, g.value, g.evaluated_at, g.version, g.created_at, g.updated_at, g.created_by, g.updated_by, g.deleted_at
+SELECT
+    g.id,
+    g.evaluation_id,
+    g.section_enrollment_id,
+    g.graded_by,
+    g.value,
+    g.evaluated_at,
+    g.version,
+    g.created_at,
+    g.updated_at,
+    g.created_by,
+    g.updated_by,
+    g.deleted_at,
+    ev.position                                   AS evaluation_position,
+    ev.weight                                     AS evaluation_weight,
+    c.code                                        AS course_code,
+    c.name                                        AS course_name,
+    se.final_grade                                AS section_final_grade,
+    se.status                                     AS section_status,
+    ap.year                                       AS academic_period_year,
+    ap.term                                       AS academic_period_term,
+    en.program_id                                 AS program_id,
+    p.name                                        AS program_name
 FROM grades g
 JOIN section_enrollments se ON se.id = g.section_enrollment_id
-JOIN enrollments e ON e.id = se.enrollment_id
-WHERE e.student_id = $1
+JOIN enrollments en ON en.id = se.enrollment_id
+JOIN programs p ON p.id = en.program_id
+JOIN evaluations ev ON ev.id = g.evaluation_id
+JOIN sections s ON s.id = se.section_id
+JOIN courses c ON c.id = s.course_id
+JOIN academic_periods ap ON ap.id = s.academic_period_id
+WHERE en.student_id = $1::uuid
   AND g.deleted_at IS NULL
   AND se.deleted_at IS NULL
+  AND en.deleted_at IS NULL
   AND ($2::uuid IS NULL OR g.id < $2::uuid)
+  AND ($3::uuid IS NULL OR s.academic_period_id = $3::uuid)
+  AND ($4::uuid IS NULL OR en.program_id = $4::uuid)
 ORDER BY g.id DESC
-LIMIT $3
+LIMIT $5::int
 `
 
 type ListOwnGradesPagedParams struct {
-	StudentID pgtype.UUID
-	PageToken pgtype.UUID
-	RowLimit  int32
+	StudentID        pgtype.UUID
+	PageToken        pgtype.UUID
+	AcademicPeriodID pgtype.UUID
+	ProgramID        pgtype.UUID
+	RowLimit         int32
 }
 
-// Keyset-paginated list of grades for a student (via enrollments join).
+type ListOwnGradesPagedRow struct {
+	ID                  pgtype.UUID
+	EvaluationID        pgtype.UUID
+	SectionEnrollmentID pgtype.UUID
+	GradedBy            pgtype.UUID
+	Value               pgtype.Numeric
+	EvaluatedAt         pgtype.Timestamptz
+	Version             int32
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
+	CreatedBy           pgtype.UUID
+	UpdatedBy           pgtype.UUID
+	DeletedAt           pgtype.Timestamptz
+	EvaluationPosition  int32
+	EvaluationWeight    pgtype.Numeric
+	CourseCode          string
+	CourseName          string
+	SectionFinalGrade   pgtype.Numeric
+	SectionStatus       string
+	AcademicPeriodYear  int32
+	AcademicPeriodTerm  int32
+	ProgramID           pgtype.UUID
+	ProgramName         string
+}
+
+// Keyset-paginated list of grades for a student with enriched label columns.
+// Joins evaluations, sections, courses, academic_periods for display labels.
+// program_id and program_name are sourced from the student's enrollment program
+// (enrollments.program_id → programs), not from the catalog M:N program_courses table.
+// Optional academic_period_id and program_id predicates narrow results without fan-out.
 // Ordered by g.id DESC. page_token is the exclusive upper bound on g.id (NULL = start).
-func (q *Queries) ListOwnGradesPaged(ctx context.Context, arg ListOwnGradesPagedParams) ([]Grade, error) {
-	rows, err := q.db.Query(ctx, listOwnGradesPaged, arg.StudentID, arg.PageToken, arg.RowLimit)
+func (q *Queries) ListOwnGradesPaged(ctx context.Context, arg ListOwnGradesPagedParams) ([]ListOwnGradesPagedRow, error) {
+	rows, err := q.db.Query(ctx, listOwnGradesPaged,
+		arg.StudentID,
+		arg.PageToken,
+		arg.AcademicPeriodID,
+		arg.ProgramID,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Grade
+	var items []ListOwnGradesPagedRow
 	for rows.Next() {
-		var i Grade
+		var i ListOwnGradesPagedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.EvaluationID,
@@ -698,6 +811,16 @@ func (q *Queries) ListOwnGradesPaged(ctx context.Context, arg ListOwnGradesPaged
 			&i.CreatedBy,
 			&i.UpdatedBy,
 			&i.DeletedAt,
+			&i.EvaluationPosition,
+			&i.EvaluationWeight,
+			&i.CourseCode,
+			&i.CourseName,
+			&i.SectionFinalGrade,
+			&i.SectionStatus,
+			&i.AcademicPeriodYear,
+			&i.AcademicPeriodTerm,
+			&i.ProgramID,
+			&i.ProgramName,
 		); err != nil {
 			return nil, err
 		}

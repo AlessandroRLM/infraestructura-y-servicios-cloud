@@ -192,7 +192,8 @@ func main() {
 		gradesv1connect.GradesServiceListGradesForSectionProcedure: authz.RequirePermission(authz.PermGradesRead),
 		gradesv1connect.GradesServiceGetGradeProcedure:             authz.RequirePermission(authz.PermGradesRead),
 		// Grades student self-view — require grades.view_own.
-		gradesv1connect.GradesServiceListOwnGradesProcedure: authz.RequirePermission(authz.PermGradesViewOwn),
+		gradesv1connect.GradesServiceListOwnGradesProcedure:       authz.RequirePermission(authz.PermGradesViewOwn),
+		gradesv1connect.GradesServiceListOwnGradePeriodsProcedure: authz.RequirePermission(authz.PermGradesViewOwn),
 
 		// Reports procedures — all require reports.read.
 		reportsv1connect.ReportsServiceGetSectionGradeReportProcedure:     authz.RequirePermission(authz.PermReportsRead),
