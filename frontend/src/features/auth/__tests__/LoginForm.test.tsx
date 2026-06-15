@@ -65,12 +65,13 @@ describe("LoginForm", () => {
     });
   });
 
-  it("navigates to the dashboard after a successful login", async () => {
+  it("navigates to /forbidden after a successful login when session has no area eligibility", async () => {
     const user = userEvent.setup();
     const login = vi.fn(async () => create(LoginResponseSchema, {}));
 
     // After login the hook invalidates SESSION_QUERY_KEY; the guard refetches
-    // via the injected source, gets an authenticated session, and renders the dashboard.
+    // via the injected source, gets an authenticated session with no eligible
+    // areas, and the index redirect sends the user to /forbidden.
     const sessionSource: SessionSource = {
       getSession: async () => ({
         userId: "1",
@@ -89,7 +90,9 @@ describe("LoginForm", () => {
     await user.type(screen.getByLabelText("Contraseña"), "secret");
     await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
 
-    expect(await screen.findByTestId("dashboard")).toBeInTheDocument();
+    expect(
+      await screen.findByText("No tienes acceso a esta sección"),
+    ).toBeInTheDocument();
   });
 
   it("shows inline error when credentials are wrong (CodeUnauthenticated)", async () => {

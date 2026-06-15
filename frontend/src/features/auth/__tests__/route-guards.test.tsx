@@ -117,20 +117,25 @@ describe("every flat route (migration period) is guarded with its prefixed permi
 // session holds the route's permission (resolved via the new prefixed key).
 describe("nav link visibility derives from ROUTE_PERMISSIONS", () => {
   it("shows a guarded link when the session holds the permission", async () => {
+    // Navigate directly to a flat route the session can access so the sidebar
+    // renders within the authenticated shell (/ now redirects to /admin which
+    // has no route file yet in Slice 1).
     renderWithProviders({
-      route: "/",
+      route: "/forbidden",
       session: authenticated(["users.manage"]),
     });
 
-    expect(
-      await screen.findByRole("link", { name: /usuarios/i }),
-    ).toBeInTheDocument();
+    // The forbidden page renders inside the authenticated shell — sidebar is present.
+    await screen.findByText("No tienes acceso a esta sección");
+    expect(screen.getByRole("link", { name: /usuarios/i })).toBeInTheDocument();
   });
 
   it("hides a guarded link when the session lacks the permission", async () => {
-    renderWithProviders({ route: "/", session: authenticated([]) });
+    // A zero-permission session has no area eligibility; navigate directly to
+    // /forbidden to get the authenticated shell with a sidebar but no navigation.
+    renderWithProviders({ route: "/forbidden", session: authenticated([]) });
 
-    await screen.findByTestId("dashboard");
+    await screen.findByText("No tienes acceso a esta sección");
     expect(
       screen.queryByRole("link", { name: /usuarios/i }),
     ).not.toBeInTheDocument();
