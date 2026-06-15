@@ -59,7 +59,7 @@ function ChooseAreaPage() {
               <Settings2 className="size-7 text-primary" aria-hidden />
             </span>
             <div className="space-y-1">
-              <div className="font-semibold">Administración</div>
+              <div className="font-semibold">Entrar como Administrador</div>
               <div className="text-muted-foreground text-xs">
                 Gestión institucional
               </div>
@@ -75,7 +75,9 @@ function ChooseAreaPage() {
               <GraduationCap className="size-7 text-primary" aria-hidden />
             </span>
             <div className="space-y-1">
-              <div className="font-semibold">Mi espacio</div>
+              <div className="font-semibold">
+                Entrar como Docente/Estudiante
+              </div>
               <div className="text-muted-foreground text-xs">
                 Docente o estudiante
               </div>
