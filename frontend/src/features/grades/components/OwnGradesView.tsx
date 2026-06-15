@@ -4,10 +4,7 @@ import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Route } from "@/routes/_authenticated/grades";
-import {
-  buildProgramOptions,
-  useOwnEnrollmentsForFilter,
-} from "../hooks/useOwnEnrollmentsForFilter";
+import { useOwnEnrollmentsForFilter } from "../hooks/useOwnEnrollmentsForFilter";
 import { useOwnGradePeriods } from "../hooks/useOwnGradePeriods";
 import { useOwnGrades } from "../hooks/useOwnGrades";
 import { GradeSectionGroup } from "./GradeSectionGroup";
@@ -23,7 +20,6 @@ export function OwnGradesView() {
 
   const {
     groups,
-    rawGrades,
     isLoading,
     isError,
     refetch,
@@ -34,19 +30,8 @@ export function OwnGradesView() {
 
   const { periods, isLoading: isLoadingPeriods } = useOwnGradePeriods();
 
-  const { programIds, isLoading: isLoadingEnrollments } =
+  const { programs, isLoading: isLoadingEnrollments } =
     useOwnEnrollmentsForFilter();
-
-  // Build a programId → programName map from the loaded OwnGrade rows.
-  // Each grade carries both programId and programName (always present per backend spec).
-  const programNameMap = new Map<string, string>();
-  for (const grade of rawGrades) {
-    if (grade.programId && grade.programName) {
-      programNameMap.set(grade.programId, grade.programName);
-    }
-  }
-
-  const programOptions = buildProgramOptions(programIds, programNameMap);
 
   const hasActiveFilter = Boolean(period || program);
 
@@ -54,7 +39,7 @@ export function OwnGradesView() {
     <div className="flex flex-col gap-4">
       <GradesFilterBar
         periods={periods}
-        programs={programOptions}
+        programs={programs}
         isLoadingPeriods={isLoadingPeriods || isLoadingEnrollments}
       />
 

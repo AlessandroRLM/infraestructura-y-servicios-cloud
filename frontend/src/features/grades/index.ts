@@ -16,9 +16,6 @@ export {
   groupBySection,
   STATUS_LABELS,
 } from "./groupBySection";
-export {
-  buildProgramOptions,
-  useOwnEnrollmentsForFilter,
-} from "./hooks/useOwnEnrollmentsForFilter";
+export { useOwnEnrollmentsForFilter } from "./hooks/useOwnEnrollmentsForFilter";
 export { useOwnGradePeriods } from "./hooks/useOwnGradePeriods";
 export { useOwnGrades } from "./hooks/useOwnGrades";

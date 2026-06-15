@@ -18,8 +18,6 @@ export const OWN_GRADES_DEFAULT_PAGE_SIZE = 20;
 export interface UseOwnGradesResult {
   /** All loaded groups, accumulated across pages. */
   groups: GradeSectionGroup[];
-  /** Flat raw grade rows across all loaded pages; used for deriving filter options. */
-  rawGrades: OwnGrade[];
   isLoading: boolean;
   /** True when the initial load failed (not a subsequent page failure). */
   isError: boolean;
@@ -73,7 +71,6 @@ export function useOwnGrades(
 
   return {
     groups,
-    rawGrades,
     isLoading: result.isLoading,
     isError: isInitialLoadError,
     refetch: result.refetch,

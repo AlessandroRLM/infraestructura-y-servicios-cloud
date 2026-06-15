@@ -7,21 +7,21 @@ import { createRpcOwnGradesSource } from "../api/rpc";
 export interface ProgramOption {
   /** UUID of the program, used as the filter value. */
   id: string;
-  /** Display name of the program derived from grade data. */
+  /** Display name of the program (carrera). */
   name: string;
 }
 
 /** Query result for carrera dropdown options. */
 export interface UseOwnEnrollmentsForFilterResult {
-  /** Unique program IDs from the student's enrollments. Names are empty until resolved from grade data. */
-  programIds: string[];
+  /** The student's distinct programs (carreras): id + display name. */
+  programs: ProgramOption[];
   isLoading: boolean;
 }
 
 /**
- * Fetches the student's own enrollment program IDs via ListOwnEnrollments.
- * Returns de-duplicated program IDs for use as carrera filter options.
- * Requires `enrollment.view_own` permission (all students have it).
+ * Returns the student's distinct programs (carreras) for the carrera filter
+ * dropdown, sourced from ListOwnEnrollments — each enrollment carries its
+ * program id and name. Requires `enrollment.view_own`, which students hold.
  */
 export function useOwnEnrollmentsForFilter(): UseOwnEnrollmentsForFilterResult {
   const transport = useTransport();
@@ -34,31 +34,13 @@ export function useOwnEnrollmentsForFilter(): UseOwnEnrollmentsForFilterResult {
   });
 
   const seen = new Set<string>();
-  const programIds: string[] = [];
+  const programs: ProgramOption[] = [];
   for (const enrollment of result.data ?? []) {
     if (!seen.has(enrollment.programId)) {
       seen.add(enrollment.programId);
-      programIds.push(enrollment.programId);
+      programs.push({ id: enrollment.programId, name: enrollment.programName });
     }
   }
 
-  return {
-    programIds,
-    isLoading: result.isLoading,
-  };
-}
-
-/**
- * Derives carrera display options by correlating enrollment program IDs with
- * program names carried in loaded OwnGrade rows.
- * Programs whose names are not yet in the grade data show the UUID as a fallback.
- */
-export function buildProgramOptions(
-  programIds: string[],
-  gradeNamesByProgramId: Map<string, string>,
-): ProgramOption[] {
-  return programIds.map((id) => ({
-    id,
-    name: gradeNamesByProgramId.get(id) ?? id,
-  }));
+  return { programs, isLoading: result.isLoading };
 }
