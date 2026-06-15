@@ -60,6 +60,13 @@ spec:
                 name: app-config
             - secretRef:
                 name: app-secrets
+          # Lets startup (DB migrations + advisory-lock wait) take up to 5 min before liveness fires.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 60
           livenessProbe:
             httpGet:
               path: /healthz
