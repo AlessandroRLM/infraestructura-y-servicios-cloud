@@ -33,6 +33,9 @@ message Enrollment {
   optional string deleted_at = 9;
   optional string created_by = 10;
   optional string updated_by = 11;
+  // program_name is the display name of the program (carrera) for this enrollment.
+  // Populated only by ListOwnEnrollments; empty for other RPCs.
+  string program_name = 12;
 }
 
 message CreateEnrollmentRequest {

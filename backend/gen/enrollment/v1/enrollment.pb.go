@@ -31,12 +31,15 @@ type Enrollment struct {
 	// status is one of "pending", "paid", or "cancelled".
 	Status string `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
 	// paid_at is set only when status transitions to "paid". Absent otherwise.
-	PaidAt        *string `protobuf:"bytes,6,opt,name=paid_at,json=paidAt,proto3,oneof" json:"paid_at,omitempty"`
-	CreatedAt     string  `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     string  `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	DeletedAt     *string `protobuf:"bytes,9,opt,name=deleted_at,json=deletedAt,proto3,oneof" json:"deleted_at,omitempty"`
-	CreatedBy     *string `protobuf:"bytes,10,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
-	UpdatedBy     *string `protobuf:"bytes,11,opt,name=updated_by,json=updatedBy,proto3,oneof" json:"updated_by,omitempty"`
+	PaidAt    *string `protobuf:"bytes,6,opt,name=paid_at,json=paidAt,proto3,oneof" json:"paid_at,omitempty"`
+	CreatedAt string  `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt string  `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	DeletedAt *string `protobuf:"bytes,9,opt,name=deleted_at,json=deletedAt,proto3,oneof" json:"deleted_at,omitempty"`
+	CreatedBy *string `protobuf:"bytes,10,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	UpdatedBy *string `protobuf:"bytes,11,opt,name=updated_by,json=updatedBy,proto3,oneof" json:"updated_by,omitempty"`
+	// program_name is the display name of the program (carrera) for this enrollment.
+	// Populated only by ListOwnEnrollments; empty for other RPCs.
+	ProgramName   string `protobuf:"bytes,12,opt,name=program_name,json=programName,proto3" json:"program_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -144,6 +147,13 @@ func (x *Enrollment) GetCreatedBy() string {
 func (x *Enrollment) GetUpdatedBy() string {
 	if x != nil && x.UpdatedBy != nil {
 		return *x.UpdatedBy
+	}
+	return ""
+}
+
+func (x *Enrollment) GetProgramName() string {
+	if x != nil {
+		return x.ProgramName
 	}
 	return ""
 }
@@ -627,7 +637,7 @@ var File_enrollment_v1_enrollment_proto protoreflect.FileDescriptor
 
 const file_enrollment_v1_enrollment_proto_rawDesc = "" +
 	"\n" +
-	"\x1eenrollment/v1/enrollment.proto\x12\renrollment.v1\"\x87\x03\n" +
+	"\x1eenrollment/v1/enrollment.proto\x12\renrollment.v1\"\xaa\x03\n" +
 	"\n" +
 	"Enrollment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
@@ -648,7 +658,8 @@ const file_enrollment_v1_enrollment_proto_rawDesc = "" +
 	"created_by\x18\n" +
 	" \x01(\tH\x02R\tcreatedBy\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"updated_by\x18\v \x01(\tH\x03R\tupdatedBy\x88\x01\x01B\n" +
+	"updated_by\x18\v \x01(\tH\x03R\tupdatedBy\x88\x01\x01\x12!\n" +
+	"\fprogram_name\x18\f \x01(\tR\vprogramNameB\n" +
 	"\n" +
 	"\b_paid_atB\r\n" +
 	"\v_deleted_atB\r\n" +

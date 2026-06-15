@@ -27,6 +27,13 @@ type ListEnrollmentsResult struct {
 	NextPageToken string
 }
 
+// ListOwnEnrollmentsResult holds the paginated result for ListOwnEnrollments.
+// Each row includes the program display name from the joined programs table.
+type ListOwnEnrollmentsResult struct {
+	Enrollments   []enrollmentdb.ListOwnEnrollmentsRow
+	NextPageToken string
+}
+
 // ListEnrollmentsFilter holds optional filter parameters for ListEnrollments.
 // A nil pointer means the filter is not applied.
 type ListEnrollmentsFilter struct {
@@ -139,13 +146,13 @@ func (s *Service) ListEnrollments(ctx context.Context, f ListEnrollmentsFilter, 
 }
 
 // ListOwnEnrollments returns a paginated page of live enrollments for the authenticated
-// student. The student identity is injected from context; pageSize and pageToken follow
-// the same AIP-158 keyset rules as ListEnrollments.
+// student, each enriched with the program display name. The student identity is injected
+// from context; pageSize and pageToken follow the same AIP-158 keyset rules as ListEnrollments.
 // Returns ErrNotFound when no authenticated user is present (fail-closed).
-func (s *Service) ListOwnEnrollments(ctx context.Context, pageSize int32, pageToken string) (ListEnrollmentsResult, error) {
+func (s *Service) ListOwnEnrollments(ctx context.Context, pageSize int32, pageToken string) (ListOwnEnrollmentsResult, error) {
 	userID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		return ListEnrollmentsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+		return ListOwnEnrollmentsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
 	}
 
 	clamped := enrollmentClamp.Apply(pageSize)
@@ -154,7 +161,7 @@ func (s *Service) ListOwnEnrollments(ctx context.Context, pageSize int32, pageTo
 	if pageToken != "" {
 		id, err := uuid.Parse(pageToken)
 		if err != nil {
-			return ListEnrollmentsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+			return ListOwnEnrollmentsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
 		}
 		tokenUUID = &id
 	}
@@ -165,15 +172,15 @@ func (s *Service) ListOwnEnrollments(ctx context.Context, pageSize int32, pageTo
 		RowLimit:  int32(clamped + 1),
 	})
 	if err != nil {
-		return ListEnrollmentsResult{}, err
+		return ListOwnEnrollmentsResult{}, err
 	}
 
 	page := pagination.Paginate(rows, clamped)
-	nextToken := pagination.TokenOf(page, func(r enrollmentdb.Enrollment) uuid.UUID {
+	nextToken := pagination.TokenOf(page, func(r enrollmentdb.ListOwnEnrollmentsRow) uuid.UUID {
 		return uuid.UUID(r.ID.Bytes)
 	})
 
-	return ListEnrollmentsResult{
+	return ListOwnEnrollmentsResult{
 		Enrollments:   page.Items,
 		NextPageToken: nextToken,
 	}, nil
