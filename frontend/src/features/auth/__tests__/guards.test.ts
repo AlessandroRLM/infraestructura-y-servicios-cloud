@@ -41,14 +41,40 @@ describe("requireAnyPermission", () => {
 describe("requireRoutePermission", () => {
   it("resolves the route's permission from ROUTE_PERMISSIONS and allows access", () => {
     expect(() =>
-      requireRoutePermission(session(["users.manage"]), "/users"),
+      requireRoutePermission(session(["users.manage"]), "/admin/users"),
     ).not.toThrow();
   });
 
   it("redirects to /forbidden when the session lacks the route's permission", () => {
     let thrown: unknown;
     try {
-      requireRoutePermission(session([]), "/users");
+      requireRoutePermission(session([]), "/admin/users");
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ options: { to: "/forbidden" } });
+  });
+
+  it("/admin/grades requires grades.read or grades.write (admin perspective)", () => {
+    expect(() =>
+      requireRoutePermission(session(["grades.read"]), "/admin/grades"),
+    ).not.toThrow();
+    expect(() =>
+      requireRoutePermission(session(["grades.write"]), "/admin/grades"),
+    ).not.toThrow();
+  });
+
+  it("/app/grades requires grades.view_own (participant perspective)", () => {
+    expect(() =>
+      requireRoutePermission(session(["grades.view_own"]), "/app/grades"),
+    ).not.toThrow();
+  });
+
+  it("/admin/grades and /app/grades require distinct permission sets", () => {
+    // grades.view_own is NOT sufficient for the admin grades route
+    let thrown: unknown;
+    try {
+      requireRoutePermission(session(["grades.view_own"]), "/admin/grades");
     } catch (error) {
       thrown = error;
     }

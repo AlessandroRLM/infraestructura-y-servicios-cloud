@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { AuthenticatedLayout } from "@/components/layout/AuthenticatedLayout";
-import { bootstrapQueryOptions } from "@/features/auth";
+import { bootstrapQueryOptions, eligibleAreas } from "@/features/auth";
 
 export const Route = createFileRoute("/_authenticated")({
   // Awaiting the bootstrap query (instead of reading a session snapshot)
@@ -14,9 +14,9 @@ export const Route = createFileRoute("/_authenticated")({
     if (!session) {
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
-    // Resolve once here; child route guards read context.session instead of
-    // hitting the query cache again.
-    return { session };
+    // Resolve both the session and its area eligibility once here so all
+    // child routes read from context instead of recomputing.
+    return { session, eligibility: eligibleAreas(session) };
   },
   component: AuthenticatedLayout,
 });

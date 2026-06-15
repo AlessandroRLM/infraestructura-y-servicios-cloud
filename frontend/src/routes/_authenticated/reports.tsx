@@ -4,7 +4,7 @@ import { ReportsPage } from "@/features/reports";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   beforeLoad: ({ context }) => {
-    requireRoutePermission(context.session, "/reports");
+    requireRoutePermission(context.session, "/admin/reports");
   },
   component: ReportsPage,
 });

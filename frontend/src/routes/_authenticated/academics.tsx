@@ -15,7 +15,7 @@ const academicsSearchSchema = z.object({
 export const Route = createFileRoute("/_authenticated/academics")({
   validateSearch: academicsSearchSchema,
   beforeLoad: ({ context }) => {
-    requireRoutePermission(context.session, "/academics");
+    requireRoutePermission(context.session, "/admin/academics");
   },
   component: AcademicsPage,
 });

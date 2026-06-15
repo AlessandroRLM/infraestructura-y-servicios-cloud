@@ -14,6 +14,7 @@ import {
 import {
   hasPermission,
   LogoutButton,
+  type Permission,
   primaryRoleLabel,
   routePermissions,
   type SessionState,
@@ -23,6 +24,20 @@ import {
 interface NavMeta {
   label: string;
   icon: LucideIcon;
+  /**
+   * The ROUTE_PERMISSIONS key used to derive visibility.
+   * Prefixed paths (e.g. "/admin/academics") are used here so visibility
+   * derives from the authoritative permissions map even while the route files
+   * are temporarily at their old flat paths during the area-routing migration.
+   * Mutually exclusive with `permissions`.
+   */
+  permissionKey?: string;
+  /**
+   * Explicit permission list for items that span multiple permission sets
+   * during the migration period (e.g. flat /grades accepts admin + participant).
+   * Takes precedence over `permissionKey` when present.
+   */
+  permissions?: readonly [Permission, ...Permission[]];
 }
 
 // No array annotation on purpose: `satisfies` validates the meta fields while
@@ -33,6 +48,7 @@ const NAV = [
   {
     label: "Académico",
     icon: BookOpen,
+    permissionKey: "/admin/academics",
     options: linkOptions({
       to: "/academics",
       search: { tab: "programs", q: "", pageSize: 20 },
@@ -41,16 +57,29 @@ const NAV = [
   {
     label: "Inscripciones",
     icon: ClipboardList,
+    permissionKey: "/admin/enrollments",
     options: linkOptions({ to: "/enrollments" }),
   },
   {
     label: "Secciones",
     icon: ListChecks,
+    // Migration shim: flat /section-enrollments accepts both admin and participant
+    // section-enrollment permissions. Replaced by area-split nav in Slice 2.
+    permissions: [
+      "enrollment.manage",
+      "section_enrollment.view_own",
+      "sections.enroll",
+    ],
     options: linkOptions({ to: "/section-enrollments" }),
   },
   {
     label: "Notas",
     icon: PenLine,
+    // Migration shim: flat /grades accepts admin + participant grade permissions.
+    // Explicitly lists all three so students (grades.view_own) and teachers
+    // (grades.read / grades.write) all see the link.
+    // Replaced by area-split nav entries in Slice 2.
+    permissions: ["grades.read", "grades.write", "grades.view_own"],
     options: linkOptions({
       to: "/grades",
       search: { period: "", program: "", pageSize: 20 },
@@ -59,16 +88,19 @@ const NAV = [
   {
     label: "Reportes",
     icon: ChartColumn,
+    permissionKey: "/admin/reports",
     options: linkOptions({ to: "/reports" }),
   },
   {
     label: "Usuarios",
     icon: Users,
+    permissionKey: "/admin/users",
     options: linkOptions({ to: "/users", search: { q: "", pageSize: 20 } }),
   },
   {
     label: "Control de acceso",
     icon: ShieldCheck,
+    permissionKey: "/admin/access-control",
     options: linkOptions({ to: "/access-control" }),
   },
 ] satisfies readonly (NavMeta & { options: object })[];
@@ -78,8 +110,19 @@ type NavItem = (typeof NAV)[number];
 // Visibility derives from the same ROUTE_PERMISSIONS map the route guards use:
 // a link shows when its route is unguarded or the session holds one of the
 // route's permissions (ANY). Single source of truth, no duplication.
+//
+// Resolution order for the permission set:
+//   1. `permissions` — explicit list (migration shim for multi-set routes)
+//   2. `permissionKey` — ROUTE_PERMISSIONS lookup (migration shim for prefixed keys)
+//   3. `item.options.to` — default: look up by route path (standard path)
 function isVisible(session: SessionState, item: NavItem): boolean {
-  const permissions = routePermissions(item.options.to);
+  if ("permissions" in item && item.permissions) {
+    return item.permissions.some((permission) =>
+      hasPermission(session, permission),
+    );
+  }
+  const key = "permissionKey" in item ? item.permissionKey : item.options.to;
+  const permissions = routePermissions(key as string);
   if (!permissions) {
     return true;
   }

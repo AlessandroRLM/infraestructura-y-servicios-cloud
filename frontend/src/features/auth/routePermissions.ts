@@ -7,22 +7,32 @@ import type { Permission } from "./permissions";
  * declared once instead of duplicated across the two.
  *
  * ANY semantics: holding one of the listed permissions is enough. Routes absent
- * from this map (`/`, `/profile`, `/forbidden`) require no permission.
+ * from this map (`/`, `/profile`, `/forbidden`, `/choose-area`) require no
+ * permission beyond being authenticated.
  *
  * This is UX only — the backend enforces authorization per RPC (fail-closed).
+ *
+ * Keys use the full prefixed URL path (e.g. `/admin/academics`, `/app/grades`)
+ * so the guard key matches the route URL, making it unambiguous which area a
+ * feature belongs to.
  *
  * The value type is a non-empty tuple: an empty list would make
  * `requireAnyPermission` reject every session, locking all users out of the
  * route. A guarded route must require at least one permission.
  */
 export const ROUTE_PERMISSIONS = {
-  "/academics": ["catalog.manage"],
-  "/enrollments": ["enrollment.manage"],
-  "/section-enrollments": ["sections.enroll", "section_enrollment.view_own"],
-  "/grades": ["grades.read", "grades.write", "grades.view_own"],
-  "/reports": ["reports.read"],
-  "/users": ["users.manage"],
-  "/access-control": ["users.manage"],
+  "/admin/academics": ["catalog.manage"],
+  "/admin/enrollments": ["enrollment.manage"],
+  "/admin/section-enrollments": ["enrollment.manage"],
+  "/admin/grades": ["grades.read", "grades.write"],
+  "/admin/reports": ["reports.read"],
+  "/admin/users": ["users.manage"],
+  "/admin/access-control": ["users.manage"],
+  "/app/grades": ["grades.view_own"],
+  "/app/section-enrollments": [
+    "section_enrollment.view_own",
+    "sections.enroll",
+  ],
 } as const satisfies Record<string, readonly [Permission, ...Permission[]]>;
 
 export type GuardedRoute = keyof typeof ROUTE_PERMISSIONS;
