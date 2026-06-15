@@ -117,22 +117,28 @@ describe("every flat route (migration period) is guarded with its prefixed permi
 // session holds the route's permission (resolved via the new prefixed key).
 describe("nav link visibility derives from ROUTE_PERMISSIONS", () => {
   it("shows a guarded link when the session holds the permission", async () => {
-    // Navigate directly to a flat route the session can access so the sidebar
-    // renders within the authenticated shell (/ now redirects to /admin which
-    // has no route file yet in Slice 1).
+    // Navigate directly to an admin area route the session can access so the
+    // admin sidebar renders. /admin/users requires users.manage.
+    // /forbidden no longer renders inside an area shell (no sidebar), so we
+    // use a real area route to get AppSidebar.
+    // /admin/access-control page does not call Route.useSearch() so it renders
+    // without the flat-route coupling issue. The admin sidebar is always present.
     renderWithProviders({
-      route: "/forbidden",
+      route: "/admin/access-control",
       session: authenticated(["users.manage"]),
     });
 
-    // The forbidden page renders inside the authenticated shell — sidebar is present.
-    await screen.findByText("No tienes acceso a esta sección");
-    expect(screen.getByRole("link", { name: /usuarios/i })).toBeInTheDocument();
+    // Wait for the admin area to render (admin sidebar is present).
+    await waitFor(() =>
+      expect(
+        screen.getByRole("link", { name: /usuarios/i }),
+      ).toBeInTheDocument(),
+    );
   });
 
   it("hides a guarded link when the session lacks the permission", async () => {
-    // A zero-permission session has no area eligibility; navigate directly to
-    // /forbidden to get the authenticated shell with a sidebar but no navigation.
+    // A zero-permission session has no area eligibility; /forbidden renders
+    // without an area sidebar — no nav links present.
     renderWithProviders({ route: "/forbidden", session: authenticated([]) });
 
     await screen.findByText("No tienes acceso a esta sección");
