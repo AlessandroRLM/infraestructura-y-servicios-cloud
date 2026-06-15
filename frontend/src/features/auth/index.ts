@@ -1,6 +1,14 @@
 // Foundational feature: other features and the app layer (router, routes,
 // main) may import this public API; auth imports no other feature.
 
+export {
+  type Area,
+  ADMIN_PERMISSIONS,
+  eligibleAreas,
+  isEligibleFor,
+  PARTICIPANT_PERMISSIONS,
+} from "./area";
+export { readPreferredArea, writePreferredArea } from "./areaPreference";
 export { bootstrapQueryOptions, SESSION_QUERY_KEY } from "./api/queries";
 export { createRpcSessionSource } from "./api/rpc";
 export { stubSessionSource } from "./api/stub";
@@ -25,6 +33,7 @@ export {
   ROUTE_PERMISSIONS,
   routePermissions,
 } from "./routePermissions";
+export { resolveEntryTarget } from "./resolveEntryTarget";
 export { loginSearchSchema } from "./schemas/search";
 export type {
   AuthenticatedSession,
