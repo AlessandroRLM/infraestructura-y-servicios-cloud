@@ -29,14 +29,24 @@ resource "google_service_account" "gke_node" {
 }
 
 # ────────────────────────────────────────────────────────────────────────────
-# Google service agents (locals)
+# Google service agents
 # ────────────────────────────────────────────────────────────────────────────
+# Service agents are provisioned lazily by Google (only on first use), so they
+# may not exist yet when the CMEK IAM bindings below run on a first apply.
+#
+# GCS: reading this data source provisions the agent on read (GA, declarative).
+# GKE's agent already exists (cluster creation makes it). Artifact Registry uses
+# Google-managed encryption, so it needs no service-agent grant here.
+data "google_storage_project_service_account" "gcs" {
+  project = var.project_id
+
+  depends_on = [google_project_service.apis["storage-api.googleapis.com"]]
+}
 
 locals {
   container_engine_robot_sa = "service-${data.google_project.project.number}@container-engine-robot.iam.gserviceaccount.com"
-  gcs_service_agent_sa      = "service-${data.google_project.project.number}@gs-project-accounts.iam.gserviceaccount.com"
+  gcs_service_agent_sa      = data.google_storage_project_service_account.gcs.email_address
   compute_service_agent_sa  = "service-${data.google_project.project.number}@compute-system.iam.gserviceaccount.com"
-  artifact_registry_sa      = "service-${data.google_project.project.number}@gcp-sa-artifactregistry.iam.gserviceaccount.com"
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -85,6 +95,16 @@ resource "google_project_iam_member" "bastion_metric_writer" {
   member  = "serviceAccount:${google_service_account.bastion.email}"
 }
 
+# Cluster admin from the bastion: it is the single admin entry point and must
+# install cluster-scoped components (cert-manager CRDs, ClusterRoles, admission
+# webhooks) plus deploy the app. container.developer only covers namespaced
+# resources, so it cannot create the cluster RBAC cert-manager needs.
+resource "google_project_iam_member" "bastion_container_admin" {
+  project = var.project_id
+  role    = "roles/container.admin"
+  member  = "serviceAccount:${google_service_account.bastion.email}"
+}
+
 # ────────────────────────────────────────────────────────────────────────────
 # Ops SA — GCS backups bucket access
 # ────────────────────────────────────────────────────────────────────────────
@@ -122,16 +142,6 @@ resource "google_kms_crypto_key_iam_member" "gcs_sa_encrypt_decrypt" {
   crypto_key_id = google_kms_crypto_key.storage.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   member        = "serviceAccount:${local.gcs_service_agent_sa}"
-}
-
-# ────────────────────────────────────────────────────────────────────────────
-# KMS IAM — Artifact Registry CMEK
-# ────────────────────────────────────────────────────────────────────────────
-
-resource "google_kms_crypto_key_iam_member" "ar_sa_encrypt_decrypt" {
-  crypto_key_id = google_kms_crypto_key.storage.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:${local.artifact_registry_sa}"
 }
 
 # ────────────────────────────────────────────────────────────────────────────

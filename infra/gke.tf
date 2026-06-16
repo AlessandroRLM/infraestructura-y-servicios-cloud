@@ -27,16 +27,13 @@ resource "google_container_cluster" "primary" {
     master_ipv4_cidr_block  = "172.16.0.0/28"
   }
 
-  # API server is only reachable from the bastion subnet and the admin CIDR (C-2)
+  # Private endpoint only: the API server is reachable solely from the bastion
+  # subnet (C-2). Public CIDRs are rejected when enable_private_endpoint = true,
+  # so admin access goes through the bastion, not the admin laptop directly.
   master_authorized_networks_config {
     cidr_blocks {
       cidr_block   = "10.0.0.0/24"
       display_name = "bastion-subnet"
-    }
-
-    cidr_blocks {
-      cidr_block   = var.admin_ip
-      display_name = "admin"
     }
   }
 

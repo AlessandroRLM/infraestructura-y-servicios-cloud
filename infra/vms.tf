@@ -30,12 +30,16 @@ resource "google_compute_instance" "bastion" {
     enable-oslogin = "TRUE"
   }
 
-  # Minimal scopes: logging + monitoring only (W-2)
+  # Scope changes require the instance to be stopped; allow Terraform to do so.
+  allow_stopping_for_update = true
+
+  # cloud-platform scope so the bastion can reach the Container API (kubectl /
+  # get-credentials). Fine-grained control comes from the SA's IAM roles
+  # (container.developer), not the scope.
   service_account {
     email = google_service_account.bastion.email
     scopes = [
-      "https://www.googleapis.com/auth/logging.write",
-      "https://www.googleapis.com/auth/monitoring.write",
+      "https://www.googleapis.com/auth/cloud-platform",
     ]
   }
 }
