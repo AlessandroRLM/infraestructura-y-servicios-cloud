@@ -45,10 +45,12 @@ flowchart LR
 | Alerta | Condición | Para qué |
 |--------|-----------|----------|
 | CPU alta | Uso de CPU sostenido > 70 % | Anticipar saturación antes de degradar el servicio. |
-| Caída de servicio | Uptime check al endpoint de la app falla | Detectar indisponibilidad apenas ocurre. |
+| Caída de servicio | 2 o más ubicaciones de prober fallan el uptime check a `/healthz` | Detectar indisponibilidad apenas ocurre. |
 | Costo | Gasto del mes supera el umbral definido | Evitar sorpresas de facturación. |
 
 `[captura]` las tres alertas configuradas y un disparo de prueba.
+
+> La alerta de tasa de error RPC (`rpc_error_rate`) está gateada con la variable `enable_app_metric_alerts` (default `false`). Se activa recién cuando la aplicación ya emitió esa métrica personalizada; ver el procedimiento de activación en la guía de despliegue §6.1.
 
 > La alerta de costo se evalúa sobre el gasto **mensual** del proyecto (GCP Budget Alerts), alineada con el alcance del proyecto (alarma de costos mensuales). La visibilidad del gasto diario queda cubierta por el dashboard de Costos (§2), que desglosa gasto diario y mensual por servicio.
 
@@ -87,6 +89,8 @@ Región `us-central1`. Estimación mensual preliminar, ejecutando 24/7. Las cifr
 | **Con apagado (~20 h/semana)** | **~15–30** |
 
 El mayor factor de costo no es el tamaño de los recursos, sino el **tiempo encendido**. Como la infraestructura es reproducible con Terraform, fuera de las ventanas de desarrollo y demo se destruye o se escala a cero.
+
+> **Presupuesto configurado en Terraform:** las cifras anteriores son estimaciones de referencia en USD. El presupuesto real configurado via `billingbudgets` usa la variable `monthly_budget_clp` (default 150.000 CLP), con umbrales de alerta al 50 %, 90 % y 100 % del monto mensual. Las alertas de budget que dispara GCP operan sobre ese valor en CLP, no sobre los USD de la estimación.
 
 ## 5. Optimización de costos
 

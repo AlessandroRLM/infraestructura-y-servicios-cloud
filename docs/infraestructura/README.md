@@ -31,13 +31,22 @@ Diseño, implementación y evidencia de la infraestructura en GCP (principal) y 
 
 Habilitar APIs de GCP:
 
+La lista completa está en `infra/apis.tf`; Terraform las habilita en el `apply`. Para habilitarlas manualmente antes del primer apply:
+
 ```bash
 gcloud services enable \
   compute.googleapis.com \
   container.googleapis.com \
   storage.googleapis.com \
   monitoring.googleapis.com \
-  logging.googleapis.com
+  logging.googleapis.com \
+  cloudkms.googleapis.com \
+  iam.googleapis.com \
+  serviceusage.googleapis.com \
+  cloudresourcemanager.googleapis.com \
+  artifactregistry.googleapis.com \
+  billingbudgets.googleapis.com \
+  iap.googleapis.com
 ```
 
 ## 2. Estado remoto de Terraform
@@ -102,6 +111,7 @@ Reglas de firewall (acceso mínimo):
 | Regla                 | Origen               | Destino         | Puerto         |
 | --------------------- | -------------------- | --------------- | -------------- |
 | `allow-ssh-bastion`   | IP del administrador | bastión         | 22             |
+| `allow-iap-ssh-ops`   | IAP `35.235.240.0/20` | ops            | 22             |
 | `allow-https-ingress` | Internet             | balanceador GKE | 443            |
 | `allow-internal`      | rangos de la VPC     | VPC             | según servicio |
 
@@ -129,7 +139,8 @@ Verificación:
 
 ```bash
 gcloud compute instances list
-gcloud compute ssh bastion --zone=us-central1-a   # único acceso
+gcloud compute ssh bastion --zone=us-central1-a          # acceso directo (IP pública restringida)
+gcloud compute ssh ops --tunnel-through-iap --zone=us-central1-a  # acceso vía IAP TCP forwarding (no pasa por el bastión; habilitado por la regla allow-iap-ssh-ops)
 ```
 
 `[captura]` listado de instancias.
@@ -178,7 +189,7 @@ Sin pooling por transacción, pgx conserva sus prepared statements (modo por def
 
 ## 9. Backups cross-cloud (GCS → S3)
 
-La VM `ops` ejecuta un cron diario: dump de PostgreSQL, subida a GCS y réplica a S3.
+La VM `ops` ejecuta un cron diario: dump de PostgreSQL desde el pod `postgres` en el namespace `academico-prod` (vía `kubectl exec`), subida a GCS y réplica a S3. La credencial AWS pertenece al usuario IAM `ops-backup` y se provee fuera de banda; el access key no vive en el state de Terraform.
 
 ```mermaid
 sequenceDiagram
@@ -204,11 +215,13 @@ Crontab (`/etc/cron.d/academico-backup`):
 
 ## 10. Prueba de restauración
 
-El script de restauración está en `infra/scripts/restore.sh`. Se instala en la VM ops como `/opt/backup/restore.sh`. Descarga desde S3 (valida la copia DR), restaura en el namespace `test` y ejecuta una consulta de validación (`SELECT count(*) FROM enrollments`) como evidencia de RNF-5. Con `BACKUP_OBJECT=latest` resuelve automáticamente el objeto más reciente.
+El script de restauración está en `infra/scripts/restore.sh`. Se instala en la VM ops como `/opt/backup/restore.sh`. Descarga desde S3 (valida la copia DR), restaura en el namespace `academico-test` y ejecuta una consulta de validación (`SELECT count(*) FROM enrollments`) como evidencia de RNF-5. Con `BACKUP_OBJECT=latest` resuelve automáticamente el objeto más reciente.
+
+> Prerrequisito: el overlay `test` debe estar desplegado (`kubectl apply -k k8s/overlays/test` desde el bastión — namespace `academico-test` con su propio postgres). El restore se prueba ahí para no tocar prod.
 
 ```bash
 # Ejecutar en la VM ops
-BACKUP_OBJECT=latest S3_BUCKET=backups-academico-dr-<suffix> TARGET_NAMESPACE=test \
+BACKUP_OBJECT=latest S3_BUCKET=backups-academico-dr-<suffix> TARGET_NAMESPACE=academico-test \
   /opt/backup/restore.sh
 ```
 
@@ -216,12 +229,20 @@ BACKUP_OBJECT=latest S3_BUCKET=backups-academico-dr-<suffix> TARGET_NAMESPACE=te
 
 ## 11. Apagado y reducción de costos
 
-Para no consumir crédito fuera de las demos, destruir la infraestructura no productiva:
+Para no consumir crédito fuera de las demos, destruir los recursos de cómputo con `-target`:
 
 ```bash
-terraform destroy            # elimina todo
-# o reducir el node pool a cero:
+# Destruir solo cómputo (evita los prevent_destroy en KMS y bucket de backups)
+terraform destroy \
+  -target=google_container_node_pool.primary \
+  -target=google_container_cluster.primary \
+  -target=google_compute_instance.bastion \
+  -target=google_compute_instance.ops \
+  -target=google_compute_router_nat.nat \
+  -target=google_compute_address.bastion
+
+# o reducir el node pool a cero sin destruir el cluster:
 gcloud container clusters resize academico --node-pool=default --num-nodes=0 --zone=us-central1-a
 ```
 
-El estado en GCS persiste, así que `terraform apply` reconstruye todo idéntico cuando se retoma.
+> `terraform destroy` completo falla por los `prevent_destroy` configurados en las claves KMS (que además no se pueden borrar en GCP) y en el bucket de backups. El destroy con `-target` elimina solo el cómputo; red, IAM, KMS y buckets permanecen. `terraform apply` reconstruye el cómputo idéntico cuando se retoma.

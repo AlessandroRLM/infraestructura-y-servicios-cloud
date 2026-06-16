@@ -176,7 +176,7 @@ flowchart TB
 | Cloud Storage (GCS)        | Media subida por usuarios (p. ej. fotos de perfil), backups y estado de Terraform. El bundle estático del frontend lo sirve Nginx desde su imagen, no GCS. |
 | Cloud Load Balancing       | Expone la aplicación vía Ingress HTTPS.                                                                                                     |
 | Cloud Monitoring + Logging | Métricas, dashboards, alertas y logs de auditoría.                                                                                          |
-| Cloud KMS                  | Claves de cifrado en reposo (CMEK donde aplique).                                                                                           |
+| Cloud KMS                  | CMEK en GKE etcd, GCS (assets y backups) y discos de nodo. Artifact Registry usa encriptación gestionada por Google (sin CMEK).             |
 
 ### AWS (respaldo / DR)
 
@@ -256,17 +256,19 @@ Los rangos de pods y services se definen como rangos secundarios de la subred de
 | api              | postgres           | 5432      | Acceso a datos             |
 | api              | redis              | 6379      | Sesiones y cache           |
 | bastión          | API server de GKE  | 443       | `kubectl`                  |
+| IAP (`35.235.240.0/20`) | ops         | 22        | SSH administrativo (IAP TCP forwarding) |
+| ops              | API server de GKE  | 443       | `kubectl` para backup/restore (subnet-ops en master_authorized_networks) |
 | nodos / ops      | Internet (vía NAT) | 443       | Egress: imágenes, APIs, S3 |
 
 ### 8.4 Controles de seguridad
 
 | Control                     | Implementación                                                                                |
 | --------------------------- | --------------------------------------------------------------------------------------------- |
-| Acceso administrativo       | SSH solo al bastión, restringido a la IP del administrador. Nodos y VM `ops` sin IP pública.  |
+| Acceso administrativo       | SSH al bastión restringido a la IP del administrador. VM `ops` accesible solo vía IAP TCP forwarding (gateado por identidad; sin IP pública). Nodos GKE sin IP pública.  |
 | Reglas de firewall          | Mínimo necesario: SSH al bastión, HTTPS al Ingress, tráfico interno explícito entre subredes. |
 | Aislamiento entre ambientes | NetworkPolicies por namespace: dev/test no pueden alcanzar la base de prod.                   |
 | Cifrado en tránsito         | TLS en el Ingress; tráfico entre pods dentro de la red privada del cluster.                   |
-| Cifrado en reposo           | Discos persistentes y buckets cifrados; claves en Cloud KMS donde se requiera CMEK.           |
+| Cifrado en reposo           | CMEK en GKE etcd, GCS (assets y backups) y discos de nodo. Artifact Registry usa encriptación gestionada por Google (sin CMEK).           |
 | Secretos                    | Kubernetes Secrets por namespace; credenciales de AWS solo en la VM `ops`.                    |
 | Auditoría                   | Cloud Logging centraliza logs de acceso y de actividad administrativa (RNF-4).                |
 

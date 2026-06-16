@@ -205,7 +205,7 @@ gcloud compute ssh bastion --zone "$ZONE" --project "$PROJECT_ID"
 
 ### 4.2 Preparar el bastión (una sola vez, dentro de la sesión SSH)
 
-El bastión es una shell nueva: no tiene las variables de §2. Definir las tres que necesita, **una por línea** (no pegar el bloque entero de §2). Reemplazar los valores por los propios:
+El bastión es una shell nueva: no tiene las variables de §2. Definir las cuatro que necesita, **una por línea** (no pegar el bloque entero de §2). Reemplazar los valores por los propios:
 
 ```bash
 PROJECT_ID="<tu-project-id>"
@@ -219,10 +219,14 @@ ZONE="us-central1-a"
 ALERT_EMAIL="<tu-email>"
 ```
 
+```bash
+DOMAIN="<tu-dominio>"
+```
+
 Verificar que quedaron limpias — los corchetes delatan saltos de línea o espacios de más:
 
 ```bash
-printf '[%s]\n[%s]\n[%s]\n' "$PROJECT_ID" "$ZONE" "$ALERT_EMAIL"
+printf '[%s]\n[%s]\n[%s]\n[%s]\n' "$PROJECT_ID" "$ZONE" "$ALERT_EMAIL" "$DOMAIN"
 ```
 
 Cada valor tiene que aparecer en su propia línea, sin nada extra. Si un `]` de cierre cae en otra línea, hay un salto de línea metido: volver a definir esa variable.
@@ -289,20 +293,16 @@ grep newName k8s/overlays/prod/kustomization.yaml
 
 > Si se usó una región distinta del default (`us-central1`), ajustar también el prefijo de región en esas líneas.
 
-El overlay de prod trae el host del Ingress como placeholder `academico.example.com` en `patch-ingress-prod.yaml` (en las rules y en la sección TLS). Definir el dominio real y reemplazarlo — es el mismo dominio que irá en el registro DNS (§5.2):
-
-```bash
-DOMAIN="academico.midominio.com"   # el dominio real de la app
-```
+El overlay de prod trae el host del Ingress como placeholder `academico.example.com` en `patch-ingress-prod.yaml` (en las rules y en la sección TLS). Reemplazarlo por `$DOMAIN` (definido en §4.2 — el mismo que irá en el registro DNS, §5.2):
 
 ```bash
 sed -i "s/academico.example.com/$DOMAIN/g" k8s/overlays/prod/patch-ingress-prod.yaml
 ```
 
-Verificar que quedó el dominio real (debe aparecer en `host:` y en `hosts:`):
+Verificar viendo el archivo — el dominio real debe aparecer en `value:` y bajo `hosts:` (si quedan vacíos, `DOMAIN` no estaba definida; volver a §4.2):
 
 ```bash
-grep -E 'host' k8s/overlays/prod/patch-ingress-prod.yaml
+cat k8s/overlays/prod/patch-ingress-prod.yaml
 ```
 
 Desplegar:
@@ -338,6 +338,22 @@ kubectl get svc -n ingress-nginx ingress-nginx-controller -w
 ```
 
 Esa `EXTERNAL-IP` es la que va en el registro DNS (§5.2); el `Ingress academico` la hereda automáticamente.
+
+### 4.6 RBAC del colector de Managed Prometheus (en el bastión)
+
+El PodMonitoring del overlay le dice al colector de GMP que lea el token de `/metrics` desde `app-secrets`, pero su ServiceAccount (`gmp-system/collector`) necesita permiso para leer ese secret. Se aplica **aparte del kustomize** (el transformador de namespace reescribiría el subject `gmp-system` y rompería el binding):
+
+```bash
+kubectl -n academico-prod apply -f k8s/components/gmp/collector-rbac.yaml
+```
+
+Reiniciar el colector para que tome el permiso (su watcher del secret falla al arrancar sin RBAC y no reintenta):
+
+```bash
+kubectl -n gmp-system rollout restart daemonset/collector
+```
+
+> Sin esto el colector falla con `secret watcher failed to start` y la métrica de la app nunca se ingiere (la verificación de §6.1 siempre devuelve `{}`).
 
 ---
 
@@ -425,14 +441,7 @@ Dashboards: consola GCP → Monitoring → Dashboards (`infra`, `app`, `costos`)
 
 La alerta de RPC error rate consulta `academico_rpc_requests_total`, una métrica que la app expone vía Managed Prometheus. Managed Prometheus rechaza alertas sobre métricas que nunca ingirió; por eso `enable_app_metric_alerts` arranca en `false`. Habilitarla recién cuando la app YA recibió tráfico RPC real — no basta con que el pod esté `Running`: el contador no tiene series hasta el primer request, y GMP tarda unos minutos en scrapear e ingerir.
 
-**Prerrequisito (una vez):** el colector de Managed Prometheus necesita leer `app-secrets` para enviar el token en el scrape de `/metrics`. Aplicar el RBAC del colector — **aparte del kustomize** (el transformador de namespace reescribiría el subject `gmp-system` y rompería el binding):
-
-```bash
-kubectl -n academico-prod apply -f k8s/components/gmp/collector-rbac.yaml
-kubectl -n gmp-system rollout restart daemonset/collector
-```
-
-> Sin esto, el colector falla con `secret watcher failed to start` y la métrica nunca se ingiere (el curl de abajo siempre devuelve `{}`).
+> El scrape de GMP requiere el RBAC del colector, que ya se aplicó en el bastión (§4.6); sin él la métrica nunca se ingiere y el `curl` de abajo siempre devuelve `{}`.
 
 Verificar primero que la métrica ya está en Cloud Monitoring. Debe devolver una línea con el `type`; si no devuelve nada, todavía no está (esperar unos minutos o generar tráfico):
 
@@ -460,24 +469,63 @@ terraform apply
 
 ## 7. Backups (verificación)
 
-```bash
-# ejecutar el backup manualmente desde la VM ops y verificar en ambas nubes
-gcloud compute ssh ops --zone "$ZONE" --project "$PROJECT_ID" \
-  --command 'sudo bash -c ". /etc/default/academico-backup && /opt/backup/backup.sh"'
+### 7.1 Credenciales AWS de la VM ops (una vez)
 
+Terraform crea el usuario IAM `ops-backup` y su policy de S3, pero **no el access key** (por diseño no vive en el state). Crearlo y configurarlo en `ops` — todo desde la máquina local y por variables, para no pegar el secret a mano (un secret mal pegado da `SignatureDoesNotMatch`).
+
+Borrar keys previas (arrancar limpio; máx 2 por usuario):
+
+```bash
+for k in $(aws iam list-access-keys --user-name ops-backup --query 'AccessKeyMetadata[].AccessKeyId' --output text); do aws iam delete-access-key --user-name ops-backup --access-key-id "$k"; done
+```
+
+Crear una nueva y capturar ambos valores del MISMO output (par garantizado):
+
+```bash
+CREDS=$(aws iam create-access-key --user-name ops-backup --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text); AKID=$(printf '%s' "$CREDS" | cut -f1); SECRET=$(printf '%s' "$CREDS" | cut -f2)
+```
+
+Empujar a `ops` (el backup corre con `sudo`, así que las creds van a `/root/.aws`):
+
+```bash
+gcloud compute ssh ops --zone "$ZONE" --project "$PROJECT_ID" --command "sudo aws configure set aws_access_key_id '$AKID' && sudo aws configure set aws_secret_access_key '$SECRET' && sudo aws configure set region $AWS_REGION"
+```
+
+> El access key tarda unos segundos en activarse.
+
+### 7.2 Correr y verificar el backup
+
+El backup corre por cron (diario 02:00); para probarlo a mano, desde la máquina local:
+
+```bash
+gcloud compute ssh ops --zone "$ZONE" --project "$PROJECT_ID" --command 'sudo bash -c ". /etc/default/academico-backup && /opt/backup/backup.sh"'
+```
+
+Tiene que terminar en `Backup finished successfully` (`pg_dump complete` → `GCS upload complete` → `S3 upload complete`). Verificar el objeto en ambas nubes — **volver a la raíz del repo primero** (§6.1 dejó la shell en `infra/`):
+
+```bash
+cd ..
 gcloud storage ls "gs://$(cd infra && terraform output -raw gcs_backups_bucket)/"
 aws s3 ls "s3://$(cd infra && terraform output -raw s3_backups_dr_bucket)/"
 ```
 
-> La VM `ops` necesita las credenciales AWS configuradas (`aws configure`) — se proveen fuera de banda (no viven en el state). La prueba de restauración está en [`../infraestructura`](../infraestructura/README.md) §10 (`infra/scripts/restore.sh`).
+> La prueba de restauración está en [`../infraestructura`](../infraestructura/README.md) §10 (`infra/scripts/restore.sh`).
 
 ---
 
 ## 8. Apagado (ahorro de costos)
 
+Un `terraform destroy` completo **aborta**: las 3 claves KMS y el bucket de backups tienen `prevent_destroy` — y las claves KMS no se pueden borrar en GCP de todos modos (re-crearlas daría error 409). Esos recursos son baratos/permanentes y se conservan. El apagado destruye solo el **cómputo**, que es ~95% del costo:
+
 ```bash
 cd infra
-terraform destroy   # elimina toda la infra; el bucket de tfstate persiste
+terraform destroy \
+  -target=google_container_node_pool.primary \
+  -target=google_container_cluster.primary \
+  -target=google_compute_instance.bastion \
+  -target=google_compute_instance.ops \
+  -target=google_compute_router_nat.nat \
+  -target=google_compute_address.bastion
 ```
 
-> El estado en GCS sobrevive, así que `terraform apply` reconstruye todo idéntico al retomar. Ver optimización de costos en [`../monitoreo-costos`](../monitoreo-costos/README.md).
+> Quedan la VPC/subredes (gratis), IAM, claves KMS y los buckets con los backups. `terraform apply` reconstruye el cómputo idéntico al retomar, reusando claves y buckets (sin 409). El estado en GCS persiste.
