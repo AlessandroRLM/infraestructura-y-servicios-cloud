@@ -11,6 +11,7 @@ locals {
     "serviceusage.googleapis.com",
     "artifactregistry.googleapis.com",
     "billingbudgets.googleapis.com",
+    "iap.googleapis.com",
   ]
 }
 

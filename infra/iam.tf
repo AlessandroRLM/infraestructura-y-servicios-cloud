@@ -109,9 +109,11 @@ resource "google_project_iam_member" "bastion_container_admin" {
 # Ops SA — GCS backups bucket access
 # ────────────────────────────────────────────────────────────────────────────
 
+# objectUser (not objectCreator): gcloud storage cp does a get/precondition check before
+# upload, so create-only is not enough. objectUser = create/get/list/delete, scoped to this bucket.
 resource "google_storage_bucket_iam_member" "ops_gcs_writer" {
   bucket = google_storage_bucket.backups.name
-  role   = "roles/storage.objectCreator"
+  role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.ops.email}"
 }
 

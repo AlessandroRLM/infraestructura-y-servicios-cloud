@@ -14,12 +14,9 @@ if ! command -v kubectl &>/dev/null; then
   apt-get install -y -qq kubectl
 fi
 
-# google-cloud-cli-gke-gcloud-auth-plugin — preinstalled on GCE Debian images;
-# install only if missing.
-if ! gcloud components list --format='value(id)' 2>/dev/null | grep -q 'gke-gcloud-auth-plugin'; then
-  apt-get install -y -qq google-cloud-cli-gke-gcloud-auth-plugin 2>/dev/null || \
-    gcloud components install gke-gcloud-auth-plugin --quiet
-fi
+# gke-gcloud-auth-plugin: kubectl needs it to authenticate to GKE. Plain apt install
+# (the google-cloud-cli repo is preconfigured on GCE Debian images); fail loud if missing.
+apt-get install -y -qq google-cloud-cli-gke-gcloud-auth-plugin
 
 # awscli — prefer the package manager; fall back to pip if not available
 if ! command -v aws &>/dev/null; then
@@ -52,12 +49,15 @@ cat > /etc/default/academico-backup <<EOF
 export GCS_BUCKET=${gcs_bucket}
 export S3_BUCKET=${s3_bucket}
 export NAMESPACE=${namespace}
+export KUBECONFIG=/root/.kube/config
 EOF
 
 # ---------------------------------------------------------------------------
-# Configure kubectl to reach the GKE cluster
+# Configure kubectl to reach the GKE cluster. Pin the kubeconfig to a fixed path
+# so the root cron and manual runs find it (the startup-script $HOME is not /root).
 # ---------------------------------------------------------------------------
-gcloud container clusters get-credentials ${cluster_name} --zone ${zone}
+mkdir -p /root/.kube
+KUBECONFIG=/root/.kube/config gcloud container clusters get-credentials ${cluster_name} --zone ${zone}
 
 # ---------------------------------------------------------------------------
 # Cron job — daily at 02:00 UTC

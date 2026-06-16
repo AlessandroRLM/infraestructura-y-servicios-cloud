@@ -27,13 +27,17 @@ resource "google_container_cluster" "primary" {
     master_ipv4_cidr_block  = "172.16.0.0/28"
   }
 
-  # Private endpoint only: the API server is reachable solely from the bastion
-  # subnet (C-2). Public CIDRs are rejected when enable_private_endpoint = true,
-  # so admin access goes through the bastion, not the admin laptop directly.
+  # Private endpoint only (public CIDRs rejected): the API server is reachable from
+  # the bastion subnet (admin, C-2) and the ops subnet (automated backups via kubectl exec).
   master_authorized_networks_config {
     cidr_blocks {
       cidr_block   = "10.0.0.0/24"
       display_name = "bastion-subnet"
+    }
+
+    cidr_blocks {
+      cidr_block   = "10.0.1.0/24"
+      display_name = "ops-subnet"
     }
   }
 
@@ -60,6 +64,12 @@ resource "google_container_cluster" "primary" {
     managed_prometheus {
       enabled = true
     }
+  }
+
+  # GA provider reads database_encryption.state back as ALL_OBJECTS_ENCRYPTION_ENABLED (not
+  # "ENCRYPTED"), so apply re-patches it and GKE rejects it (DeployPatch failed). Already encrypted.
+  lifecycle {
+    ignore_changes = [database_encryption]
   }
 
   depends_on = [

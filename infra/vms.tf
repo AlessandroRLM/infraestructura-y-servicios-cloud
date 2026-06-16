@@ -71,17 +71,19 @@ resource "google_compute_instance" "ops" {
       s3_bucket      = aws_s3_bucket.backups_dr.bucket
       cluster_name   = google_container_cluster.primary.name
       zone           = var.zone
-      namespace      = "prod"
+      namespace      = "academico-prod"
     })
   }
 
-  # Minimal scopes: storage read/write + logging + monitoring (W-2)
+  # Scope changes require the instance to be stopped; allow Terraform to do so.
+  allow_stopping_for_update = true
+
+  # cloud-platform scope so the ops VM can run get-credentials/kubectl against GKE and
+  # write GCS backups; fine-grained control comes from the ops SA's IAM roles.
   service_account {
     email = google_service_account.ops.email
     scopes = [
-      "https://www.googleapis.com/auth/devstorage.read_write",
-      "https://www.googleapis.com/auth/logging.write",
-      "https://www.googleapis.com/auth/monitoring.write",
+      "https://www.googleapis.com/auth/cloud-platform",
     ]
   }
 }

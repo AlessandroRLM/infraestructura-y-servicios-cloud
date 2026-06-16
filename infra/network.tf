@@ -86,6 +86,22 @@ resource "google_compute_firewall" "allow_ssh_bastion" {
   target_tags   = ["bastion"]
 }
 
+# IAP SSH to the ops VM: no public IP and internal :22 is blocked (W-1), so manual
+# backup/restore runs (§7, §10) reach it only via IAP TCP forwarding (identity-gated).
+resource "google_compute_firewall" "allow_iap_ssh_ops" {
+  name    = "allow-iap-ssh-ops"
+  network = google_compute_network.vpc.id
+  project = var.project_id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["35.235.240.0/20"]
+  target_tags   = ["ops"]
+}
+
 resource "google_compute_firewall" "allow_https_ingress" {
   name    = "allow-https-ingress"
   network = google_compute_network.vpc.id
