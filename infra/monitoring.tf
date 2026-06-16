@@ -115,6 +115,8 @@ resource "google_monitoring_alert_policy" "service_down" {
 # ---------------------------------------------------------------------------
 
 resource "google_monitoring_alert_policy" "rpc_error_rate" {
+  count = var.enable_app_metric_alerts ? 1 : 0
+
   project      = var.project_id
   display_name = "API RPC Error Rate"
   combiner     = "OR"
@@ -156,8 +158,8 @@ resource "google_billing_budget" "monthly" {
 
   amount {
     specified_amount {
-      currency_code = "USD"
-      units         = tostring(var.monthly_budget_usd)
+      currency_code = "CLP"
+      units         = tostring(var.monthly_budget_clp)
     }
   }
 
@@ -180,6 +182,8 @@ resource "google_billing_budget" "monthly" {
     ]
     disable_default_iam_recipients = false
   }
+
+  depends_on = [google_project_service.apis["billingbudgets.googleapis.com"]]
 }
 
 # ---------------------------------------------------------------------------

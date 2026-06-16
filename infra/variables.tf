@@ -65,13 +65,19 @@ variable "billing_account_id" {
   description = "GCP billing account ID for budget alerts (format: XXXXXX-XXXXXX-XXXXXX)."
 }
 
-variable "monthly_budget_usd" {
+variable "monthly_budget_clp" {
   type        = number
-  description = "Monthly spend budget in USD; triggers alerts at 50%, 90%, and 100%."
-  default     = 150
+  description = "Monthly spend budget in CLP (must match the billing account currency); triggers alerts at 50%, 90%, and 100%."
+  default     = 150000
 
   validation {
-    condition     = var.monthly_budget_usd == floor(var.monthly_budget_usd)
-    error_message = "monthly_budget_usd must be a whole number."
+    condition     = var.monthly_budget_clp == floor(var.monthly_budget_clp)
+    error_message = "monthly_budget_clp must be a whole number."
   }
+}
+
+variable "enable_app_metric_alerts" {
+  type        = bool
+  description = "Create alert policies that depend on app-emitted Prometheus metrics (e.g. RPC error rate). Keep false until the app is deployed and has emitted the metrics at least once, then set true and re-apply; Managed Prometheus rejects alerts on metrics it has never seen."
+  default     = false
 }

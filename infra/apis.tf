@@ -1,5 +1,6 @@
 locals {
   gcp_apis = [
+    "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",
     "storage-api.googleapis.com",
@@ -9,6 +10,7 @@ locals {
     "iam.googleapis.com",
     "serviceusage.googleapis.com",
     "artifactregistry.googleapis.com",
+    "billingbudgets.googleapis.com",
   ]
 }
 
