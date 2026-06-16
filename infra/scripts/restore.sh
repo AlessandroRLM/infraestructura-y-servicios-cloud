@@ -10,7 +10,7 @@ set -euo pipefail
 # Optional env vars with defaults
 # ---------------------------------------------------------------------------
 BACKUP_OBJECT="${BACKUP_OBJECT:-latest}"
-TARGET_NAMESPACE="${TARGET_NAMESPACE:-test}"
+TARGET_NAMESPACE="${TARGET_NAMESPACE:-academico-test}"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -46,16 +46,16 @@ log "Downloading from S3"
 aws s3 cp "s3://${S3_BUCKET}/${BACKUP_OBJECT}" "${WORKDIR}/${BACKUP_OBJECT}"
 log "Download complete ($(du -sh "${WORKDIR}/${BACKUP_OBJECT}" | cut -f1))"
 
-# Restore into the target namespace's postgres — DATABASE_URL expands in-pod
+# Restore into the target namespace's postgres pod — it has psql and the DB creds in env.
 log "Restoring into ${TARGET_NAMESPACE}/statefulset/postgres"
 gunzip -c "${WORKDIR}/${BACKUP_OBJECT}" | \
   kubectl -n "${TARGET_NAMESPACE}" exec -i statefulset/postgres -- \
-    sh -c 'psql "$DATABASE_URL"'
+    sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 log "Restore complete"
 
 # Validation query — counts enrollments as documented restore-test evidence (RNF-5)
 log "Running validation query"
 kubectl -n "${TARGET_NAMESPACE}" exec statefulset/postgres -- \
-  sh -c 'psql "$DATABASE_URL" -c "SELECT count(*) AS enrollment_count FROM enrollments;"'
+  sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT count(*) AS enrollment_count FROM enrollments;"'
 
 log "Restore test finished successfully"

@@ -30,10 +30,12 @@ trap 'log "Cleaning up workdir ${WORKDIR}"; rm -rf "${WORKDIR}"' EXIT
 log "Starting backup: ${FILENAME}"
 log "Namespace: ${NAMESPACE} | GCS: gs://${GCS_BUCKET}/ | S3: s3://${S3_BUCKET}/"
 
-# Dump from the api pod — DATABASE_URL is expanded inside the pod's env
+# Dump from the postgres pod — it has pg_dump and the DB credentials in its env.
+# (The api container is distroless: no shell, no pg_dump.)
 log "Running pg_dump via kubectl"
-"${KUBECTL}" -n "${NAMESPACE}" exec deploy/api -- \
-  sh -c 'pg_dump "$DATABASE_URL"' | gzip > "${WORKDIR}/${FILENAME}"
+"${KUBECTL}" -n "${NAMESPACE}" exec statefulset/postgres -- \
+  sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  | gzip > "${WORKDIR}/${FILENAME}"
 
 log "pg_dump complete ($(du -sh "${WORKDIR}/${FILENAME}" | cut -f1))"
 
