@@ -261,6 +261,11 @@ describe("SchemeManagementView — S-07: create scheme", () => {
         expect.anything(),
       );
     });
+
+    // S-07a: form unmounts after successful create.
+    await waitFor(() => {
+      expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    });
   });
 });
 
@@ -394,9 +399,9 @@ describe("SchemeManagementView — S-09: FailedPrecondition", () => {
     await user.click(screen.getByRole("button", { name: /^recrear$/i }));
     await screen.findByText(/este curso ya tiene notas registradas/i);
 
-    // Change course: open the picker (now labelled "MAT101 — Matemáticas").
+    // Change course: open the picker (now labelled "MAT101 — Matemáticas" after selection).
     const picker = screen.getByRole("combobox", {
-      name: /seleccionar asignatura/i,
+      name: /mat101/i,
     });
     await user.click(picker);
     // Type to filter for the second course.

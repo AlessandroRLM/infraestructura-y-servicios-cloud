@@ -206,6 +206,16 @@ describe("EvaluationSchemeForm — error display", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/el esquema ya existe/i)).not.toBeInTheDocument();
   });
+
+  it("shows no inline role=alert banner when submitError='generic' (toast-only contract)", () => {
+    renderForm({
+      initialRows: [{ percent: 100 }],
+      submitError: "generic",
+    });
+    // "generic" errors are shown as toasts by the parent — the form must not render
+    // an inline banner for them.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 // ──────────────────────────────────────────────
