@@ -8,12 +8,8 @@ export interface UseEvaluationsResult {
   evaluations: Evaluation[];
   /** True while the initial query is loading and no data is available yet. */
   isPending: boolean;
-  /** True during both the initial load and any subsequent background refresh. */
-  isLoading: boolean;
   /** True if the query failed. */
   isError: boolean;
-  /** True during any background refetch (initial or subsequent). */
-  isFetching: boolean;
   /** Re-triggers the query, e.g. for a Retry action. */
   refetch: () => void;
 }
@@ -35,9 +31,7 @@ export function useEvaluations(courseId: string): UseEvaluationsResult {
   return {
     evaluations: result.data?.evaluations ?? [],
     isPending: result.isPending,
-    isLoading: result.isLoading,
     isError: result.isError,
-    isFetching: result.isFetching,
     refetch: result.refetch,
   };
 }

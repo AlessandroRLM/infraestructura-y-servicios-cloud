@@ -27,6 +27,11 @@ export function SchemeManagementView() {
   const [courseId, setCourseId] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [submitError, setSubmitError] = useState<SchemeErrorKind | null>(null);
+  // Snapshotted at form-open time so a background refetch cannot flip create↔recreate
+  // while the form is open.
+  const [snapshotMode, setSnapshotMode] = useState<
+    "create" | "recreate" | null
+  >(null);
 
   const { evaluations, isPending, isError, refetch } = useEvaluations(courseId);
 
@@ -39,7 +44,9 @@ export function SchemeManagementView() {
   // (either empty or non-empty). Prevents submitting before knowing create vs recreate.
   const schemeStateKnown = courseId !== "" && !isPending && !isError;
 
-  const mode = (evaluations.length ?? 0) > 0 ? "recreate" : "create";
+  const derivedMode = evaluations.length > 0 ? "recreate" : "create";
+  // Use the snapshotted mode while the form is open; fall back to derived for display logic.
+  const mode = snapshotMode ?? derivedMode;
 
   // Pre-fill form rows from the current scheme for recreate mode.
   const initialRows: InitialRow[] =
@@ -54,13 +61,16 @@ export function SchemeManagementView() {
     setCourseId(newCourseId);
     setSubmitError(null);
     setShowForm(false);
+    setSnapshotMode(null);
   };
 
   const handleCreateScheme = () => {
+    setSnapshotMode("create");
     setShowForm(true);
   };
 
   const handleRecreateScheme = () => {
+    setSnapshotMode("recreate");
     setShowForm(true);
   };
 
@@ -80,6 +90,12 @@ export function SchemeManagementView() {
       }
       setShowForm(false);
       setSubmitError(null);
+      setSnapshotMode(null);
+      toast.success(
+        mode === "create"
+          ? "Esquema creado correctamente."
+          : "Esquema recreado correctamente.",
+      );
     } catch (err) {
       const kind = mapSchemeError(err);
       if (kind === "generic") {

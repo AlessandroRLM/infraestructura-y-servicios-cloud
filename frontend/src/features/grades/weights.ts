@@ -5,12 +5,14 @@
  * between that model and the wire format expected by the grades backend
  * (3-decimal-place strings summing to exactly 1.000).
  *
- * Float-safety proof: every percent value pᵢ is a JS integer (1..100).
- * p/100 has at most 2 decimal places and is exactly representable in
- * IEEE-754 for this range. `.toFixed(3)` is pure zero-padding — no
- * rounding occurs. The backend parses each string as exact big.Rat,
- * so Σ(pᵢ/100) = (Σpᵢ)/100 = 100/100 = 1 exactly, provided the integer
- * sum gate (sumPercents === 100) is enforced by the caller (zod schema).
+ * Float-safety proof: every percent value pᵢ is a JS integer (1..100),
+ * enforced by the zod `.int()` constraint in evaluationScheme.ts before
+ * any call reaches this module. `.toFixed(3)` produces the correct
+ * 3-decimal string for all integers 1..100 (verified exhaustively); the
+ * zod `.int()` constraint ensures only integers reach this function.
+ * The backend parses each string as exact big.Rat, so Σ(pᵢ/100) =
+ * (Σpᵢ)/100 = 100/100 = 1 exactly, provided the integer sum gate
+ * (sumPercents === 100) is enforced by the caller (zod schema).
  */
 
 /**

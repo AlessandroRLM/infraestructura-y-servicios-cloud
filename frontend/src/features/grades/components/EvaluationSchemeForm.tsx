@@ -75,7 +75,7 @@ const ALREADY_EXISTS_MESSAGE =
 
 /** Returns a fresh default row. The percent starts at 0 but zod requires ≥1; the user must fill it. */
 function emptyRow(): EvaluationSchemeFormValues["rows"][number] {
-  return { percent: 0 as number };
+  return { percent: 0 };
 }
 
 /**
@@ -120,15 +120,31 @@ export function EvaluationSchemeForm({
 
   // Live total — display only, no submit side-effect. useWatch re-renders on every change.
   const watchedRows = useWatch({ control: form.control, name: "rows" });
+  const parsedRows = (watchedRows ?? []).map((r) => {
+    const n = Number(r.percent);
+    return { percent: n };
+  });
   const total = sumPercents(
-    (watchedRows ?? []).map((r) => ({ percent: Number(r.percent) || 0 })),
+    parsedRows.map((r) => ({
+      percent: Number.isFinite(r.percent) ? r.percent : 0,
+    })),
+  );
+  // Any non-integer value means zod .int() will reject on submit — disable the button.
+  const hasNonInteger = parsedRows.some(
+    (r) => !Number.isInteger(r.percent) || !Number.isFinite(r.percent),
   );
 
-  const submitDisabled = total !== 100 || isSubmitting || !schemeStateKnown;
+  const submitDisabled =
+    total !== 100 || hasNonInteger || isSubmitting || !schemeStateKnown;
 
   const executeSubmit = async (values: EvaluationSchemeFormValues) => {
     const weights = values.rows.map((r) => percentToWeight(r.percent));
-    await onSubmit(weights);
+    try {
+      await onSubmit(weights);
+    } catch {
+      // onSubmit rejections are handled by the parent (SchemeManagementView.handleSubmit).
+      // Catching here prevents an unhandled rejection when the async chain is void-cast.
+    }
   };
 
   const handleFormSubmit = form.handleSubmit((values) => {
@@ -196,6 +212,7 @@ export function EvaluationSchemeForm({
                     inputMode="numeric"
                     min={1}
                     max={100}
+                    step={1}
                     placeholder="ej. 30"
                     aria-invalid={
                       form.formState.errors.rows?.[index]?.percent
@@ -282,10 +299,7 @@ export function EvaluationSchemeForm({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              disabled={isSubmitting}
-              onClick={() => setConfirmOpen(false)}
-            >
+            <AlertDialogCancel disabled={isSubmitting}>
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
