@@ -6,7 +6,15 @@ import { GradesService } from "@/gen/grades/v1/grades_pb";
 export interface UseEvaluationsResult {
   /** Evaluations for the selected course, sorted by position server-side. */
   evaluations: Evaluation[];
-  /** True while the initial query is loading and no data is available yet. */
+  /**
+   * True while the initial query is loading and no data is available yet.
+   *
+   * NOTE (TanStack Query v5): `isPending` is also `true` when the query is
+   * disabled (i.e. `courseId === ""`), because a disabled query is treated as
+   * "pending with no data". Callers MUST guard on `courseId !== ""` before
+   * treating this as an active loading state (SchemeManagementView does so via
+   * the `schemeStateKnown` flag).
+   */
   isPending: boolean;
   /** True if the query failed. */
   isError: boolean;

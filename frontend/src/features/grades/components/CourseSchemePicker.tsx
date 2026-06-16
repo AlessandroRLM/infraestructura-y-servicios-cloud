@@ -15,8 +15,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useCourses } from "@/core/catalog";
+import { useDebounce } from "@/core/hooks";
 
-interface CourseSchemePicker {
+/** Milliseconds to debounce the course search query before issuing a ListCourses RPC. */
+const SEARCH_DEBOUNCE_MS = 300;
+
+interface CourseSchemePickerProps {
   /** Currently selected course id, or empty string when nothing is selected. */
   value: string;
   /** Called with the selected course id when the user picks a course. */
@@ -27,17 +31,23 @@ interface CourseSchemePicker {
  * Searchable course combobox backed by the catalog ListCourses RPC via useCourses.
  * Uses a Popover + Command pattern, matching ProgramCoursesManager.
  * The search query is managed locally and passed to useCourses for server-side filtering.
+ * The input is controlled (immediate visual update); the RPC query is debounced
+ * via useDebounce to avoid one ListCourses request per keystroke.
  *
  * The selected course label is stored at pick-time (selectedLabel) so it persists
  * independently of the current query page — prevents label vanishing after a search.
  */
-export function CourseSchemePicker({ value, onChange }: CourseSchemePicker) {
+export function CourseSchemePicker({
+  value,
+  onChange,
+}: CourseSchemePickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   // Snapshot the display label at pick-time, independent of the current page.
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
-  const { courses, isLoading } = useCourses(query);
+  const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
+  const { courses, isLoading } = useCourses(debouncedQuery);
 
   // Prefer the snapshotted label; fall back to live lookup for the initial render
   // when value is pre-set and selectedLabel has not been set yet.

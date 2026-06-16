@@ -133,17 +133,24 @@ export function EvaluationSchemeForm({
   const hasNonInteger = parsedRows.some(
     (r) => !Number.isInteger(r.percent) || !Number.isFinite(r.percent),
   );
+  // Any row below 1 means zod .min(1) will reject on submit (e.g. a freshly added empty row).
+  const hasZeroOrEmptyRow = parsedRows.some((r) => r.percent < 1);
 
   const submitDisabled =
-    total !== 100 || hasNonInteger || isSubmitting || !schemeStateKnown;
+    total !== 100 ||
+    hasNonInteger ||
+    hasZeroOrEmptyRow ||
+    isSubmitting ||
+    !schemeStateKnown;
 
   const executeSubmit = async (values: EvaluationSchemeFormValues) => {
     const weights = values.rows.map((r) => percentToWeight(r.percent));
     try {
       await onSubmit(weights);
     } catch {
-      // onSubmit rejections are handled by the parent (SchemeManagementView.handleSubmit).
-      // Catching here prevents an unhandled rejection when the async chain is void-cast.
+      // Defensive only — SchemeManagementView.handleSubmit is self-contained and never
+      // re-throws. This catch exists solely to prevent an unhandled-rejection warning
+      // if the call site ever changes; it does NOT handle the error.
     }
   };
 
