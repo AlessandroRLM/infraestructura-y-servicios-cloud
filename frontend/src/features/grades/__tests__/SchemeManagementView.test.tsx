@@ -305,7 +305,17 @@ describe("SchemeManagementView — S-08: recreate scheme", () => {
     await user.click(screen.getByRole("button", { name: /^recrear$/i }));
 
     await waitFor(() => {
-      expect(recreateEvaluationScheme).toHaveBeenCalled();
+      expect(recreateEvaluationScheme).toHaveBeenCalledWith(
+        expect.objectContaining({
+          courseId: "course-1",
+          evaluations: [
+            expect.objectContaining({ weight: "0.300" }),
+            expect.objectContaining({ weight: "0.300" }),
+            expect.objectContaining({ weight: "0.400" }),
+          ],
+        }),
+        expect.anything(),
+      );
     });
   });
 });
@@ -449,5 +459,40 @@ describe("SchemeManagementView — generic error handling", () => {
         "No se pudo guardar el esquema. Inténtalo de nuevo.",
       );
     });
+  });
+});
+
+// ──────────────────────────────────────────────
+// AlreadyExists → inline already-exists message
+// ──────────────────────────────────────────────
+
+describe("SchemeManagementView — AlreadyExists error handling", () => {
+  it("shows inline already-exists message when CreateEvaluationScheme returns AlreadyExists", async () => {
+    const user = userEvent.setup();
+
+    renderView({
+      listEvaluations: async () =>
+        create(ListEvaluationsResponseSchema, { evaluations: [] }),
+      createEvaluationScheme: async () => {
+        throw new ConnectError("already exists", Code.AlreadyExists);
+      },
+    });
+
+    await selectCourse(user);
+    await screen.findByText(/este curso no tiene un esquema/i);
+    await user.click(screen.getByRole("button", { name: /crear esquema/i }));
+
+    const inputs = screen.getAllByRole("spinbutton");
+    await user.clear(inputs[0]);
+    await user.type(inputs[0], "100");
+    await user.tab();
+
+    await user.click(screen.getByRole("button", { name: /crear esquema/i }));
+
+    // Inline already-exists message appears in the form.
+    await screen.findByText(/el esquema ya existe/i);
+
+    // Form stays open (spinbuttons are visible).
+    expect(screen.getAllByRole("spinbutton").length).toBeGreaterThan(0);
   });
 });
