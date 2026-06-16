@@ -4,7 +4,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeStubTransport } from "@/core/test";
 import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
 import {
@@ -266,6 +266,12 @@ describe("SchemeManagementView — S-07: create scheme", () => {
     await waitFor(() => {
       expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     });
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(
+        "Esquema creado correctamente.",
+      );
+    });
   });
 });
 
@@ -317,6 +323,17 @@ describe("SchemeManagementView — S-08: recreate scheme", () => {
         expect.anything(),
       );
     });
+
+    // S-08b: form unmounts after successful recreate (mirrors S-07a).
+    await waitFor(() => {
+      expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith(
+        "Esquema recreado correctamente.",
+      );
+    });
   });
 });
 
@@ -361,69 +378,89 @@ describe("SchemeManagementView — S-09: FailedPrecondition", () => {
     expect(screen.getAllByRole("spinbutton").length).toBeGreaterThan(0);
   });
 
-  it("S-09b: precondition error clears when user selects a different course", async () => {
-    const user = userEvent.setup();
-    const anotherCourse = {
-      id: "course-2",
-      code: "FIS201",
-      name: "Física",
-      credits: 4,
-      createdAt: "",
-      updatedAt: "",
-    };
-
-    renderView(
-      {
-        listEvaluations: async ({ courseId }) => {
-          if (courseId === "course-1") {
-            return create(ListEvaluationsResponseSchema, {
-              evaluations: makeEvaluations(),
-            });
-          }
-          return create(ListEvaluationsResponseSchema, { evaluations: [] });
-        },
-        recreateEvaluationScheme: async () => {
-          throw new ConnectError(
-            "failed precondition",
-            Code.FailedPrecondition,
-          );
-        },
-      },
-      {
-        listCourses: async ({ query }) => ({
-          courses: query?.includes("Fis") ? [anotherCourse] : [stubCourse],
-          nextPageToken: "",
-        }),
-      },
-    );
-
-    // Select first course and trigger FailedPrecondition.
-    await selectCourse(user);
-    await screen.findByRole("button", { name: /recrear esquema/i });
-    await user.click(screen.getByRole("button", { name: /recrear esquema/i }));
-    const submitBtn = await screen.findByRole("button", {
-      name: /recrear esquema/i,
+  describe("S-09b: precondition error clears on course change (fake timers)", () => {
+    beforeEach(() => {
+      // shouldAdvanceTime keeps real-time polling (findBy*, waitFor) working
+      // while still allowing deterministic manual advances for the debounce.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
     });
-    await user.click(submitBtn);
-    await screen.findByRole("alertdialog");
-    await user.click(screen.getByRole("button", { name: /^recrear$/i }));
-    await screen.findByText(/este curso ya tiene notas registradas/i);
 
-    // Change course: open the picker (now labelled "MAT101 — Matemáticas" after selection).
-    const picker = screen.getByRole("combobox", {
-      name: /mat101/i,
+    afterEach(() => {
+      vi.useRealTimers();
     });
-    await user.click(picker);
-    // Type to filter for the second course.
-    const input = await screen.findByPlaceholderText(/buscar asignatura/i);
-    await user.type(input, "Fis");
-    await screen.findByRole("option", { name: /fis201/i });
-    await user.click(screen.getByRole("option", { name: /fis201/i }));
 
-    // The error message should no longer be visible.
-    expect(
-      screen.queryByText(/este curso ya tiene notas registradas/i),
-    ).not.toBeInTheDocument();
+    it("S-09b: precondition error clears when user selects a different course", async () => {
+      // userEvent v14 + fake timers: pass advanceTimers so pointer/keyboard
+      // delays inside userEvent are also driven by the fake clock.
+      const user = userEvent.setup({
+        advanceTimers: vi.advanceTimersByTime.bind(vi),
+      });
+      const anotherCourse = {
+        id: "course-2",
+        code: "FIS201",
+        name: "Física",
+        credits: 4,
+        createdAt: "",
+        updatedAt: "",
+      };
+
+      renderView(
+        {
+          listEvaluations: async ({ courseId }) => {
+            if (courseId === "course-1") {
+              return create(ListEvaluationsResponseSchema, {
+                evaluations: makeEvaluations(),
+              });
+            }
+            return create(ListEvaluationsResponseSchema, { evaluations: [] });
+          },
+          recreateEvaluationScheme: async () => {
+            throw new ConnectError(
+              "failed precondition",
+              Code.FailedPrecondition,
+            );
+          },
+        },
+        {
+          listCourses: async ({ query }) => ({
+            courses: query?.includes("Fis") ? [anotherCourse] : [stubCourse],
+            nextPageToken: "",
+          }),
+        },
+      );
+
+      // Select first course and trigger FailedPrecondition.
+      await selectCourse(user);
+      await screen.findByRole("button", { name: /recrear esquema/i });
+      await user.click(
+        screen.getByRole("button", { name: /recrear esquema/i }),
+      );
+      const submitBtn = await screen.findByRole("button", {
+        name: /recrear esquema/i,
+      });
+      await user.click(submitBtn);
+      await screen.findByRole("alertdialog");
+      await user.click(screen.getByRole("button", { name: /^recrear$/i }));
+      await screen.findByText(/este curso ya tiene notas registradas/i);
+
+      // Change course: open the picker (now labelled "MAT101 — Matemáticas" after selection).
+      const picker = screen.getByRole("combobox", {
+        name: /mat101/i,
+      });
+      await user.click(picker);
+      // Type to filter for the second course; advance past the 300ms debounce
+      // deterministically so the query fires before findByRole times out.
+      const input = await screen.findByPlaceholderText(/buscar asignatura/i);
+      await user.type(input, "Fis");
+      await vi.advanceTimersByTimeAsync(300);
+      await screen.findByRole("option", { name: /fis201/i });
+      await user.click(screen.getByRole("option", { name: /fis201/i }));
+
+      // The error message should no longer be visible.
+      expect(
+        screen.queryByText(/este curso ya tiene notas registradas/i),
+      ).not.toBeInTheDocument();
+    });
   });
 });
 
