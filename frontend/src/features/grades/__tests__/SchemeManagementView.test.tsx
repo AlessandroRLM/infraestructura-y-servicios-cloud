@@ -218,6 +218,12 @@ describe("SchemeManagementView — S-07: create scheme", () => {
     // Skeleton is shown — form is not rendered, no submit possible.
     await screen.findByRole("status", { name: /cargando esquema/i });
 
+    // While loading, form inputs and submit button must not be reachable.
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /crear esquema/i }),
+    ).not.toBeInTheDocument();
+
     // Resolve so the test can clean up.
     resolveEvaluations(
       create(ListEvaluationsResponseSchema, { evaluations: [] }),
