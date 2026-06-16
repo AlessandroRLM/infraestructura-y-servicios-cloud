@@ -34,9 +34,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCourses } from "@/core/catalog";
 import type { ProgramCourse } from "@/gen/catalog/v1/catalog_pb";
 import { useAddCourseToProgram } from "../hooks/useAddCourseToProgram";
-import { useCourses } from "../hooks/useCourses";
 import { useProgramCourses } from "../hooks/useProgramCourses";
 import { useRemoveCourseFromProgram } from "../hooks/useRemoveCourseFromProgram";
 import { mapProgramCourseError } from "./errorMapping";

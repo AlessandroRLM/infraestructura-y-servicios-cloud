@@ -11,12 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useCourses } from "@/core/catalog";
 import { PageSizeSelector, SearchInput } from "@/core/components";
 import { hasPermission, useSession } from "@/features/auth";
 import type { Course } from "@/gen/catalog/v1/catalog_pb";
 import { Route } from "@/routes/_authenticated/admin/academics";
 import { SEARCH_DEBOUNCE_MS } from "../constants";
-import { useCourses } from "../hooks/useCourses";
 import { CourseDialog } from "./CourseDialog";
 import { DeleteCourseDialog } from "./DeleteCourseDialog";
 

@@ -14,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useCourses } from "@/features/academics";
+import { useCourses } from "@/core/catalog";
 
 interface CourseSchemePicker {
   /** Currently selected course id, or empty string when nothing is selected. */
@@ -27,31 +27,57 @@ interface CourseSchemePicker {
  * Searchable course combobox backed by the catalog ListCourses RPC via useCourses.
  * Uses a Popover + Command pattern, matching ProgramCoursesManager.
  * The search query is managed locally and passed to useCourses for server-side filtering.
+ *
+ * The selected course label is stored at pick-time (selectedLabel) so it persists
+ * independently of the current query page — prevents label vanishing after a search.
  */
 export function CourseSchemePicker({ value, onChange }: CourseSchemePicker) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  // Snapshot the display label at pick-time, independent of the current page.
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
   const { courses, isLoading } = useCourses(query);
 
-  const selectedCourse = courses.find((c) => c.id === value);
-  const label = selectedCourse
-    ? `${selectedCourse.code} — ${selectedCourse.name}`
-    : "Seleccionar asignatura";
+  // Prefer the snapshotted label; fall back to live lookup for the initial render
+  // when value is pre-set and selectedLabel has not been set yet.
+  const liveCourse = courses.find((c) => c.id === value);
+  const label =
+    value === ""
+      ? "Seleccionar asignatura"
+      : (selectedLabel ??
+        (liveCourse
+          ? `${liveCourse.code} — ${liveCourse.name}`
+          : "Seleccionar asignatura"));
+
+  const ariaLabel =
+    value === ""
+      ? "Seleccionar asignatura"
+      : (selectedLabel ?? "Seleccionar asignatura");
 
   const handleSelect = (courseId: string) => {
+    const picked = courses.find((c) => c.id === courseId);
+    setSelectedLabel(picked ? `${picked.code} — ${picked.name}` : null);
     onChange(courseId);
     setOpen(false);
     setQuery("");
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      // Clear the search query when popover closes without selection
+      setQuery("");
+    }
+    setOpen(nextOpen);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
-          aria-label="Seleccionar asignatura"
+          aria-label={ariaLabel}
           aria-expanded={open}
           aria-haspopup="listbox"
           className="w-full justify-between"
