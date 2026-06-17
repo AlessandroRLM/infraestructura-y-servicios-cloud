@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@connectrpc/connect-query";
 import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
-import { CATALOG_PAGE_SIZE } from "../constants";
+import { CATALOG_PAGE_SIZE } from "./constants";
 
 /**
  * Cursor-paginated list of Courses with optional search filter. `isError`

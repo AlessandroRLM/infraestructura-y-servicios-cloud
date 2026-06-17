@@ -53,7 +53,7 @@ export function ProgramForm({
           aria-invalid={errors.code ? true : undefined}
           {...register("code")}
         />
-        <div className="min-h-[1.25rem]">
+        <div className="min-h-5">
           {errors.code && (
             <p role="alert" className="text-destructive text-sm">
               {errors.code.message}
@@ -70,7 +70,7 @@ export function ProgramForm({
           aria-invalid={errors.name ? true : undefined}
           {...register("name")}
         />
-        <div className="min-h-[1.25rem]">
+        <div className="min-h-5">
           {errors.name && (
             <p role="alert" className="text-destructive text-sm">
               {errors.name.message}
