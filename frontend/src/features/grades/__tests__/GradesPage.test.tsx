@@ -10,8 +10,9 @@ import { GradesPage } from "../components/GradesPage";
 /**
  * Minimal transport stub covering every service queried at mount time.
  * CatalogService.listCourses: satisfies useCourses inside SchemeManagementView.
- * GradesService.listEvaluations: guards against future mount-time evaluation
- * queries — fails with a clear assertion rather than an unhandled transport error.
+ * GradesService.listEvaluations: keeps the stub resilient if SchemeManagementView
+ * ever pre-selects a course at mount; absent it, an evaluation query would surface
+ * as an unhandled transport error instead of the intended assertion failure.
  */
 const minimalTransport = makeStubTransport(
   [
