@@ -45,10 +45,7 @@ export const ADMIN_NAV = [
   {
     label: "Notas",
     icon: PenLine,
-    options: linkOptions({
-      to: "/admin/grades",
-      search: { period: "", program: "", pageSize: 20 },
-    }),
+    options: linkOptions({ to: "/admin/grades" }),
   },
   {
     label: "Reportes",

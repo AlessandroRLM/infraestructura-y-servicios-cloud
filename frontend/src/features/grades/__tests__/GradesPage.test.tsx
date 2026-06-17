@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { makeStubTransport } from "@/core/test";
-import type { SessionState } from "@/features/auth";
+import type { Permission, SessionState } from "@/features/auth";
 import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
 import { renderComponent } from "@/test";
 import { GradesPage } from "../components/GradesPage";
@@ -12,7 +12,7 @@ const minimalCatalogTransport = makeStubTransport([
   { listCourses: async () => ({ courses: [], nextPageToken: "" }) },
 ]);
 
-function session(permissions: string[]): SessionState {
+function session(permissions: Permission[]): SessionState {
   return {
     status: "authenticated",
     userId: "u-1",
@@ -78,5 +78,12 @@ describe("GradesPage — grades.override gate (T-13)", () => {
     expect(
       screen.getByText("Registro de notas — próximamente."),
     ).toBeInTheDocument();
+
+    // SchemeManagementView never mounted, so its subtitle is absent — no queries fired.
+    expect(
+      screen.queryByText(
+        "Administra los esquemas de evaluación por asignatura.",
+      ),
+    ).not.toBeInTheDocument();
   });
 });
