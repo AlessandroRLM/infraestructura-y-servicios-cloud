@@ -24,7 +24,7 @@ export const ROUTE_PERMISSIONS = {
   "/admin/academics": ["catalog.manage"],
   "/admin/enrollments": ["enrollment.manage"],
   "/admin/section-enrollments": ["enrollment.manage"],
-  "/admin/grades": ["grades.read", "grades.write"],
+  "/admin/grades": ["grades.read", "grades.write", "grades.override"],
   "/admin/reports": ["reports.read"],
   "/admin/users": ["users.manage"],
   "/admin/access-control": ["users.manage"],

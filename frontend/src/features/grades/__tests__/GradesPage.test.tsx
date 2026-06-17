@@ -3,14 +3,23 @@ import { describe, expect, it } from "vitest";
 import { makeStubTransport } from "@/core/test";
 import type { Permission, SessionState } from "@/features/auth";
 import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
+import { GradesService } from "@/gen/grades/v1/grades_pb";
 import { renderComponent } from "@/test";
 import { GradesPage } from "../components/GradesPage";
 
-/** Minimal catalog stub to satisfy useCourses inside SchemeManagementView. */
-const minimalCatalogTransport = makeStubTransport([
-  CatalogService,
-  { listCourses: async () => ({ courses: [], nextPageToken: "" }) },
-]);
+/**
+ * Minimal transport stub covering every service queried at mount time.
+ * CatalogService.listCourses: satisfies useCourses inside SchemeManagementView.
+ * GradesService.listEvaluations: guards against future mount-time evaluation
+ * queries — fails with a clear assertion rather than an unhandled transport error.
+ */
+const minimalTransport = makeStubTransport(
+  [
+    CatalogService,
+    { listCourses: async () => ({ courses: [], nextPageToken: "" }) },
+  ],
+  [GradesService, { listEvaluations: async () => ({ evaluations: [] }) }],
+);
 
 function session(permissions: Permission[]): SessionState {
   return {
@@ -26,7 +35,7 @@ describe("GradesPage — grades.override gate (T-13)", () => {
   it("S-01a: grades.override → renders SchemeManagementView", async () => {
     renderComponent(<GradesPage />, {
       session: session(["grades.override"]),
-      transport: minimalCatalogTransport,
+      transport: minimalTransport,
     });
 
     // SchemeManagementView renders this subtitle immediately on mount.
@@ -69,7 +78,7 @@ describe("GradesPage — grades.override gate (T-13)", () => {
     ).toBeInTheDocument();
   });
 
-  it("loading session → renders placeholder (no server call while unresolved)", () => {
+  it("loading session → renders placeholder", () => {
     renderComponent(<GradesPage />, {
       session: { status: "loading" },
     });
@@ -79,7 +88,23 @@ describe("GradesPage — grades.override gate (T-13)", () => {
       screen.getByText("Registro de notas — próximamente."),
     ).toBeInTheDocument();
 
-    // SchemeManagementView never mounted, so its subtitle is absent — no queries fired.
+    // SchemeManagementView subtitle absent → view was never mounted.
+    expect(
+      screen.queryByText(
+        "Administra los esquemas de evaluación por asignatura.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("unauthenticated session → renders placeholder", () => {
+    renderComponent(<GradesPage />, {
+      session: { status: "unauthenticated" },
+    });
+
+    expect(
+      screen.getByText("Registro de notas — próximamente."),
+    ).toBeInTheDocument();
+
     expect(
       screen.queryByText(
         "Administra los esquemas de evaluación por asignatura.",
