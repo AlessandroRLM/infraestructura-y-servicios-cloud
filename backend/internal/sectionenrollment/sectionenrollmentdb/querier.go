@@ -43,6 +43,15 @@ type Querier interface {
 	// Keyset pagination: results ordered by se.id DESC; page_token is the exclusive upper bound.
 	ListOwnSectionEnrollments(ctx context.Context, arg ListOwnSectionEnrollmentsParams) ([]SectionEnrollment, error)
 	ListSectionEnrollments(ctx context.Context, arg ListSectionEnrollmentsParams) ([]SectionEnrollment, error)
+	// Returns live section_enrollment rows for a section the caller teaches, with student_id
+	// projected from the linked enrollment.
+	// EXISTS guard: if the caller is not in section_teachers for the section, returns no rows
+	// (anti-leak: existence is never disclosed — empty page, not PermissionDenied).
+	// Includes withdrawn enrollments (status distinguishes them from active ones).
+	// Keyset pagination on se.id DESC; page_token is the exclusive upper bound.
+	// Cross-domain read: reads section_teachers (catalog schema) and enrollments.
+	// This is the same intra-DB coupling already established in this context (see file header).
+	ListSectionRosterForTeacher(ctx context.Context, arg ListSectionRosterForTeacherParams) ([]ListSectionRosterForTeacherRow, error)
 	// Resolves an enrollment by id without filtering on status.
 	// Returns year, status, and deleted_at so the caller can distinguish:
 	//   not found / soft-deleted → ErrNotFound

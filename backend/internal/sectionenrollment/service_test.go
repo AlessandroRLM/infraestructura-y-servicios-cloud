@@ -39,6 +39,11 @@ type fakeRepository struct {
 	getOwnCalled bool
 	getOwnRow    sectionenrollmentdb.SectionEnrollment
 	getOwnErr    error
+
+	rosterCalled bool
+	rosterParams ListSectionRosterForTeacherRepoParams
+	rosterRows   []sectionenrollmentdb.ListSectionRosterForTeacherRow
+	rosterErr    error
 }
 
 func (f *fakeRepository) EnrollSectionTx(_ context.Context, _ EnrollSectionParams, isAdmin bool) (sectionenrollmentdb.SectionEnrollment, error) {
@@ -76,13 +81,19 @@ func (f *fakeRepository) SetSectionEnrollmentOutcomeTx(_ context.Context, _ pgx.
 	return sectionenrollmentdb.SectionEnrollment{}, nil
 }
 
+func (f *fakeRepository) ListSectionRosterForTeacher(_ context.Context, p ListSectionRosterForTeacherRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error) {
+	f.rosterCalled = true
+	f.rosterParams = p
+	return f.rosterRows, f.rosterErr
+}
+
 // contextWithUser adds a user ID to the context (mirrors auth.WithUserID).
 func contextWithUser(userID uuid.UUID) context.Context {
 	return auth.WithUserID(context.Background(), userID)
 }
 
 // TestService_EnrollOwnSection_NoContext verifies that EnrollOwnSection without an
-// authenticated user in context returns ErrNotFound (fail-closed).
+// authenticated user in context returns ErrUnauthenticated (fail-closed).
 func TestService_EnrollOwnSection_NoContext(t *testing.T) {
 	t.Parallel()
 
@@ -90,8 +101,8 @@ func TestService_EnrollOwnSection_NoContext(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.EnrollOwnSection(context.Background(), uuid.New().String(), uuid.New().String())
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("EnrollOwnSection(no ctx user) = %v; want ErrNotFound", err)
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("EnrollOwnSection(no ctx user) = %v; want ErrUnauthenticated", err)
 	}
 	if repo.enrollTxCalled {
 		t.Error("EnrollSectionTx must not be called when user is absent from context")
@@ -190,7 +201,7 @@ func TestService_GetOwnSectionEnrollment_OwnershipMismatch(t *testing.T) {
 	}
 }
 
-// TestService_GetOwnSectionEnrollment_NoContext returns ErrNotFound when no user in context.
+// TestService_GetOwnSectionEnrollment_NoContext returns ErrUnauthenticated when no user in context.
 func TestService_GetOwnSectionEnrollment_NoContext(t *testing.T) {
 	t.Parallel()
 
@@ -198,8 +209,8 @@ func TestService_GetOwnSectionEnrollment_NoContext(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.GetOwnSectionEnrollment(context.Background(), uuid.New().String())
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("GetOwnSectionEnrollment(no ctx) = %v; want ErrNotFound", err)
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("GetOwnSectionEnrollment(no ctx) = %v; want ErrUnauthenticated", err)
 	}
 }
 
@@ -224,7 +235,7 @@ func TestService_ListOwnSectionEnrollments_DerivesFromContext(t *testing.T) {
 	}
 }
 
-// TestService_ListOwnSectionEnrollments_NoContext returns ErrNotFound.
+// TestService_ListOwnSectionEnrollments_NoContext returns ErrUnauthenticated.
 func TestService_ListOwnSectionEnrollments_NoContext(t *testing.T) {
 	t.Parallel()
 
@@ -232,8 +243,8 @@ func TestService_ListOwnSectionEnrollments_NoContext(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.ListOwnSectionEnrollments(context.Background(), 0, "")
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("ListOwnSectionEnrollments(no ctx) = %v; want ErrNotFound", err)
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("ListOwnSectionEnrollments(no ctx) = %v; want ErrUnauthenticated", err)
 	}
 }
 
@@ -369,5 +380,71 @@ func TestService_EnrollSection_PaidGateChecked(t *testing.T) {
 	}
 	if !repo.enrollTxCalled {
 		t.Error("EnrollSectionTx must be called even when it returns ErrNotPaid")
+	}
+}
+
+// --- ListSectionRosterForTeacher service unit tests ---
+
+// TestService_ListSectionRosterForTeacher_NoContext verifies that ListSectionRosterForTeacher
+// without an authenticated user in context returns ErrUnauthenticated.
+func TestService_ListSectionRosterForTeacher_NoContext(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	_, err := svc.ListSectionRosterForTeacher(context.Background(), uuid.New().String(), 20, "")
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("ListSectionRosterForTeacher(no ctx) = %v; want ErrUnauthenticated", err)
+	}
+	if repo.rosterCalled {
+		t.Error("repo.ListSectionRosterForTeacher must not be called when user is absent from context")
+	}
+}
+
+// TestService_ListSectionRosterForTeacher_BadSectionID verifies that a malformed section_id
+// returns ErrInvalidInput before touching the repository.
+func TestService_ListSectionRosterForTeacher_BadSectionID(t *testing.T) {
+	t.Parallel()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	_, err := svc.ListSectionRosterForTeacher(ctx, "not-a-uuid", 20, "")
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("ListSectionRosterForTeacher(bad section UUID) = %v; want ErrInvalidInput", err)
+	}
+	if repo.rosterCalled {
+		t.Error("repo.ListSectionRosterForTeacher must not be called on invalid section_id")
+	}
+}
+
+// TestService_ListSectionRosterForTeacher_PassesCallerIDFromContext verifies that the teacher_id
+// passed to the repository equals the session user ID, not any request-supplied value.
+// (ListSectionRosterForTeacher accepts no teacher_id param — it is always derived from context.)
+func TestService_ListSectionRosterForTeacher_PassesCallerIDFromContext(t *testing.T) {
+	t.Parallel()
+
+	callerID := uuid.New()
+	sectionID := uuid.New()
+
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(callerID)
+	_, err := svc.ListSectionRosterForTeacher(ctx, sectionID.String(), 20, "")
+	if err != nil {
+		t.Fatalf("ListSectionRosterForTeacher: unexpected error %v", err)
+	}
+
+	if !repo.rosterCalled {
+		t.Fatal("repo.ListSectionRosterForTeacher was not called")
+	}
+	if repo.rosterParams.TeacherID != callerID {
+		t.Errorf("repo received TeacherID = %v, want %v (session caller)", repo.rosterParams.TeacherID, callerID)
+	}
+	if repo.rosterParams.SectionID != sectionID {
+		t.Errorf("repo received SectionID = %v, want %v", repo.rosterParams.SectionID, sectionID)
 	}
 }

@@ -21,6 +21,10 @@ service ProfileService {
   // Identity from session context; no user_id field. PATCH semantics: absent field
   // preserves the column; present field writes it (present-empty clears).
   rpc UpsertOwnProfile(UpsertOwnProfileRequest) returns (UserProfile);
+  // Batch display-name lookup — requires profile.view_names permission.
+  // Returns given_names + last_name_paternal for the provided user IDs.
+  // Unknown or deleted user IDs are silently omitted. Names only — no other PII.
+  rpc ListDisplayNamesByIDs(ListDisplayNamesByIDsRequest) returns (ListDisplayNamesByIDsResponse);
 }
 
 // UserProfile holds all personal and contact data for a user.
@@ -150,4 +154,23 @@ message UpsertOwnProfileRequest {
   optional string photo_url                = 9;
   optional string emergency_contact_name   = 10;
   optional string emergency_contact_phone  = 11;
+}
+
+// ListDisplayNamesByIDsRequest carries a set of user IDs for batch display-name lookup.
+// An empty user_ids list is valid and returns an empty response.
+message ListDisplayNamesByIDsRequest {
+  repeated string user_ids = 1;
+}
+
+// DisplayName carries the display-name fields (names only, no PII) for a single user.
+message DisplayName {
+  string user_id            = 1;
+  string given_names        = 2;
+  string last_name_paternal = 3;
+}
+
+// ListDisplayNamesByIDsResponse returns the resolved display names.
+// User IDs that do not exist or have deleted_at set are omitted from this list.
+message ListDisplayNamesByIDsResponse {
+  repeated DisplayName names = 1;
 }

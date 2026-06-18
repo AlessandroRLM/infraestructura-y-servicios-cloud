@@ -29,6 +29,7 @@ func TestMapError_AllMappings(t *testing.T) {
 		{"AlreadyExists → AlreadyExists", ErrAlreadyExists, connect.CodeAlreadyExists},
 		{"NotFound → NotFound", ErrNotFound, connect.CodeNotFound},
 		{"InvalidInput → InvalidArgument", ErrInvalidInput, connect.CodeInvalidArgument},
+		{"ErrUnauthenticated → Unauthenticated", ErrUnauthenticated, connect.CodeUnauthenticated},
 	}
 
 	for _, tc := range cases {
@@ -84,4 +85,3 @@ func TestMapError_WrappedSentinels(t *testing.T) {
 		t.Errorf("code = %v, want CodeFailedPrecondition", ce.Code())
 	}
 }
-

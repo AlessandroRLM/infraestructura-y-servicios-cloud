@@ -65,6 +65,11 @@ var ErrLockTimeout = fmt.Errorf("section_enrollment: lock timeout")
 // and LockTimeout (Unavailable).
 var ErrAdmissionSaturated = fmt.Errorf("section_enrollment: too many concurrent inscription requests; admission control saturated")
 
+// ErrUnauthenticated is returned by service methods that require a session user when
+// no user is found in the context. This guard is defensive — the auth interceptor
+// should make it unreachable in normal operation.
+var ErrUnauthenticated = fmt.Errorf("section_enrollment: unauthenticated")
+
 // TranslatePgError maps Postgres wire errors and pgx sentinels to domain error sentinels
 // so that no *pgconn.PgError or raw DB text crosses the service boundary.
 //

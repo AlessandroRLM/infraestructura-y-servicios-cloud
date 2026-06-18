@@ -15,11 +15,19 @@ import (
 )
 
 // seAcademicPeriodYearCounter generates unique year values for academic period seeds.
-// Starts at 3000 to avoid conflicts with other test helpers that use 2099.
+//
+// Reserved year-band scheme (DO NOT overlap these bands):
+//
+//	Band A — hardcoded one-offs  : year < 10 000  (e.g. 2025, 3100, 3200, 4001, 5000, 7300, 8xxx–9xxx)
+//	Band B — ownSectionsYearCounter: 10 000 – 19 999  (catalog_own_sections_test.go)
+//	Band C — seAcademicPeriodYearCounter: 30 000+  (section_enrollment_*_test.go + roster tests)
+//
+// The gap between B and C ensures neither counter can grow into the other's range
+// within any realistic test suite run.
 var seAcademicPeriodYearCounter atomic.Int32
 
 func init() {
-	seAcademicPeriodYearCounter.Store(3000)
+	seAcademicPeriodYearCounter.Store(30000)
 }
 
 // newSectionEnrollmentClient returns a Connect SectionEnrollmentService client.

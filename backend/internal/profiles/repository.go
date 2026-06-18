@@ -39,6 +39,7 @@ type Repository interface {
 	GetTeacherProfile(ctx context.Context, userID uuid.UUID) (profilesdb.TeacherProfile, error)
 	AddTeacherQualification(ctx context.Context, p AddTeacherQualificationParams) (profilesdb.TeacherQualification, error)
 	ListTeacherQualifications(ctx context.Context, p ListTeacherQualificationsRepoParams) ([]profilesdb.TeacherQualification, error)
+	ListDisplayNamesByIDs(ctx context.Context, userIDs []uuid.UUID) ([]profilesdb.ListDisplayNamesByIDsRow, error)
 }
 
 // UpsertOwnProfileParams carries the 11 self-editable fields for PATCH updates.
@@ -277,6 +278,24 @@ func (r *postgresRepository) ListTeacherQualifications(ctx context.Context, p Li
 	})
 	if err != nil {
 		return nil, fmt.Errorf("profiles: ListTeacherQualifications: %w", err)
+	}
+	return rows, nil
+}
+
+// ListDisplayNamesByIDs fetches display-name fields (user_id, given_names, last_name_paternal)
+// for all provided user IDs that exist and are not soft-deleted. Missing IDs are omitted.
+// An empty userIDs slice is valid and returns an empty slice.
+func (r *postgresRepository) ListDisplayNamesByIDs(ctx context.Context, userIDs []uuid.UUID) ([]profilesdb.ListDisplayNamesByIDsRow, error) {
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+	pgIDs := make([]pgtype.UUID, len(userIDs))
+	for i, id := range userIDs {
+		pgIDs[i] = pgtype.UUID{Bytes: id, Valid: true}
+	}
+	rows, err := r.q.ListDisplayNamesByIDs(ctx, pgIDs)
+	if err != nil {
+		return nil, fmt.Errorf("profiles: ListDisplayNamesByIDs: %w", err)
 	}
 	return rows, nil
 }

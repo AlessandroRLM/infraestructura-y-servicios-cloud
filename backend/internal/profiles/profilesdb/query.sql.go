@@ -176,6 +176,40 @@ func (q *Queries) GetUserProfile(ctx context.Context, userID pgtype.UUID) (UserP
 	return i, err
 }
 
+const listDisplayNamesByIDs = `-- name: ListDisplayNamesByIDs :many
+SELECT user_id, given_names, last_name_paternal
+FROM user_profiles
+WHERE user_id = ANY($1::uuid[])
+  AND deleted_at IS NULL
+ORDER BY user_id
+`
+
+type ListDisplayNamesByIDsRow struct {
+	UserID           pgtype.UUID
+	GivenNames       string
+	LastNamePaternal string
+}
+
+func (q *Queries) ListDisplayNamesByIDs(ctx context.Context, userIds []pgtype.UUID) ([]ListDisplayNamesByIDsRow, error) {
+	rows, err := q.db.Query(ctx, listDisplayNamesByIDs, userIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDisplayNamesByIDsRow
+	for rows.Next() {
+		var i ListDisplayNamesByIDsRow
+		if err := rows.Scan(&i.UserID, &i.GivenNames, &i.LastNamePaternal); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTeacherQualifications = `-- name: ListTeacherQualifications :many
 SELECT id, teacher_id, degree, year, created_at, updated_at, deleted_at, created_by, updated_by
 FROM teacher_qualifications

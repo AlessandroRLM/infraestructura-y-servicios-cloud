@@ -54,6 +54,9 @@ const (
 	// SectionEnrollmentServiceListSectionEnrollmentsProcedure is the fully-qualified name of the
 	// SectionEnrollmentService's ListSectionEnrollments RPC.
 	SectionEnrollmentServiceListSectionEnrollmentsProcedure = "/section_enrollment.v1.SectionEnrollmentService/ListSectionEnrollments"
+	// SectionEnrollmentServiceListSectionRosterForTeacherProcedure is the fully-qualified name of the
+	// SectionEnrollmentService's ListSectionRosterForTeacher RPC.
+	SectionEnrollmentServiceListSectionRosterForTeacherProcedure = "/section_enrollment.v1.SectionEnrollmentService/ListSectionRosterForTeacher"
 )
 
 // SectionEnrollmentServiceClient is a client for the section_enrollment.v1.SectionEnrollmentService
@@ -79,6 +82,11 @@ type SectionEnrollmentServiceClient interface {
 	GetSectionEnrollment(context.Context, *connect.Request[v1.GetSectionEnrollmentRequest]) (*connect.Response[v1.SectionEnrollment], error)
 	// ListSectionEnrollments returns live section inscriptions with optional filters.
 	ListSectionEnrollments(context.Context, *connect.Request[v1.ListSectionEnrollmentsRequest]) (*connect.Response[v1.ListSectionEnrollmentsResponse], error)
+	// ListSectionRosterForTeacher returns the paginated roster of students enrolled in a
+	// specific section that the authenticated user teaches. Teacher identity is derived from
+	// the session context; existence of the section is never disclosed if the caller is not
+	// a teacher of the section (empty page, not PermissionDenied).
+	ListSectionRosterForTeacher(context.Context, *connect.Request[v1.ListSectionRosterForTeacherRequest]) (*connect.Response[v1.ListSectionRosterForTeacherResponse], error)
 }
 
 // NewSectionEnrollmentServiceClient constructs a client for the
@@ -135,18 +143,25 @@ func NewSectionEnrollmentServiceClient(httpClient connect.HTTPClient, baseURL st
 			connect.WithSchema(sectionEnrollmentServiceMethods.ByName("ListSectionEnrollments")),
 			connect.WithClientOptions(opts...),
 		),
+		listSectionRosterForTeacher: connect.NewClient[v1.ListSectionRosterForTeacherRequest, v1.ListSectionRosterForTeacherResponse](
+			httpClient,
+			baseURL+SectionEnrollmentServiceListSectionRosterForTeacherProcedure,
+			connect.WithSchema(sectionEnrollmentServiceMethods.ByName("ListSectionRosterForTeacher")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // sectionEnrollmentServiceClient implements SectionEnrollmentServiceClient.
 type sectionEnrollmentServiceClient struct {
-	enrollOwnSection          *connect.Client[v1.EnrollOwnSectionRequest, v1.SectionEnrollment]
-	listOwnSectionEnrollments *connect.Client[v1.ListOwnSectionEnrollmentsRequest, v1.ListSectionEnrollmentsResponse]
-	getOwnSectionEnrollment   *connect.Client[v1.GetOwnSectionEnrollmentRequest, v1.SectionEnrollment]
-	enrollSection             *connect.Client[v1.EnrollSectionRequest, v1.SectionEnrollment]
-	withdrawSection           *connect.Client[v1.WithdrawSectionRequest, v1.WithdrawSectionResponse]
-	getSectionEnrollment      *connect.Client[v1.GetSectionEnrollmentRequest, v1.SectionEnrollment]
-	listSectionEnrollments    *connect.Client[v1.ListSectionEnrollmentsRequest, v1.ListSectionEnrollmentsResponse]
+	enrollOwnSection            *connect.Client[v1.EnrollOwnSectionRequest, v1.SectionEnrollment]
+	listOwnSectionEnrollments   *connect.Client[v1.ListOwnSectionEnrollmentsRequest, v1.ListSectionEnrollmentsResponse]
+	getOwnSectionEnrollment     *connect.Client[v1.GetOwnSectionEnrollmentRequest, v1.SectionEnrollment]
+	enrollSection               *connect.Client[v1.EnrollSectionRequest, v1.SectionEnrollment]
+	withdrawSection             *connect.Client[v1.WithdrawSectionRequest, v1.WithdrawSectionResponse]
+	getSectionEnrollment        *connect.Client[v1.GetSectionEnrollmentRequest, v1.SectionEnrollment]
+	listSectionEnrollments      *connect.Client[v1.ListSectionEnrollmentsRequest, v1.ListSectionEnrollmentsResponse]
+	listSectionRosterForTeacher *connect.Client[v1.ListSectionRosterForTeacherRequest, v1.ListSectionRosterForTeacherResponse]
 }
 
 // EnrollOwnSection calls section_enrollment.v1.SectionEnrollmentService.EnrollOwnSection.
@@ -187,6 +202,12 @@ func (c *sectionEnrollmentServiceClient) ListSectionEnrollments(ctx context.Cont
 	return c.listSectionEnrollments.CallUnary(ctx, req)
 }
 
+// ListSectionRosterForTeacher calls
+// section_enrollment.v1.SectionEnrollmentService.ListSectionRosterForTeacher.
+func (c *sectionEnrollmentServiceClient) ListSectionRosterForTeacher(ctx context.Context, req *connect.Request[v1.ListSectionRosterForTeacherRequest]) (*connect.Response[v1.ListSectionRosterForTeacherResponse], error) {
+	return c.listSectionRosterForTeacher.CallUnary(ctx, req)
+}
+
 // SectionEnrollmentServiceHandler is an implementation of the
 // section_enrollment.v1.SectionEnrollmentService service.
 type SectionEnrollmentServiceHandler interface {
@@ -210,6 +231,11 @@ type SectionEnrollmentServiceHandler interface {
 	GetSectionEnrollment(context.Context, *connect.Request[v1.GetSectionEnrollmentRequest]) (*connect.Response[v1.SectionEnrollment], error)
 	// ListSectionEnrollments returns live section inscriptions with optional filters.
 	ListSectionEnrollments(context.Context, *connect.Request[v1.ListSectionEnrollmentsRequest]) (*connect.Response[v1.ListSectionEnrollmentsResponse], error)
+	// ListSectionRosterForTeacher returns the paginated roster of students enrolled in a
+	// specific section that the authenticated user teaches. Teacher identity is derived from
+	// the session context; existence of the section is never disclosed if the caller is not
+	// a teacher of the section (empty page, not PermissionDenied).
+	ListSectionRosterForTeacher(context.Context, *connect.Request[v1.ListSectionRosterForTeacherRequest]) (*connect.Response[v1.ListSectionRosterForTeacherResponse], error)
 }
 
 // NewSectionEnrollmentServiceHandler builds an HTTP handler from the service implementation. It
@@ -261,6 +287,12 @@ func NewSectionEnrollmentServiceHandler(svc SectionEnrollmentServiceHandler, opt
 		connect.WithSchema(sectionEnrollmentServiceMethods.ByName("ListSectionEnrollments")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sectionEnrollmentServiceListSectionRosterForTeacherHandler := connect.NewUnaryHandler(
+		SectionEnrollmentServiceListSectionRosterForTeacherProcedure,
+		svc.ListSectionRosterForTeacher,
+		connect.WithSchema(sectionEnrollmentServiceMethods.ByName("ListSectionRosterForTeacher")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/section_enrollment.v1.SectionEnrollmentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SectionEnrollmentServiceEnrollOwnSectionProcedure:
@@ -277,6 +309,8 @@ func NewSectionEnrollmentServiceHandler(svc SectionEnrollmentServiceHandler, opt
 			sectionEnrollmentServiceGetSectionEnrollmentHandler.ServeHTTP(w, r)
 		case SectionEnrollmentServiceListSectionEnrollmentsProcedure:
 			sectionEnrollmentServiceListSectionEnrollmentsHandler.ServeHTTP(w, r)
+		case SectionEnrollmentServiceListSectionRosterForTeacherProcedure:
+			sectionEnrollmentServiceListSectionRosterForTeacherHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -312,4 +346,8 @@ func (UnimplementedSectionEnrollmentServiceHandler) GetSectionEnrollment(context
 
 func (UnimplementedSectionEnrollmentServiceHandler) ListSectionEnrollments(context.Context, *connect.Request[v1.ListSectionEnrollmentsRequest]) (*connect.Response[v1.ListSectionEnrollmentsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("section_enrollment.v1.SectionEnrollmentService.ListSectionEnrollments is not implemented"))
+}
+
+func (UnimplementedSectionEnrollmentServiceHandler) ListSectionRosterForTeacher(context.Context, *connect.Request[v1.ListSectionRosterForTeacherRequest]) (*connect.Response[v1.ListSectionRosterForTeacherResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("section_enrollment.v1.SectionEnrollmentService.ListSectionRosterForTeacher is not implemented"))
 }

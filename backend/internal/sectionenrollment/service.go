@@ -30,6 +30,13 @@ type ListSectionEnrollmentsResult struct {
 	NextPageToken      string
 }
 
+// ListSectionRosterForTeacherResult holds the paginated result for ListSectionRosterForTeacher.
+// Each row includes the student_id projected from the linked enrollment.
+type ListSectionRosterForTeacherResult struct {
+	Rows          []sectionenrollmentdb.ListSectionRosterForTeacherRow
+	NextPageToken string
+}
+
 // Service orchestrates section_enrollment business logic: UUID validation, self-scope
 // enforcement, and delegation to the Repository.
 //
@@ -46,13 +53,13 @@ func NewService(repo Repository) *Service {
 
 // EnrollOwnSection creates a section inscription for the authenticated student.
 // Student identity is derived exclusively from the context; no student_id in the request.
-// Window-gated (isAdmin=false). Returns ErrNotFound when no user is in context.
+// Window-gated (isAdmin=false). Returns ErrUnauthenticated when no user is in context.
 // programIDStr must be a valid UUID identifying which paid enrollment to link —
 // this disambiguates students enrolled in multiple programs sharing the same course.
 func (s *Service) EnrollOwnSection(ctx context.Context, sectionIDStr, programIDStr string) (sectionenrollmentdb.SectionEnrollment, error) {
 	callerID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		return sectionenrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+		return sectionenrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
 	}
 
 	sectionID, err := parseServiceUUID(sectionIDStr)
@@ -75,11 +82,11 @@ func (s *Service) EnrollOwnSection(ctx context.Context, sectionIDStr, programIDS
 // ListOwnSectionEnrollments returns a paginated page of live inscriptions for the authenticated
 // student. Student identity is derived exclusively from the context.
 // pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
-// Returns ErrNotFound when no authenticated user is present (fail-closed).
+// Returns ErrUnauthenticated when no authenticated user is present (fail-closed).
 func (s *Service) ListOwnSectionEnrollments(ctx context.Context, pageSize int32, pageToken string) (ListSectionEnrollmentsResult, error) {
 	callerID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		return ListSectionEnrollmentsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+		return ListSectionEnrollmentsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
 	}
 
 	clamped := sectionEnrollmentClamp.Apply(pageSize)
@@ -116,10 +123,11 @@ func (s *Service) ListOwnSectionEnrollments(ctx context.Context, pageSize int32,
 // GetOwnSectionEnrollment fetches an inscription by id and verifies ownership.
 // Ownership is checked by confirming the caller's user_id appears in the inscription's
 // enrollment. A mismatch returns ErrNotFound — existence is never disclosed.
+// Returns ErrUnauthenticated when no authenticated user is present (fail-closed).
 func (s *Service) GetOwnSectionEnrollment(ctx context.Context, idStr string) (sectionenrollmentdb.SectionEnrollment, error) {
 	callerID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		return sectionenrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+		return sectionenrollmentdb.SectionEnrollment{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
 	}
 
 	id, err := parseServiceUUID(idStr)
@@ -223,6 +231,59 @@ func (s *Service) ListSectionEnrollments(ctx context.Context, f ListSectionEnrol
 	return ListSectionEnrollmentsResult{
 		SectionEnrollments: page.Items,
 		NextPageToken:      nextToken,
+	}, nil
+}
+
+// ListSectionRosterForTeacher returns a paginated roster of students enrolled in the
+// requested section, scoped to sections the authenticated user teaches. The caller's
+// teacher identity is derived exclusively from the session context (no teacher_id in request).
+//
+// If the caller is not a teacher of the requested section, the repository EXISTS guard
+// produces an empty result — existence of the section is never disclosed (anti-leak).
+//
+// section_id must be a valid UUID string; returns ErrInvalidInput if malformed.
+// pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+func (s *Service) ListSectionRosterForTeacher(ctx context.Context, sectionIDStr string, pageSize int32, pageToken string) (ListSectionRosterForTeacherResult, error) {
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		// Defensive guard — unreachable behind the auth interceptor in normal operation.
+		return ListSectionRosterForTeacherResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
+	}
+
+	sectionID, err := parseServiceUUID(sectionIDStr)
+	if err != nil {
+		return ListSectionRosterForTeacherResult{}, err
+	}
+
+	clamped := sectionEnrollmentClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListSectionRosterForTeacherResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListSectionRosterForTeacher(ctx, ListSectionRosterForTeacherRepoParams{
+		SectionID: sectionID,
+		TeacherID: callerID,
+		PageToken: tokenUUID,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListSectionRosterForTeacherResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r sectionenrollmentdb.ListSectionRosterForTeacherRow) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListSectionRosterForTeacherResult{
+		Rows:          page.Items,
+		NextPageToken: nextToken,
 	}, nil
 }
 

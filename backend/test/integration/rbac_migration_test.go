@@ -79,17 +79,18 @@ func TestRBACMigration_TablesAndSeed(t *testing.T) {
 		}
 	})
 
-	t.Run("permissions_count_is_14", func(t *testing.T) {
+	t.Run("permissions_count_is_17", func(t *testing.T) {
 		var count int
 		if err := pgxPool.QueryRow(ctx, `SELECT COUNT(*) FROM permissions`).Scan(&count); err != nil {
 			t.Fatalf("count permissions: %v", err)
 		}
-		if count != 14 {
-			t.Errorf("permissions count = %d, want 14", count)
+		// 14 original + 3 teaching-scope permissions added in migration 000017.
+		if count != 17 {
+			t.Errorf("permissions count = %d, want 17", count)
 		}
 	})
 
-	t.Run("admin_has_14_role_permissions", func(t *testing.T) {
+	t.Run("admin_has_17_role_permissions", func(t *testing.T) {
 		var count int
 		err := pgxPool.QueryRow(ctx, `
 			SELECT COUNT(*) FROM role_permissions rp
@@ -99,12 +100,13 @@ func TestRBACMigration_TablesAndSeed(t *testing.T) {
 		if err != nil {
 			t.Fatalf("admin role_permissions count: %v", err)
 		}
-		if count != 14 {
-			t.Errorf("admin role_permissions count = %d, want 14", count)
+		// 14 original + 3 teaching-scope permissions added in migration 000017.
+		if count != 17 {
+			t.Errorf("admin role_permissions count = %d, want 17", count)
 		}
 	})
 
-	t.Run("teacher_has_5_role_permissions", func(t *testing.T) {
+	t.Run("teacher_has_8_role_permissions", func(t *testing.T) {
 		var count int
 		err := pgxPool.QueryRow(ctx, `
 			SELECT COUNT(*) FROM role_permissions rp
@@ -114,8 +116,9 @@ func TestRBACMigration_TablesAndSeed(t *testing.T) {
 		if err != nil {
 			t.Fatalf("teacher role_permissions count: %v", err)
 		}
-		if count != 5 {
-			t.Errorf("teacher role_permissions count = %d, want 5", count)
+		// 5 original + 3 teaching-scope permissions added in migration 000017.
+		if count != 8 {
+			t.Errorf("teacher role_permissions count = %d, want 8", count)
 		}
 	})
 
@@ -132,11 +135,14 @@ func TestRBACMigration_TablesAndSeed(t *testing.T) {
 		}
 		defer rows.Close()
 		want := map[string]struct{}{
-			"grades.write":     {},
-			"grades.read":      {},
-			"reports.read":     {},
-			"profile.view_own": {},
-			"profile.edit_own": {},
+			"grades.write":                     {},
+			"grades.read":                      {},
+			"reports.read":                     {},
+			"profile.view_own":                 {},
+			"profile.edit_own":                 {},
+			"section.view_teaching":            {},
+			"section_enrollment.view_teaching": {},
+			"profile.view_names":               {},
 		}
 		got := map[string]struct{}{}
 		for rows.Next() {
@@ -262,8 +268,9 @@ func TestRBACMigration_TablesAndSeed(t *testing.T) {
 		if err := pgxPool.QueryRow(ctx, `SELECT COUNT(*) FROM permissions`).Scan(&permCount); err != nil {
 			t.Fatalf("permission count after re-seed: %v", err)
 		}
-		if permCount != 14 {
-			t.Errorf("permission count after re-seed = %d, want 14", permCount)
+		// 14 original + 3 teaching-scope permissions added in migration 000017.
+		if permCount != 17 {
+			t.Errorf("permission count after re-seed = %d, want 17", permCount)
 		}
 	})
 }

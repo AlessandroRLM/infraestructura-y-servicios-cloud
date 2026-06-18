@@ -9,7 +9,7 @@ package authz
 // to a Permission parameter without an explicit conversion, catching typos early.
 type Permission string
 
-// The 14 permission codes that correspond to the operations matrix defined in the
+// The 17 permission codes that correspond to the operations matrix defined in the
 // system architecture. These constants are the single source of truth; seed migrations
 // insert the same literal strings, and a test asserts parity between this slice and
 // the seeded rows.
@@ -28,6 +28,11 @@ const (
 	PermProfileViewOwn           Permission = "profile.view_own"
 	PermSectionEnrollmentViewOwn Permission = "section_enrollment.view_own"
 	PermProfileEditOwn           Permission = "profile.edit_own"
+
+	// Teaching-scope read tier — teacher RBAC permissions added in migration 000017.
+	PermSectionViewTeaching           Permission = "section.view_teaching"
+	PermSectionEnrollmentViewTeaching Permission = "section_enrollment.view_teaching"
+	PermProfileViewNames              Permission = "profile.view_names"
 )
 
 // AllPermissions lists every defined permission in the order they appear above.
@@ -48,4 +53,7 @@ var AllPermissions = []Permission{
 	PermProfileViewOwn,
 	PermSectionEnrollmentViewOwn,
 	PermProfileEditOwn,
+	PermSectionViewTeaching,
+	PermSectionEnrollmentViewTeaching,
+	PermProfileViewNames,
 }

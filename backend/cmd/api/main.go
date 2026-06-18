@@ -127,6 +127,8 @@ func main() {
 		profilesv1connect.ProfileServiceListTeacherQualificationsProcedure: authz.RequirePermission(authz.PermUsersManage),
 		profilesv1connect.ProfileServiceGetOwnProfileProcedure:             authz.RequirePermission(authz.PermProfileViewOwn),
 		profilesv1connect.ProfileServiceUpsertOwnProfileProcedure:          authz.RequirePermission(authz.PermProfileEditOwn),
+		// Display-name batch lookup — requires profile.view_names (teacher + admin via migration 000017).
+		profilesv1connect.ProfileServiceListDisplayNamesByIDsProcedure: authz.RequirePermission(authz.PermProfileViewNames),
 
 		// Catalog procedures — all require catalog.manage.
 		catalogv1connect.CatalogServiceCreateProgramProcedure:            authz.RequirePermission(authz.PermCatalogManage),
@@ -160,6 +162,8 @@ func main() {
 		catalogv1connect.CatalogServiceAssignTeacherToSectionProcedure:   authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceRemoveTeacherFromSectionProcedure: authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceListSectionTeachersProcedure:      authz.RequirePermission(authz.PermCatalogManage),
+		// Teaching-scope catalog procedures — require section.view_teaching.
+		catalogv1connect.CatalogServiceListOwnSectionsProcedure: authz.RequirePermission(authz.PermSectionViewTeaching),
 
 		// Enrollment management procedures — require enrollment.manage.
 		enrollmentv1connect.EnrollmentServiceCreateEnrollmentProcedure:   authz.RequirePermission(authz.PermEnrollmentManage),
@@ -180,6 +184,8 @@ func main() {
 		section_enrollmentv1connect.SectionEnrollmentServiceWithdrawSectionProcedure:        authz.RequirePermission(authz.PermEnrollmentManage),
 		section_enrollmentv1connect.SectionEnrollmentServiceGetSectionEnrollmentProcedure:   authz.RequirePermission(authz.PermEnrollmentManage),
 		section_enrollmentv1connect.SectionEnrollmentServiceListSectionEnrollmentsProcedure: authz.RequirePermission(authz.PermEnrollmentManage),
+		// Section enrollment teacher teaching-scope procedure — requires section_enrollment.view_teaching.
+		section_enrollmentv1connect.SectionEnrollmentServiceListSectionRosterForTeacherProcedure: authz.RequirePermission(authz.PermSectionEnrollmentViewTeaching),
 
 		// Grades admin procedures — require grades.override.
 		gradesv1connect.GradesServiceCreateEvaluationSchemeProcedure:   authz.RequirePermission(authz.PermGradesOverride),
@@ -205,10 +211,10 @@ func main() {
 		auditlogsv1connect.AuditLogsServiceListAuditLogsProcedure: authz.RequirePermission(authz.PermAuditRead),
 
 		// IAM procedures — all require users.manage.
-		iamv1connect.IamServiceListUsersProcedure:    authz.RequirePermission(authz.PermUsersManage),
-		iamv1connect.IamServiceGetUserProcedure:      authz.RequirePermission(authz.PermUsersManage),
-		iamv1connect.IamServiceAssignRoleProcedure:   authz.RequirePermission(authz.PermUsersManage),
-		iamv1connect.IamServiceRevokeRoleProcedure:   authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceListUsersProcedure:  authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceGetUserProcedure:    authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceAssignRoleProcedure: authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceRevokeRoleProcedure: authz.RequirePermission(authz.PermUsersManage),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)

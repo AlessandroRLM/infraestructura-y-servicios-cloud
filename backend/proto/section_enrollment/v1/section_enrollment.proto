@@ -35,6 +35,14 @@ service SectionEnrollmentService {
 
   // ListSectionEnrollments returns live section inscriptions with optional filters.
   rpc ListSectionEnrollments(ListSectionEnrollmentsRequest) returns (ListSectionEnrollmentsResponse);
+
+  // Teacher teaching-scope procedures — require section_enrollment.view_teaching permission.
+
+  // ListSectionRosterForTeacher returns the paginated roster of students enrolled in a
+  // specific section that the authenticated user teaches. Teacher identity is derived from
+  // the session context; existence of the section is never disclosed if the caller is not
+  // a teacher of the section (empty page, not PermissionDenied).
+  rpc ListSectionRosterForTeacher(ListSectionRosterForTeacherRequest) returns (ListSectionRosterForTeacherResponse);
 }
 
 // SectionEnrollment represents a single section inscription record.
@@ -54,6 +62,10 @@ message SectionEnrollment {
   // transitions to passed or failed. Empty string when the grade has not yet been computed
   // (status is in_progress or withdrawn).
   string final_grade = 9;
+  // student_id is the user_id of the student who owns this section enrollment.
+  // Populated only when using the teacher-scoped ListSectionRosterForTeacher RPC;
+  // empty string on other RPCs that return SectionEnrollment (backward-compatible addition).
+  string student_id = 10;
 }
 
 // EnrollOwnSectionRequest carries section_id and program_id.
@@ -112,5 +124,25 @@ message ListSectionEnrollmentsResponse {
   repeated SectionEnrollment section_enrollments = 1;
   // Opaque cursor for the next page. Empty when this is the last page.
   // Used by both ListSectionEnrollments and ListOwnSectionEnrollments (shared response).
+  string next_page_token = 2;
+}
+
+// ListSectionRosterForTeacherRequest carries the target section_id and pagination params.
+// No teacher_id field — caller identity is derived exclusively from session context.
+message ListSectionRosterForTeacherRequest {
+  // section_id must be a valid UUID string.
+  string section_id = 1;
+  // Maximum number of roster entries to return. Clamped to [20, 200]; zero → 20.
+  int32 page_size = 2;
+  // Opaque cursor returned by a previous ListSectionRosterForTeacher call.
+  // Empty string returns the first page.
+  string page_token = 3;
+}
+
+// ListSectionRosterForTeacherResponse is the dedicated response for the teacher-scoped roster RPC.
+// Each SectionEnrollment row includes student_id so the caller can resolve display names.
+message ListSectionRosterForTeacherResponse {
+  repeated SectionEnrollment section_enrollments = 1;
+  // Opaque cursor for the next page. Empty when this is the last page.
   string next_page_token = 2;
 }

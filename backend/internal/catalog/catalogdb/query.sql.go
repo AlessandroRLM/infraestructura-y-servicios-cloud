@@ -597,6 +597,76 @@ func (q *Queries) ListCourses(ctx context.Context, arg ListCoursesParams) ([]Cou
 	return items, nil
 }
 
+const listOwnSectionsPaged = `-- name: ListOwnSectionsPaged :many
+
+SELECT
+    s.id,
+    s.course_id,
+    s.academic_period_id,
+    s.capacity   AS seat_capacity,
+    c.code       AS course_code,
+    c.name       AS course_name,
+    ap.year      AS period_year,
+    ap.term      AS period_term
+FROM sections s
+JOIN section_teachers st ON st.section_id = s.id AND st.teacher_id = $1::uuid
+JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
+JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
+WHERE s.deleted_at IS NULL
+  AND ($2::uuid IS NULL OR s.id < $2::uuid)
+ORDER BY s.id DESC
+LIMIT $3::int
+`
+
+type ListOwnSectionsPagedParams struct {
+	TeacherID pgtype.UUID
+	PageToken pgtype.UUID
+	RowLimit  int32
+}
+
+type ListOwnSectionsPagedRow struct {
+	ID               pgtype.UUID
+	CourseID         pgtype.UUID
+	AcademicPeriodID pgtype.UUID
+	SeatCapacity     int32
+	CourseCode       string
+	CourseName       string
+	PeriodYear       int32
+	PeriodTerm       int32
+}
+
+// ListOwnSectionsPaged returns the paginated list of sections where the caller is a teacher,
+// enriched with course and academic period labels. Keyset pagination on s.id DESC.
+// teacher_id is the caller's user ID derived from the session context.
+func (q *Queries) ListOwnSectionsPaged(ctx context.Context, arg ListOwnSectionsPagedParams) ([]ListOwnSectionsPagedRow, error) {
+	rows, err := q.db.Query(ctx, listOwnSectionsPaged, arg.TeacherID, arg.PageToken, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOwnSectionsPagedRow
+	for rows.Next() {
+		var i ListOwnSectionsPagedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CourseID,
+			&i.AcademicPeriodID,
+			&i.SeatCapacity,
+			&i.CourseCode,
+			&i.CourseName,
+			&i.PeriodYear,
+			&i.PeriodTerm,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProgramCoursesWithCourse = `-- name: ListProgramCoursesWithCourse :many
 SELECT
     pc.program_id,

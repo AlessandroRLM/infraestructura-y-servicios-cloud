@@ -44,12 +44,12 @@ type fakeQuerier struct {
 	countCourseAssociationsN int64
 	countCourseAssociationsE error
 
-	insertProgramCourseErr              error
-	insertProgramCourseRow              catalogdb.ProgramCourse
-	deleteProgramCourseRows             int64
-	deleteProgramCourseErr              error
-	listProgramCoursesWithCourseRows    []catalogdb.ListProgramCoursesWithCourseRow
-	listProgramCoursesWithCourseErr     error
+	insertProgramCourseErr           error
+	insertProgramCourseRow           catalogdb.ProgramCourse
+	deleteProgramCourseRows          int64
+	deleteProgramCourseErr           error
+	listProgramCoursesWithCourseRows []catalogdb.ListProgramCoursesWithCourseRow
+	listProgramCoursesWithCourseErr  error
 
 	insertAcademicPeriodErr      error
 	insertAcademicPeriodRow      catalogdb.AcademicPeriod
@@ -96,6 +96,9 @@ type fakeQuerier struct {
 	deleteSectionTeacherErr  error
 	listSectionTeachersRows  []catalogdb.SectionTeacher
 	listSectionTeachersErr   error
+
+	listOwnSectionsPagedRows []catalogdb.ListOwnSectionsPagedRow
+	listOwnSectionsPagedErr  error
 }
 
 // Compile-time check: fakeQuerier must implement catalogdb.Querier.
@@ -223,6 +226,9 @@ func (f *fakeQuerier) DeleteSectionTeacher(_ context.Context, _ catalogdb.Delete
 }
 func (f *fakeQuerier) ListSectionTeachers(_ context.Context, _ pgtype.UUID) ([]catalogdb.SectionTeacher, error) {
 	return f.listSectionTeachersRows, f.listSectionTeachersErr
+}
+func (f *fakeQuerier) ListOwnSectionsPaged(_ context.Context, _ catalogdb.ListOwnSectionsPagedParams) ([]catalogdb.ListOwnSectionsPagedRow, error) {
+	return f.listOwnSectionsPagedRows, f.listOwnSectionsPagedErr
 }
 
 // --- Repository unit tests ---

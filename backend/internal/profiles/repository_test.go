@@ -15,17 +15,17 @@ import (
 
 // fakeQuerier implements profilesdb.Querier for testing the repository layer.
 type fakeQuerier struct {
-	getUserProfileErr                 error
-	getUserProfileResult              profilesdb.UserProfile
-	getOwnProfileErr                  error
-	getOwnProfileResult               profilesdb.UserProfile
-	getOwnProfileCalledID             pgtype.UUID
-	upsertUserProfileErr              error
-	upsertUserProfileArgs             profilesdb.UpsertUserProfileParams
-	upsertUserProfileCalls            int
-	listTeacherQualificationsArgs     profilesdb.ListTeacherQualificationsParams
-	listTeacherQualificationsCalls    int
-	listTeacherQualificationsResult   []profilesdb.TeacherQualification
+	getUserProfileErr               error
+	getUserProfileResult            profilesdb.UserProfile
+	getOwnProfileErr                error
+	getOwnProfileResult             profilesdb.UserProfile
+	getOwnProfileCalledID           pgtype.UUID
+	upsertUserProfileErr            error
+	upsertUserProfileArgs           profilesdb.UpsertUserProfileParams
+	upsertUserProfileCalls          int
+	listTeacherQualificationsArgs   profilesdb.ListTeacherQualificationsParams
+	listTeacherQualificationsCalls  int
+	listTeacherQualificationsResult []profilesdb.TeacherQualification
 }
 
 func (f *fakeQuerier) GetUserProfile(_ context.Context, _ pgtype.UUID) (profilesdb.UserProfile, error) {
@@ -83,6 +83,10 @@ func (f *fakeQuerier) ListTeacherQualifications(_ context.Context, arg profilesd
 
 func (f *fakeQuerier) UpsertOwnProfile(_ context.Context, _ profilesdb.UpsertOwnProfileParams) (profilesdb.UserProfile, error) {
 	return profilesdb.UserProfile{}, nil
+}
+
+func (f *fakeQuerier) ListDisplayNamesByIDs(_ context.Context, _ []pgtype.UUID) ([]profilesdb.ListDisplayNamesByIDsRow, error) {
+	return nil, nil
 }
 
 // Compile-time check that fakeQuerier implements profilesdb.Querier.
