@@ -41,6 +41,12 @@ type ListSectionsResult struct {
 	NextPageToken string
 }
 
+// ListOwnSectionsResult holds the paginated result for ListOwnSections.
+type ListOwnSectionsResult struct {
+	Sections      []catalogdb.ListOwnSectionsPagedRow
+	NextPageToken string
+}
+
 // Service orchestrates catalog business logic: validation, audit-column population,
 // dependent-blocking soft-delete enforcement, and repository delegation.
 type Service struct {
@@ -473,6 +479,54 @@ func (s *Service) RemoveTeacherFromSection(ctx context.Context, sectionID, teach
 // ListSectionTeachers returns all teacher assignments for the given section.
 func (s *Service) ListSectionTeachers(ctx context.Context, sectionID uuid.UUID) ([]catalogdb.SectionTeacher, error) {
 	return s.repo.ListSectionTeachers(ctx, sectionID)
+}
+
+// --- Teaching-scope reads ---
+
+// ListOwnSections returns the paginated list of sections where the authenticated caller is a
+// teacher, enriched with course and academic period labels.
+// The caller's identity is derived exclusively from the session context (auth.UserIDFromContext).
+// No teacher_id parameter is accepted to avoid IDOR vectors.
+// pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// A teacher with zero section_teachers rows returns an empty page (not an error).
+// Returns ErrInvalidInput when the page_token cannot be parsed as a UUID.
+func (s *Service) ListOwnSections(ctx context.Context, pageSize int32, pageToken string) (ListOwnSectionsResult, error) {
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		// auth interceptor guarantees the session is present before reaching the handler,
+		// but guard defensively.
+		return ListOwnSectionsResult{}, fmt.Errorf("%w: unauthenticated", ErrInvalidInput)
+	}
+
+	clamped := catalogClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListOwnSectionsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListOwnSectionsPaged(ctx, ListOwnSectionsPagedRepoParams{
+		TeacherID: callerID,
+		PageToken: tokenUUID,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListOwnSectionsResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r catalogdb.ListOwnSectionsPagedRow) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListOwnSectionsResult{
+		Sections:      page.Items,
+		NextPageToken: nextToken,
+	}, nil
 }
 
 // --- Helpers ---

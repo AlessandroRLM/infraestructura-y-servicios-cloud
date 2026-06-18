@@ -126,6 +126,9 @@ const (
 	// CatalogServiceListSectionTeachersProcedure is the fully-qualified name of the CatalogService's
 	// ListSectionTeachers RPC.
 	CatalogServiceListSectionTeachersProcedure = "/catalog.v1.CatalogService/ListSectionTeachers"
+	// CatalogServiceListOwnSectionsProcedure is the fully-qualified name of the CatalogService's
+	// ListOwnSections RPC.
+	CatalogServiceListOwnSectionsProcedure = "/catalog.v1.CatalogService/ListOwnSections"
 )
 
 // CatalogServiceClient is a client for the catalog.v1.CatalogService service.
@@ -168,6 +171,10 @@ type CatalogServiceClient interface {
 	AssignTeacherToSection(context.Context, *connect.Request[v1.AssignTeacherToSectionRequest]) (*connect.Response[v1.SectionTeacher], error)
 	RemoveTeacherFromSection(context.Context, *connect.Request[v1.RemoveTeacherFromSectionRequest]) (*connect.Response[v1.RemoveTeacherFromSectionResponse], error)
 	ListSectionTeachers(context.Context, *connect.Request[v1.ListSectionTeachersRequest]) (*connect.Response[v1.ListSectionTeachersResponse], error)
+	// Teaching-scope procedures — require section.view_teaching permission.
+	// Returns the paginated list of sections where the authenticated caller is a teacher.
+	// No teacher_id parameter: caller identity is derived from the session context exclusively.
+	ListOwnSections(context.Context, *connect.Request[v1.ListOwnSectionsRequest]) (*connect.Response[v1.ListOwnSectionsResponse], error)
 }
 
 // NewCatalogServiceClient constructs a client for the catalog.v1.CatalogService service. By
@@ -367,6 +374,12 @@ func NewCatalogServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(catalogServiceMethods.ByName("ListSectionTeachers")),
 			connect.WithClientOptions(opts...),
 		),
+		listOwnSections: connect.NewClient[v1.ListOwnSectionsRequest, v1.ListOwnSectionsResponse](
+			httpClient,
+			baseURL+CatalogServiceListOwnSectionsProcedure,
+			connect.WithSchema(catalogServiceMethods.ByName("ListOwnSections")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -403,6 +416,7 @@ type catalogServiceClient struct {
 	assignTeacherToSection   *connect.Client[v1.AssignTeacherToSectionRequest, v1.SectionTeacher]
 	removeTeacherFromSection *connect.Client[v1.RemoveTeacherFromSectionRequest, v1.RemoveTeacherFromSectionResponse]
 	listSectionTeachers      *connect.Client[v1.ListSectionTeachersRequest, v1.ListSectionTeachersResponse]
+	listOwnSections          *connect.Client[v1.ListOwnSectionsRequest, v1.ListOwnSectionsResponse]
 }
 
 // CreateProgram calls catalog.v1.CatalogService.CreateProgram.
@@ -560,6 +574,11 @@ func (c *catalogServiceClient) ListSectionTeachers(ctx context.Context, req *con
 	return c.listSectionTeachers.CallUnary(ctx, req)
 }
 
+// ListOwnSections calls catalog.v1.CatalogService.ListOwnSections.
+func (c *catalogServiceClient) ListOwnSections(ctx context.Context, req *connect.Request[v1.ListOwnSectionsRequest]) (*connect.Response[v1.ListOwnSectionsResponse], error) {
+	return c.listOwnSections.CallUnary(ctx, req)
+}
+
 // CatalogServiceHandler is an implementation of the catalog.v1.CatalogService service.
 type CatalogServiceHandler interface {
 	// Program procedures — require catalog.manage permission.
@@ -600,6 +619,10 @@ type CatalogServiceHandler interface {
 	AssignTeacherToSection(context.Context, *connect.Request[v1.AssignTeacherToSectionRequest]) (*connect.Response[v1.SectionTeacher], error)
 	RemoveTeacherFromSection(context.Context, *connect.Request[v1.RemoveTeacherFromSectionRequest]) (*connect.Response[v1.RemoveTeacherFromSectionResponse], error)
 	ListSectionTeachers(context.Context, *connect.Request[v1.ListSectionTeachersRequest]) (*connect.Response[v1.ListSectionTeachersResponse], error)
+	// Teaching-scope procedures — require section.view_teaching permission.
+	// Returns the paginated list of sections where the authenticated caller is a teacher.
+	// No teacher_id parameter: caller identity is derived from the session context exclusively.
+	ListOwnSections(context.Context, *connect.Request[v1.ListOwnSectionsRequest]) (*connect.Response[v1.ListOwnSectionsResponse], error)
 }
 
 // NewCatalogServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -795,6 +818,12 @@ func NewCatalogServiceHandler(svc CatalogServiceHandler, opts ...connect.Handler
 		connect.WithSchema(catalogServiceMethods.ByName("ListSectionTeachers")),
 		connect.WithHandlerOptions(opts...),
 	)
+	catalogServiceListOwnSectionsHandler := connect.NewUnaryHandler(
+		CatalogServiceListOwnSectionsProcedure,
+		svc.ListOwnSections,
+		connect.WithSchema(catalogServiceMethods.ByName("ListOwnSections")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/catalog.v1.CatalogService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CatalogServiceCreateProgramProcedure:
@@ -859,6 +888,8 @@ func NewCatalogServiceHandler(svc CatalogServiceHandler, opts ...connect.Handler
 			catalogServiceRemoveTeacherFromSectionHandler.ServeHTTP(w, r)
 		case CatalogServiceListSectionTeachersProcedure:
 			catalogServiceListSectionTeachersHandler.ServeHTTP(w, r)
+		case CatalogServiceListOwnSectionsProcedure:
+			catalogServiceListOwnSectionsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -990,4 +1021,8 @@ func (UnimplementedCatalogServiceHandler) RemoveTeacherFromSection(context.Conte
 
 func (UnimplementedCatalogServiceHandler) ListSectionTeachers(context.Context, *connect.Request[v1.ListSectionTeachersRequest]) (*connect.Response[v1.ListSectionTeachersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.ListSectionTeachers is not implemented"))
+}
+
+func (UnimplementedCatalogServiceHandler) ListOwnSections(context.Context, *connect.Request[v1.ListOwnSectionsRequest]) (*connect.Response[v1.ListOwnSectionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("catalog.v1.CatalogService.ListOwnSections is not implemented"))
 }

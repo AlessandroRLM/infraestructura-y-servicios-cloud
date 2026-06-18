@@ -77,6 +77,11 @@ type Repository interface {
 	AssignTeacherToSection(ctx context.Context, sectionID, teacherID uuid.UUID) (catalogdb.SectionTeacher, error)
 	RemoveTeacherFromSection(ctx context.Context, sectionID, teacherID uuid.UUID) error
 	ListSectionTeachers(ctx context.Context, sectionID uuid.UUID) ([]catalogdb.SectionTeacher, error)
+
+	// Teaching-scope reads
+	// ListOwnSectionsPaged returns enriched sections where teacherID is in section_teachers.
+	// pageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	ListOwnSectionsPaged(ctx context.Context, params ListOwnSectionsPagedRepoParams) ([]catalogdb.ListOwnSectionsPagedRow, error)
 }
 
 // Parameter types for repository operations.
@@ -180,6 +185,16 @@ type CreateSectionParams struct {
 // UpdateSectionParams holds data for updating an existing section.
 type UpdateSectionParams struct {
 	SeatCapacity int32
+}
+
+// ListOwnSectionsPagedRepoParams holds pagination parameters for ListOwnSectionsPaged.
+type ListOwnSectionsPagedRepoParams struct {
+	// TeacherID is the authenticated caller's user ID.
+	TeacherID uuid.UUID
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
 }
 
 // postgresRepository is the production implementation backed by a sqlc Querier and a
@@ -741,6 +756,23 @@ func (r *postgresRepository) RemoveTeacherFromSection(ctx context.Context, secti
 
 func (r *postgresRepository) ListSectionTeachers(ctx context.Context, sectionID uuid.UUID) ([]catalogdb.SectionTeacher, error) {
 	rows, err := r.q.ListSectionTeachers(ctx, pgtype.UUID{Bytes: sectionID, Valid: true})
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
+}
+
+// --- Teaching-scope reads ---
+
+func (r *postgresRepository) ListOwnSectionsPaged(ctx context.Context, params ListOwnSectionsPagedRepoParams) ([]catalogdb.ListOwnSectionsPagedRow, error) {
+	p := catalogdb.ListOwnSectionsPagedParams{
+		TeacherID: pgtype.UUID{Bytes: params.TeacherID, Valid: true},
+		RowLimit:  params.RowLimit,
+	}
+	if params.PageToken != nil {
+		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListOwnSectionsPaged(ctx, p)
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}

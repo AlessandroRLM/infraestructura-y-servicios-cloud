@@ -42,6 +42,10 @@ type Querier interface {
 	InsertSectionTeacher(ctx context.Context, arg InsertSectionTeacherParams) (SectionTeacher, error)
 	ListAcademicPeriods(ctx context.Context) ([]AcademicPeriod, error)
 	ListCourses(ctx context.Context, arg ListCoursesParams) ([]Course, error)
+	// ListOwnSectionsPaged returns the paginated list of sections where the caller is a teacher,
+	// enriched with course and academic period labels. Keyset pagination on s.id DESC.
+	// teacher_id is the caller's user ID derived from the session context.
+	ListOwnSectionsPaged(ctx context.Context, arg ListOwnSectionsPagedParams) ([]ListOwnSectionsPagedRow, error)
 	ListProgramCoursesWithCourse(ctx context.Context, programID pgtype.UUID) ([]ListProgramCoursesWithCourseRow, error)
 	ListProgramQuotas(ctx context.Context, programID pgtype.UUID) ([]ProgramQuota, error)
 	ListPrograms(ctx context.Context, arg ListProgramsParams) ([]Program, error)

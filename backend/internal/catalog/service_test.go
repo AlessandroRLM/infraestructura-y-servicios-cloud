@@ -45,11 +45,11 @@ type fakeRepository struct {
 	countCourseAssociationsErr error
 
 	// Program courses
-	addCourseToProgramRow              catalogdb.ProgramCourse
-	addCourseToProgramErr              error
-	removeCourseErr                    error
-	listProgramCoursesWithCourseRows   []catalogdb.ListProgramCoursesWithCourseRow
-	listProgramCoursesWithCourseErr    error
+	addCourseToProgramRow            catalogdb.ProgramCourse
+	addCourseToProgramErr            error
+	removeCourseErr                  error
+	listProgramCoursesWithCourseRows []catalogdb.ListProgramCoursesWithCourseRow
+	listProgramCoursesWithCourseErr  error
 
 	// Academic periods
 	createAcademicPeriodRow   catalogdb.AcademicPeriod
@@ -90,6 +90,10 @@ type fakeRepository struct {
 	assignTeacherErr        error
 	removeTeacherErr        error
 	listSectionTeachersRows []catalogdb.SectionTeacher
+
+	// Teaching-scope reads
+	listOwnSectionsPagedRows []catalogdb.ListOwnSectionsPagedRow
+	listOwnSectionsPagedErr  error
 }
 
 // Compile-time check: fakeRepository must satisfy catalog.Repository.
@@ -229,6 +233,9 @@ func (f *fakeRepository) RemoveTeacherFromSection(_ context.Context, _, _ uuid.U
 }
 func (f *fakeRepository) ListSectionTeachers(_ context.Context, _ uuid.UUID) ([]catalogdb.SectionTeacher, error) {
 	return f.listSectionTeachersRows, nil
+}
+func (f *fakeRepository) ListOwnSectionsPaged(_ context.Context, _ catalog.ListOwnSectionsPagedRepoParams) ([]catalogdb.ListOwnSectionsPagedRow, error) {
+	return f.listOwnSectionsPagedRows, f.listOwnSectionsPagedErr
 }
 
 // --- Validation tests ---

@@ -718,6 +718,29 @@ func (h *Handler) ListSectionTeachers(
 	return connect.NewResponse(&catalogv1.ListSectionTeachersResponse{SectionTeachers: protos}), nil
 }
 
+// --- Teaching-scope procedures ---
+
+// ListOwnSections returns the paginated list of sections where the authenticated caller is a
+// teacher. The caller's identity is derived from the session context; no teacher_id parameter
+// is accepted (structural guarantee from the proto schema — the request message carries none).
+func (h *Handler) ListOwnSections(
+	ctx context.Context,
+	req *connect.Request[catalogv1.ListOwnSectionsRequest],
+) (*connect.Response[catalogv1.ListOwnSectionsResponse], error) {
+	result, err := h.svc.ListOwnSections(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken())
+	if err != nil {
+		return nil, MapError(err)
+	}
+	protos := make([]*catalogv1.TeachingSection, 0, len(result.Sections))
+	for _, r := range result.Sections {
+		protos = append(protos, teachingSectionToProto(r))
+	}
+	return connect.NewResponse(&catalogv1.ListOwnSectionsResponse{
+		Sections:      protos,
+		NextPageToken: result.NextPageToken,
+	}), nil
+}
+
 // --- Proto converters (sections) ---
 
 func sectionToProto(r catalogdb.Section) *catalogv1.Section {
@@ -755,4 +778,18 @@ func sectionTeacherToProto(r catalogdb.SectionTeacher) *catalogv1.SectionTeacher
 // uuidToString converts a pgtype.UUID to a standard hyphenated string.
 func uuidToString(id pgtype.UUID) string {
 	return uuid.UUID(id.Bytes).String()
+}
+
+// teachingSectionToProto converts a ListOwnSectionsPagedRow into a TeachingSection proto.
+func teachingSectionToProto(r catalogdb.ListOwnSectionsPagedRow) *catalogv1.TeachingSection {
+	return &catalogv1.TeachingSection{
+		Id:               uuidToString(r.ID),
+		CourseId:         uuidToString(r.CourseID),
+		AcademicPeriodId: uuidToString(r.AcademicPeriodID),
+		SeatCapacity:     r.SeatCapacity,
+		CourseCode:       r.CourseCode,
+		CourseName:       r.CourseName,
+		PeriodYear:       r.PeriodYear,
+		PeriodTerm:       r.PeriodTerm,
+	}
 }

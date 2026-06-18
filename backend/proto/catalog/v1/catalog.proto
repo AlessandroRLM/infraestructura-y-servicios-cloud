@@ -49,6 +49,11 @@ service CatalogService {
   rpc AssignTeacherToSection(AssignTeacherToSectionRequest) returns (SectionTeacher);
   rpc RemoveTeacherFromSection(RemoveTeacherFromSectionRequest) returns (RemoveTeacherFromSectionResponse);
   rpc ListSectionTeachers(ListSectionTeachersRequest) returns (ListSectionTeachersResponse);
+
+  // Teaching-scope procedures — require section.view_teaching permission.
+  // Returns the paginated list of sections where the authenticated caller is a teacher.
+  // No teacher_id parameter: caller identity is derived from the session context exclusively.
+  rpc ListOwnSections(ListOwnSectionsRequest) returns (ListOwnSectionsResponse);
 }
 
 // Program represents an academic program (carrera).
@@ -345,4 +350,31 @@ message ListProgramCoursesRequest {
 
 message ListProgramCoursesResponse {
   repeated ProgramCourse program_courses = 1;
+}
+
+// --- Teaching-scope request/response messages ---
+
+// ListOwnSectionsRequest is the request for ListOwnSections.
+// No teacher_id field: the caller's identity is derived from the session context.
+message ListOwnSectionsRequest {
+  int32  page_size  = 1;
+  string page_token = 2;
+}
+
+// TeachingSection is a section enriched with course and period labels, returned by ListOwnSections.
+message TeachingSection {
+  string id                 = 1;
+  string course_id          = 2;
+  string academic_period_id = 3;
+  int32  seat_capacity      = 4;
+  string course_code        = 5;
+  string course_name        = 6;
+  int32  period_year        = 7;
+  int32  period_term        = 8;
+}
+
+// ListOwnSectionsResponse is the response for ListOwnSections.
+message ListOwnSectionsResponse {
+  repeated TeachingSection sections        = 1;
+  string                   next_page_token = 2;
 }

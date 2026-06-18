@@ -160,6 +160,8 @@ func main() {
 		catalogv1connect.CatalogServiceAssignTeacherToSectionProcedure:   authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceRemoveTeacherFromSectionProcedure: authz.RequirePermission(authz.PermCatalogManage),
 		catalogv1connect.CatalogServiceListSectionTeachersProcedure:      authz.RequirePermission(authz.PermCatalogManage),
+		// Teaching-scope catalog procedures — require section.view_teaching.
+		catalogv1connect.CatalogServiceListOwnSectionsProcedure: authz.RequirePermission(authz.PermSectionViewTeaching),
 
 		// Enrollment management procedures — require enrollment.manage.
 		enrollmentv1connect.EnrollmentServiceCreateEnrollmentProcedure:   authz.RequirePermission(authz.PermEnrollmentManage),
@@ -205,10 +207,10 @@ func main() {
 		auditlogsv1connect.AuditLogsServiceListAuditLogsProcedure: authz.RequirePermission(authz.PermAuditRead),
 
 		// IAM procedures — all require users.manage.
-		iamv1connect.IamServiceListUsersProcedure:    authz.RequirePermission(authz.PermUsersManage),
-		iamv1connect.IamServiceGetUserProcedure:      authz.RequirePermission(authz.PermUsersManage),
-		iamv1connect.IamServiceAssignRoleProcedure:   authz.RequirePermission(authz.PermUsersManage),
-		iamv1connect.IamServiceRevokeRoleProcedure:   authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceListUsersProcedure:  authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceGetUserProcedure:    authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceAssignRoleProcedure: authz.RequirePermission(authz.PermUsersManage),
+		iamv1connect.IamServiceRevokeRoleProcedure: authz.RequirePermission(authz.PermUsersManage),
 	}
 
 	authzInterceptor := auth.NewAuthzInterceptor(exempt, policies)

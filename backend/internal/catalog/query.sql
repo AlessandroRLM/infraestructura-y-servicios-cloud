@@ -222,6 +222,29 @@ WHERE course_id = $1 AND deleted_at IS NULL;
 SELECT count(*) FROM sections
 WHERE academic_period_id = $1 AND deleted_at IS NULL;
 
+-- ListOwnSectionsPaged returns the paginated list of sections where the caller is a teacher,
+-- enriched with course and academic period labels. Keyset pagination on s.id DESC.
+-- teacher_id is the caller's user ID derived from the session context.
+
+-- name: ListOwnSectionsPaged :many
+SELECT
+    s.id,
+    s.course_id,
+    s.academic_period_id,
+    s.capacity   AS seat_capacity,
+    c.code       AS course_code,
+    c.name       AS course_name,
+    ap.year      AS period_year,
+    ap.term      AS period_term
+FROM sections s
+JOIN section_teachers st ON st.section_id = s.id AND st.teacher_id = sqlc.arg('teacher_id')::uuid
+JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
+JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
+WHERE s.deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR s.id < sqlc.narg('page_token')::uuid)
+ORDER BY s.id DESC
+LIMIT sqlc.arg('row_limit')::int;
+
 -- Section teachers (M:N append-only)
 
 -- name: InsertSectionTeacher :one

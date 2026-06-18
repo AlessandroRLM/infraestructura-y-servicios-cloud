@@ -2888,6 +2888,214 @@ func (x *ListProgramCoursesResponse) GetProgramCourses() []*ProgramCourse {
 	return nil
 }
 
+// ListOwnSectionsRequest is the request for ListOwnSections.
+// No teacher_id field: the caller's identity is derived from the session context.
+type ListOwnSectionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PageSize      int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOwnSectionsRequest) Reset() {
+	*x = ListOwnSectionsRequest{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOwnSectionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOwnSectionsRequest) ProtoMessage() {}
+
+func (x *ListOwnSectionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOwnSectionsRequest.ProtoReflect.Descriptor instead.
+func (*ListOwnSectionsRequest) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ListOwnSectionsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListOwnSectionsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+// TeachingSection is a section enriched with course and period labels, returned by ListOwnSections.
+type TeachingSection struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	CourseId         string                 `protobuf:"bytes,2,opt,name=course_id,json=courseId,proto3" json:"course_id,omitempty"`
+	AcademicPeriodId string                 `protobuf:"bytes,3,opt,name=academic_period_id,json=academicPeriodId,proto3" json:"academic_period_id,omitempty"`
+	SeatCapacity     int32                  `protobuf:"varint,4,opt,name=seat_capacity,json=seatCapacity,proto3" json:"seat_capacity,omitempty"`
+	CourseCode       string                 `protobuf:"bytes,5,opt,name=course_code,json=courseCode,proto3" json:"course_code,omitempty"`
+	CourseName       string                 `protobuf:"bytes,6,opt,name=course_name,json=courseName,proto3" json:"course_name,omitempty"`
+	PeriodYear       int32                  `protobuf:"varint,7,opt,name=period_year,json=periodYear,proto3" json:"period_year,omitempty"`
+	PeriodTerm       int32                  `protobuf:"varint,8,opt,name=period_term,json=periodTerm,proto3" json:"period_term,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *TeachingSection) Reset() {
+	*x = TeachingSection{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TeachingSection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TeachingSection) ProtoMessage() {}
+
+func (x *TeachingSection) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TeachingSection.ProtoReflect.Descriptor instead.
+func (*TeachingSection) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *TeachingSection) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TeachingSection) GetCourseId() string {
+	if x != nil {
+		return x.CourseId
+	}
+	return ""
+}
+
+func (x *TeachingSection) GetAcademicPeriodId() string {
+	if x != nil {
+		return x.AcademicPeriodId
+	}
+	return ""
+}
+
+func (x *TeachingSection) GetSeatCapacity() int32 {
+	if x != nil {
+		return x.SeatCapacity
+	}
+	return 0
+}
+
+func (x *TeachingSection) GetCourseCode() string {
+	if x != nil {
+		return x.CourseCode
+	}
+	return ""
+}
+
+func (x *TeachingSection) GetCourseName() string {
+	if x != nil {
+		return x.CourseName
+	}
+	return ""
+}
+
+func (x *TeachingSection) GetPeriodYear() int32 {
+	if x != nil {
+		return x.PeriodYear
+	}
+	return 0
+}
+
+func (x *TeachingSection) GetPeriodTerm() int32 {
+	if x != nil {
+		return x.PeriodTerm
+	}
+	return 0
+}
+
+// ListOwnSectionsResponse is the response for ListOwnSections.
+type ListOwnSectionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Sections      []*TeachingSection     `protobuf:"bytes,1,rep,name=sections,proto3" json:"sections,omitempty"`
+	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListOwnSectionsResponse) Reset() {
+	*x = ListOwnSectionsResponse{}
+	mi := &file_catalog_v1_catalog_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListOwnSectionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListOwnSectionsResponse) ProtoMessage() {}
+
+func (x *ListOwnSectionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_catalog_v1_catalog_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListOwnSectionsResponse.ProtoReflect.Descriptor instead.
+func (*ListOwnSectionsResponse) Descriptor() ([]byte, []int) {
+	return file_catalog_v1_catalog_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *ListOwnSectionsResponse) GetSections() []*TeachingSection {
+	if x != nil {
+		return x.Sections
+	}
+	return nil
+}
+
+func (x *ListOwnSectionsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
 var File_catalog_v1_catalog_proto protoreflect.FileDescriptor
 
 const file_catalog_v1_catalog_proto_rawDesc = "" +
@@ -3129,7 +3337,27 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"\n" +
 	"program_id\x18\x01 \x01(\tR\tprogramId\"`\n" +
 	"\x1aListProgramCoursesResponse\x12B\n" +
-	"\x0fprogram_courses\x18\x01 \x03(\v2\x19.catalog.v1.ProgramCourseR\x0eprogramCourses2\x8d\x15\n" +
+	"\x0fprogram_courses\x18\x01 \x03(\v2\x19.catalog.v1.ProgramCourseR\x0eprogramCourses\"T\n" +
+	"\x16ListOwnSectionsRequest\x12\x1b\n" +
+	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\"\x95\x02\n" +
+	"\x0fTeachingSection\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tcourse_id\x18\x02 \x01(\tR\bcourseId\x12,\n" +
+	"\x12academic_period_id\x18\x03 \x01(\tR\x10academicPeriodId\x12#\n" +
+	"\rseat_capacity\x18\x04 \x01(\x05R\fseatCapacity\x12\x1f\n" +
+	"\vcourse_code\x18\x05 \x01(\tR\n" +
+	"courseCode\x12\x1f\n" +
+	"\vcourse_name\x18\x06 \x01(\tR\n" +
+	"courseName\x12\x1f\n" +
+	"\vperiod_year\x18\a \x01(\x05R\n" +
+	"periodYear\x12\x1f\n" +
+	"\vperiod_term\x18\b \x01(\x05R\n" +
+	"periodTerm\"z\n" +
+	"\x17ListOwnSectionsResponse\x127\n" +
+	"\bsections\x18\x01 \x03(\v2\x1b.catalog.v1.TeachingSectionR\bsections\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xe9\x15\n" +
 	"\x0eCatalogService\x12F\n" +
 	"\rCreateProgram\x12 .catalog.v1.CreateProgramRequest\x1a\x13.catalog.v1.Program\x12F\n" +
 	"\rUpdateProgram\x12 .catalog.v1.UpdateProgramRequest\x1a\x13.catalog.v1.Program\x12@\n" +
@@ -3163,7 +3391,8 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"\rDeleteSection\x12 .catalog.v1.DeleteSectionRequest\x1a!.catalog.v1.DeleteSectionResponse\x12_\n" +
 	"\x16AssignTeacherToSection\x12).catalog.v1.AssignTeacherToSectionRequest\x1a\x1a.catalog.v1.SectionTeacher\x12u\n" +
 	"\x18RemoveTeacherFromSection\x12+.catalog.v1.RemoveTeacherFromSectionRequest\x1a,.catalog.v1.RemoveTeacherFromSectionResponse\x12f\n" +
-	"\x13ListSectionTeachers\x12&.catalog.v1.ListSectionTeachersRequest\x1a'.catalog.v1.ListSectionTeachersResponseB]Z[github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1;catalogv1b\x06proto3"
+	"\x13ListSectionTeachers\x12&.catalog.v1.ListSectionTeachersRequest\x1a'.catalog.v1.ListSectionTeachersResponse\x12Z\n" +
+	"\x0fListOwnSections\x12\".catalog.v1.ListOwnSectionsRequest\x1a#.catalog.v1.ListOwnSectionsResponseB]Z[github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1;catalogv1b\x06proto3"
 
 var (
 	file_catalog_v1_catalog_proto_rawDescOnce sync.Once
@@ -3177,7 +3406,7 @@ func file_catalog_v1_catalog_proto_rawDescGZIP() []byte {
 	return file_catalog_v1_catalog_proto_rawDescData
 }
 
-var file_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
+var file_catalog_v1_catalog_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
 var file_catalog_v1_catalog_proto_goTypes = []any{
 	(*Program)(nil),                          // 0: catalog.v1.Program
 	(*Course)(nil),                           // 1: catalog.v1.Course
@@ -3231,6 +3460,9 @@ var file_catalog_v1_catalog_proto_goTypes = []any{
 	(*RemoveCourseFromProgramResponse)(nil),  // 49: catalog.v1.RemoveCourseFromProgramResponse
 	(*ListProgramCoursesRequest)(nil),        // 50: catalog.v1.ListProgramCoursesRequest
 	(*ListProgramCoursesResponse)(nil),       // 51: catalog.v1.ListProgramCoursesResponse
+	(*ListOwnSectionsRequest)(nil),           // 52: catalog.v1.ListOwnSectionsRequest
+	(*TeachingSection)(nil),                  // 53: catalog.v1.TeachingSection
+	(*ListOwnSectionsResponse)(nil),          // 54: catalog.v1.ListOwnSectionsResponse
 }
 var file_catalog_v1_catalog_proto_depIdxs = []int32{
 	1,  // 0: catalog.v1.ProgramCourse.course:type_name -> catalog.v1.Course
@@ -3241,73 +3473,76 @@ var file_catalog_v1_catalog_proto_depIdxs = []int32{
 	2,  // 5: catalog.v1.ListAcademicPeriodsResponse.academic_periods:type_name -> catalog.v1.AcademicPeriod
 	3,  // 6: catalog.v1.ListProgramQuotasResponse.program_quotas:type_name -> catalog.v1.ProgramQuota
 	4,  // 7: catalog.v1.ListProgramCoursesResponse.program_courses:type_name -> catalog.v1.ProgramCourse
-	19, // 8: catalog.v1.CatalogService.CreateProgram:input_type -> catalog.v1.CreateProgramRequest
-	20, // 9: catalog.v1.CatalogService.UpdateProgram:input_type -> catalog.v1.UpdateProgramRequest
-	21, // 10: catalog.v1.CatalogService.GetProgram:input_type -> catalog.v1.GetProgramRequest
-	22, // 11: catalog.v1.CatalogService.ListPrograms:input_type -> catalog.v1.ListProgramsRequest
-	24, // 12: catalog.v1.CatalogService.DeleteProgram:input_type -> catalog.v1.DeleteProgramRequest
-	26, // 13: catalog.v1.CatalogService.CreateCourse:input_type -> catalog.v1.CreateCourseRequest
-	27, // 14: catalog.v1.CatalogService.UpdateCourse:input_type -> catalog.v1.UpdateCourseRequest
-	28, // 15: catalog.v1.CatalogService.GetCourse:input_type -> catalog.v1.GetCourseRequest
-	29, // 16: catalog.v1.CatalogService.ListCourses:input_type -> catalog.v1.ListCoursesRequest
-	31, // 17: catalog.v1.CatalogService.DeleteCourse:input_type -> catalog.v1.DeleteCourseRequest
-	33, // 18: catalog.v1.CatalogService.CreateAcademicPeriod:input_type -> catalog.v1.CreateAcademicPeriodRequest
-	34, // 19: catalog.v1.CatalogService.UpdateAcademicPeriod:input_type -> catalog.v1.UpdateAcademicPeriodRequest
-	35, // 20: catalog.v1.CatalogService.GetAcademicPeriod:input_type -> catalog.v1.GetAcademicPeriodRequest
-	36, // 21: catalog.v1.CatalogService.ListAcademicPeriods:input_type -> catalog.v1.ListAcademicPeriodsRequest
-	38, // 22: catalog.v1.CatalogService.DeleteAcademicPeriod:input_type -> catalog.v1.DeleteAcademicPeriodRequest
-	40, // 23: catalog.v1.CatalogService.CreateProgramQuota:input_type -> catalog.v1.CreateProgramQuotaRequest
-	41, // 24: catalog.v1.CatalogService.UpdateProgramQuota:input_type -> catalog.v1.UpdateProgramQuotaRequest
-	42, // 25: catalog.v1.CatalogService.GetProgramQuota:input_type -> catalog.v1.GetProgramQuotaRequest
-	43, // 26: catalog.v1.CatalogService.ListProgramQuotas:input_type -> catalog.v1.ListProgramQuotasRequest
-	45, // 27: catalog.v1.CatalogService.DeleteProgramQuota:input_type -> catalog.v1.DeleteProgramQuotaRequest
-	47, // 28: catalog.v1.CatalogService.AddCourseToProgram:input_type -> catalog.v1.AddCourseToProgramRequest
-	48, // 29: catalog.v1.CatalogService.RemoveCourseFromProgram:input_type -> catalog.v1.RemoveCourseFromProgramRequest
-	50, // 30: catalog.v1.CatalogService.ListProgramCourses:input_type -> catalog.v1.ListProgramCoursesRequest
-	7,  // 31: catalog.v1.CatalogService.CreateSection:input_type -> catalog.v1.CreateSectionRequest
-	8,  // 32: catalog.v1.CatalogService.UpdateSection:input_type -> catalog.v1.UpdateSectionRequest
-	9,  // 33: catalog.v1.CatalogService.GetSection:input_type -> catalog.v1.GetSectionRequest
-	10, // 34: catalog.v1.CatalogService.ListSections:input_type -> catalog.v1.ListSectionsRequest
-	12, // 35: catalog.v1.CatalogService.DeleteSection:input_type -> catalog.v1.DeleteSectionRequest
-	14, // 36: catalog.v1.CatalogService.AssignTeacherToSection:input_type -> catalog.v1.AssignTeacherToSectionRequest
-	15, // 37: catalog.v1.CatalogService.RemoveTeacherFromSection:input_type -> catalog.v1.RemoveTeacherFromSectionRequest
-	17, // 38: catalog.v1.CatalogService.ListSectionTeachers:input_type -> catalog.v1.ListSectionTeachersRequest
-	0,  // 39: catalog.v1.CatalogService.CreateProgram:output_type -> catalog.v1.Program
-	0,  // 40: catalog.v1.CatalogService.UpdateProgram:output_type -> catalog.v1.Program
-	0,  // 41: catalog.v1.CatalogService.GetProgram:output_type -> catalog.v1.Program
-	23, // 42: catalog.v1.CatalogService.ListPrograms:output_type -> catalog.v1.ListProgramsResponse
-	25, // 43: catalog.v1.CatalogService.DeleteProgram:output_type -> catalog.v1.DeleteProgramResponse
-	1,  // 44: catalog.v1.CatalogService.CreateCourse:output_type -> catalog.v1.Course
-	1,  // 45: catalog.v1.CatalogService.UpdateCourse:output_type -> catalog.v1.Course
-	1,  // 46: catalog.v1.CatalogService.GetCourse:output_type -> catalog.v1.Course
-	30, // 47: catalog.v1.CatalogService.ListCourses:output_type -> catalog.v1.ListCoursesResponse
-	32, // 48: catalog.v1.CatalogService.DeleteCourse:output_type -> catalog.v1.DeleteCourseResponse
-	2,  // 49: catalog.v1.CatalogService.CreateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
-	2,  // 50: catalog.v1.CatalogService.UpdateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
-	2,  // 51: catalog.v1.CatalogService.GetAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
-	37, // 52: catalog.v1.CatalogService.ListAcademicPeriods:output_type -> catalog.v1.ListAcademicPeriodsResponse
-	39, // 53: catalog.v1.CatalogService.DeleteAcademicPeriod:output_type -> catalog.v1.DeleteAcademicPeriodResponse
-	3,  // 54: catalog.v1.CatalogService.CreateProgramQuota:output_type -> catalog.v1.ProgramQuota
-	3,  // 55: catalog.v1.CatalogService.UpdateProgramQuota:output_type -> catalog.v1.ProgramQuota
-	3,  // 56: catalog.v1.CatalogService.GetProgramQuota:output_type -> catalog.v1.ProgramQuota
-	44, // 57: catalog.v1.CatalogService.ListProgramQuotas:output_type -> catalog.v1.ListProgramQuotasResponse
-	46, // 58: catalog.v1.CatalogService.DeleteProgramQuota:output_type -> catalog.v1.DeleteProgramQuotaResponse
-	4,  // 59: catalog.v1.CatalogService.AddCourseToProgram:output_type -> catalog.v1.ProgramCourse
-	49, // 60: catalog.v1.CatalogService.RemoveCourseFromProgram:output_type -> catalog.v1.RemoveCourseFromProgramResponse
-	51, // 61: catalog.v1.CatalogService.ListProgramCourses:output_type -> catalog.v1.ListProgramCoursesResponse
-	5,  // 62: catalog.v1.CatalogService.CreateSection:output_type -> catalog.v1.Section
-	5,  // 63: catalog.v1.CatalogService.UpdateSection:output_type -> catalog.v1.Section
-	5,  // 64: catalog.v1.CatalogService.GetSection:output_type -> catalog.v1.Section
-	11, // 65: catalog.v1.CatalogService.ListSections:output_type -> catalog.v1.ListSectionsResponse
-	13, // 66: catalog.v1.CatalogService.DeleteSection:output_type -> catalog.v1.DeleteSectionResponse
-	6,  // 67: catalog.v1.CatalogService.AssignTeacherToSection:output_type -> catalog.v1.SectionTeacher
-	16, // 68: catalog.v1.CatalogService.RemoveTeacherFromSection:output_type -> catalog.v1.RemoveTeacherFromSectionResponse
-	18, // 69: catalog.v1.CatalogService.ListSectionTeachers:output_type -> catalog.v1.ListSectionTeachersResponse
-	39, // [39:70] is the sub-list for method output_type
-	8,  // [8:39] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	53, // 8: catalog.v1.ListOwnSectionsResponse.sections:type_name -> catalog.v1.TeachingSection
+	19, // 9: catalog.v1.CatalogService.CreateProgram:input_type -> catalog.v1.CreateProgramRequest
+	20, // 10: catalog.v1.CatalogService.UpdateProgram:input_type -> catalog.v1.UpdateProgramRequest
+	21, // 11: catalog.v1.CatalogService.GetProgram:input_type -> catalog.v1.GetProgramRequest
+	22, // 12: catalog.v1.CatalogService.ListPrograms:input_type -> catalog.v1.ListProgramsRequest
+	24, // 13: catalog.v1.CatalogService.DeleteProgram:input_type -> catalog.v1.DeleteProgramRequest
+	26, // 14: catalog.v1.CatalogService.CreateCourse:input_type -> catalog.v1.CreateCourseRequest
+	27, // 15: catalog.v1.CatalogService.UpdateCourse:input_type -> catalog.v1.UpdateCourseRequest
+	28, // 16: catalog.v1.CatalogService.GetCourse:input_type -> catalog.v1.GetCourseRequest
+	29, // 17: catalog.v1.CatalogService.ListCourses:input_type -> catalog.v1.ListCoursesRequest
+	31, // 18: catalog.v1.CatalogService.DeleteCourse:input_type -> catalog.v1.DeleteCourseRequest
+	33, // 19: catalog.v1.CatalogService.CreateAcademicPeriod:input_type -> catalog.v1.CreateAcademicPeriodRequest
+	34, // 20: catalog.v1.CatalogService.UpdateAcademicPeriod:input_type -> catalog.v1.UpdateAcademicPeriodRequest
+	35, // 21: catalog.v1.CatalogService.GetAcademicPeriod:input_type -> catalog.v1.GetAcademicPeriodRequest
+	36, // 22: catalog.v1.CatalogService.ListAcademicPeriods:input_type -> catalog.v1.ListAcademicPeriodsRequest
+	38, // 23: catalog.v1.CatalogService.DeleteAcademicPeriod:input_type -> catalog.v1.DeleteAcademicPeriodRequest
+	40, // 24: catalog.v1.CatalogService.CreateProgramQuota:input_type -> catalog.v1.CreateProgramQuotaRequest
+	41, // 25: catalog.v1.CatalogService.UpdateProgramQuota:input_type -> catalog.v1.UpdateProgramQuotaRequest
+	42, // 26: catalog.v1.CatalogService.GetProgramQuota:input_type -> catalog.v1.GetProgramQuotaRequest
+	43, // 27: catalog.v1.CatalogService.ListProgramQuotas:input_type -> catalog.v1.ListProgramQuotasRequest
+	45, // 28: catalog.v1.CatalogService.DeleteProgramQuota:input_type -> catalog.v1.DeleteProgramQuotaRequest
+	47, // 29: catalog.v1.CatalogService.AddCourseToProgram:input_type -> catalog.v1.AddCourseToProgramRequest
+	48, // 30: catalog.v1.CatalogService.RemoveCourseFromProgram:input_type -> catalog.v1.RemoveCourseFromProgramRequest
+	50, // 31: catalog.v1.CatalogService.ListProgramCourses:input_type -> catalog.v1.ListProgramCoursesRequest
+	7,  // 32: catalog.v1.CatalogService.CreateSection:input_type -> catalog.v1.CreateSectionRequest
+	8,  // 33: catalog.v1.CatalogService.UpdateSection:input_type -> catalog.v1.UpdateSectionRequest
+	9,  // 34: catalog.v1.CatalogService.GetSection:input_type -> catalog.v1.GetSectionRequest
+	10, // 35: catalog.v1.CatalogService.ListSections:input_type -> catalog.v1.ListSectionsRequest
+	12, // 36: catalog.v1.CatalogService.DeleteSection:input_type -> catalog.v1.DeleteSectionRequest
+	14, // 37: catalog.v1.CatalogService.AssignTeacherToSection:input_type -> catalog.v1.AssignTeacherToSectionRequest
+	15, // 38: catalog.v1.CatalogService.RemoveTeacherFromSection:input_type -> catalog.v1.RemoveTeacherFromSectionRequest
+	17, // 39: catalog.v1.CatalogService.ListSectionTeachers:input_type -> catalog.v1.ListSectionTeachersRequest
+	52, // 40: catalog.v1.CatalogService.ListOwnSections:input_type -> catalog.v1.ListOwnSectionsRequest
+	0,  // 41: catalog.v1.CatalogService.CreateProgram:output_type -> catalog.v1.Program
+	0,  // 42: catalog.v1.CatalogService.UpdateProgram:output_type -> catalog.v1.Program
+	0,  // 43: catalog.v1.CatalogService.GetProgram:output_type -> catalog.v1.Program
+	23, // 44: catalog.v1.CatalogService.ListPrograms:output_type -> catalog.v1.ListProgramsResponse
+	25, // 45: catalog.v1.CatalogService.DeleteProgram:output_type -> catalog.v1.DeleteProgramResponse
+	1,  // 46: catalog.v1.CatalogService.CreateCourse:output_type -> catalog.v1.Course
+	1,  // 47: catalog.v1.CatalogService.UpdateCourse:output_type -> catalog.v1.Course
+	1,  // 48: catalog.v1.CatalogService.GetCourse:output_type -> catalog.v1.Course
+	30, // 49: catalog.v1.CatalogService.ListCourses:output_type -> catalog.v1.ListCoursesResponse
+	32, // 50: catalog.v1.CatalogService.DeleteCourse:output_type -> catalog.v1.DeleteCourseResponse
+	2,  // 51: catalog.v1.CatalogService.CreateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
+	2,  // 52: catalog.v1.CatalogService.UpdateAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
+	2,  // 53: catalog.v1.CatalogService.GetAcademicPeriod:output_type -> catalog.v1.AcademicPeriod
+	37, // 54: catalog.v1.CatalogService.ListAcademicPeriods:output_type -> catalog.v1.ListAcademicPeriodsResponse
+	39, // 55: catalog.v1.CatalogService.DeleteAcademicPeriod:output_type -> catalog.v1.DeleteAcademicPeriodResponse
+	3,  // 56: catalog.v1.CatalogService.CreateProgramQuota:output_type -> catalog.v1.ProgramQuota
+	3,  // 57: catalog.v1.CatalogService.UpdateProgramQuota:output_type -> catalog.v1.ProgramQuota
+	3,  // 58: catalog.v1.CatalogService.GetProgramQuota:output_type -> catalog.v1.ProgramQuota
+	44, // 59: catalog.v1.CatalogService.ListProgramQuotas:output_type -> catalog.v1.ListProgramQuotasResponse
+	46, // 60: catalog.v1.CatalogService.DeleteProgramQuota:output_type -> catalog.v1.DeleteProgramQuotaResponse
+	4,  // 61: catalog.v1.CatalogService.AddCourseToProgram:output_type -> catalog.v1.ProgramCourse
+	49, // 62: catalog.v1.CatalogService.RemoveCourseFromProgram:output_type -> catalog.v1.RemoveCourseFromProgramResponse
+	51, // 63: catalog.v1.CatalogService.ListProgramCourses:output_type -> catalog.v1.ListProgramCoursesResponse
+	5,  // 64: catalog.v1.CatalogService.CreateSection:output_type -> catalog.v1.Section
+	5,  // 65: catalog.v1.CatalogService.UpdateSection:output_type -> catalog.v1.Section
+	5,  // 66: catalog.v1.CatalogService.GetSection:output_type -> catalog.v1.Section
+	11, // 67: catalog.v1.CatalogService.ListSections:output_type -> catalog.v1.ListSectionsResponse
+	13, // 68: catalog.v1.CatalogService.DeleteSection:output_type -> catalog.v1.DeleteSectionResponse
+	6,  // 69: catalog.v1.CatalogService.AssignTeacherToSection:output_type -> catalog.v1.SectionTeacher
+	16, // 70: catalog.v1.CatalogService.RemoveTeacherFromSection:output_type -> catalog.v1.RemoveTeacherFromSectionResponse
+	18, // 71: catalog.v1.CatalogService.ListSectionTeachers:output_type -> catalog.v1.ListSectionTeachersResponse
+	54, // 72: catalog.v1.CatalogService.ListOwnSections:output_type -> catalog.v1.ListOwnSectionsResponse
+	41, // [41:73] is the sub-list for method output_type
+	9,  // [9:41] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_catalog_v1_catalog_proto_init() }
@@ -3327,7 +3562,7 @@ func file_catalog_v1_catalog_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_catalog_v1_catalog_proto_rawDesc), len(file_catalog_v1_catalog_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   52,
+			NumMessages:   55,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
