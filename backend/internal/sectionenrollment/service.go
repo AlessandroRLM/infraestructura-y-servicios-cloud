@@ -245,7 +245,8 @@ func (s *Service) ListSectionEnrollments(ctx context.Context, f ListSectionEnrol
 func (s *Service) ListSectionRosterForTeacher(ctx context.Context, sectionIDStr string, pageSize int32, pageToken string) (ListSectionRosterForTeacherResult, error) {
 	callerID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		return ListSectionRosterForTeacherResult{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+		// Defensive guard — unreachable behind the auth interceptor in normal operation.
+		return ListSectionRosterForTeacherResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
 	}
 
 	sectionID, err := parseServiceUUID(sectionIDStr)

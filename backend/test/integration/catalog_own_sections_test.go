@@ -2,8 +2,8 @@ package integration_test
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
-	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -11,6 +11,15 @@ import (
 	catalogv1 "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/catalog/v1/catalogv1connect"
 )
+
+// ownSectionsYearCounter generates collision-free year values for academic period seeds
+// in catalog_own_sections_test.go. Starts at 10000 to avoid overlap with all other test
+// helpers (which use years ≤ 9000).
+var ownSectionsYearCounter atomic.Int32
+
+func init() {
+	ownSectionsYearCounter.Store(10000)
+}
 
 // newCatalogClientNoJar returns a catalog client with no cookie jar (manual cookie header).
 // Alias to the existing newCatalogClient helper in catalog_authz_test.go.
@@ -40,25 +49,17 @@ func seedTeacherWithSections(t *testing.T, email string, n int) (teacherID, teac
 		}
 		courseID := cResp.Msg.GetId()
 
-		// Create academic period with unique year
-		year := 5000 + int32(time.Now().UnixNano()%500) + int32(i)*3
+		// Create academic period with a collision-free year derived from the atomic counter.
+		// Each call increments the global counter, guaranteeing uniqueness across concurrent tests.
+		year := ownSectionsYearCounter.Add(1)
 		pResp, err := client.CreateAcademicPeriod(ctx, withSID(connect.NewRequest(&catalogv1.CreateAcademicPeriodRequest{
 			Year:      year,
 			Term:      1,
-			StartDate: "5000-03-01",
-			EndDate:   "5000-07-31",
+			StartDate: "9000-03-01",
+			EndDate:   "9000-07-31",
 		}), adminSID))
 		if err != nil {
-			// Retry with different year
-			pResp, err = client.CreateAcademicPeriod(ctx, withSID(connect.NewRequest(&catalogv1.CreateAcademicPeriodRequest{
-				Year:      year + 500,
-				Term:      2,
-				StartDate: "5500-08-01",
-				EndDate:   "5500-12-31",
-			}), adminSID))
-			if err != nil {
-				t.Fatalf("seedTeacherWithSections: CreateAcademicPeriod %d: %v", i, err)
-			}
+			t.Fatalf("seedTeacherWithSections: CreateAcademicPeriod %d: %v", i, err)
 		}
 		periodID := pResp.Msg.GetId()
 
@@ -96,6 +97,63 @@ func seedTeacherWithSections(t *testing.T, email string, n int) (teacherID, teac
 
 	cleanup = func() {} // individual cleanups registered above
 	return teacherID, teacherSID, sectionIDs, adminSID, cleanup
+}
+
+// --- Cross-teacher isolation (negative test) ---
+
+// TestListOwnSections_TeacherCannotSeeOtherTeacherSections verifies that teacher A's
+// ListOwnSections returns ONLY A's section IDs (none of B's), and teacher B's call
+// returns ONLY B's section IDs (none of A's). Each teacher is assigned to DISTINCT sections.
+func TestListOwnSections_TeacherCannotSeeOtherTeacherSections(t *testing.T) {
+	_, teacherASID, sectionIDsA, _, _ := seedTeacherWithSections(t, "isolation-teacher-a@test.local", 2)
+	_, teacherBSID, sectionIDsB, _, _ := seedTeacherWithSections(t, "isolation-teacher-b@test.local", 2)
+
+	client := newCatalogClientPlain()
+	ctx := context.Background()
+
+	// Teacher A must see only A's sections.
+	respA, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 20,
+	}), teacherASID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher A): %v", err)
+	}
+	gotA := make(map[string]bool)
+	for _, s := range respA.Msg.GetSections() {
+		gotA[s.GetId()] = true
+	}
+	for _, id := range sectionIDsA {
+		if !gotA[id] {
+			t.Errorf("teacher A: own section %s missing from response", id)
+		}
+	}
+	for _, id := range sectionIDsB {
+		if gotA[id] {
+			t.Errorf("teacher A: sees teacher B's section %s — cross-teacher leak", id)
+		}
+	}
+
+	// Teacher B must see only B's sections.
+	respB, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 20,
+	}), teacherBSID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher B): %v", err)
+	}
+	gotB := make(map[string]bool)
+	for _, s := range respB.Msg.GetSections() {
+		gotB[s.GetId()] = true
+	}
+	for _, id := range sectionIDsB {
+		if !gotB[id] {
+			t.Errorf("teacher B: own section %s missing from response", id)
+		}
+	}
+	for _, id := range sectionIDsA {
+		if gotB[id] {
+			t.Errorf("teacher B: sees teacher A's section %s — cross-teacher leak", id)
+		}
+	}
 }
 
 // --- S-01: Teacher lists own sections, happy path ---

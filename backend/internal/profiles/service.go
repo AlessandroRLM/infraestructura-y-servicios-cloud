@@ -197,6 +197,11 @@ func (s *Service) ListTeacherQualifications(
 // Empty input returns an empty result without error (S-21).
 // Unknown or soft-deleted user IDs are omitted from the result (S-20).
 // No cross-context scope check is performed — see ADR-4 trust boundary.
+//
+// Malformed UUIDs (e.g. "not-a-uuid") cause the entire call to fail with
+// ErrInvalidInput (→ CodeInvalidArgument). This is asymmetric with the
+// omit-unknown-valid-id behavior: a syntactically invalid ID is a caller
+// error; a valid UUID with no matching profile row is silently omitted.
 func (s *Service) ListDisplayNamesByIDs(ctx context.Context, userIDStrs []string) ([]DisplayNameEntry, error) {
 	if len(userIDStrs) == 0 {
 		return nil, nil

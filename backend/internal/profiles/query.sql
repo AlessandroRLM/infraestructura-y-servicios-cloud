@@ -123,7 +123,8 @@ LIMIT sqlc.arg('row_limit')::int;
 SELECT user_id, given_names, last_name_paternal
 FROM user_profiles
 WHERE user_id = ANY(sqlc.arg('user_ids')::uuid[])
-  AND deleted_at IS NULL;
+  AND deleted_at IS NULL
+ORDER BY user_id;
 
 -- name: UpsertOwnProfile :one
 UPDATE user_profiles SET

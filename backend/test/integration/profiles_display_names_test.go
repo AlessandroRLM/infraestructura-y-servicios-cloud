@@ -167,6 +167,29 @@ func TestListDisplayNamesByIDs_AdminHappyPath(t *testing.T) {
 	}
 }
 
+// --- S-25: Malformed UUID in batch returns CodeInvalidArgument (whole call fails) ---
+
+// TestListDisplayNamesByIDs_MalformedUUID verifies that a batch containing a syntactically
+// invalid UUID (e.g. "not-a-uuid") returns CodeInvalidArgument for the entire call.
+// This is intentionally asymmetric with the omit-unknown-valid-id behavior (S-20):
+// a malformed UUID is a caller error; a valid UUID with no matching profile is silently omitted.
+func TestListDisplayNamesByIDs_MalformedUUID(t *testing.T) {
+	ctx := context.Background()
+
+	_, teacherSID := seedUserWithSession(t, "ldbi-malformed-teacher@profiles.test", "teacher")
+	userA, _ := seedUserWithSession(t, "ldbi-malformed-usera@profiles.test", "student")
+	seedUserProfile(t, userA, "MalformedTestUser")
+
+	client := newProfilesClient(nil)
+	_, err := client.ListDisplayNamesByIDs(ctx, withSession(connect.NewRequest(
+		&profilesv1.ListDisplayNamesByIDsRequest{
+			// Mix of a valid UUID and a malformed one — the malformed entry fails the whole call.
+			UserIds: []string{userA.String(), "not-a-uuid"},
+		},
+	), teacherSID))
+	assertConnectCode(t, err, connect.CodeInvalidArgument)
+}
+
 // --- S-24: Trust boundary — unscoped lookup works even for "outsider" teacher ---
 
 // TestListDisplayNamesByIDs_UnscopedTrustBoundary verifies that a teacher can

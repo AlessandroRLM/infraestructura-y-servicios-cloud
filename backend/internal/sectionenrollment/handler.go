@@ -69,6 +69,8 @@ func MapError(err error) error {
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, ErrInvalidInput):
 		return connect.NewError(connect.CodeInvalidArgument, err)
+	case errors.Is(err, ErrUnauthenticated):
+		return connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
 	// Unmapped errors: log the original; emit a generic message.

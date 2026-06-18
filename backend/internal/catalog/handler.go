@@ -49,6 +49,9 @@ func MapError(err error) error {
 	if errors.Is(err, ErrHasDependents) {
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	}
+	if errors.Is(err, ErrUnauthenticated) {
+		return connect.NewError(connect.CodeUnauthenticated, err)
+	}
 	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 }
 

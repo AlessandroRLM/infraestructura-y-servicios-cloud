@@ -493,9 +493,8 @@ func (s *Service) ListSectionTeachers(ctx context.Context, sectionID uuid.UUID) 
 func (s *Service) ListOwnSections(ctx context.Context, pageSize int32, pageToken string) (ListOwnSectionsResult, error) {
 	callerID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		// auth interceptor guarantees the session is present before reaching the handler,
-		// but guard defensively.
-		return ListOwnSectionsResult{}, fmt.Errorf("%w: unauthenticated", ErrInvalidInput)
+		// Defensive guard — unreachable behind the auth interceptor in normal operation.
+		return ListOwnSectionsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
 	}
 
 	clamped := catalogClamp.Apply(pageSize)

@@ -117,6 +117,72 @@ func seedRosterFixture(t *testing.T, email string, n int) (teacherSID, sectionID
 	return teacherSID, sectionID, seIDs, adminSID, cleanup
 }
 
+// --- Cross-teacher isolation (negative test — strengthens S-07) ---
+
+// TestListSectionRosterForTeacher_CrossTeacherIsolation verifies two properties:
+//
+//  1. Teacher B calling ListSectionRosterForTeacher on teacher A's section receives an
+//     empty page (anti-leak), even though B has their OWN section with enrollments (so B
+//     has section_teachers rows and the EXISTS guard is exercised against the correct target).
+//
+//  2. Teacher B calling ListSectionRosterForTeacher on their OWN section returns a
+//     non-empty page — confirming the anti-leak in (1) is not a false positive.
+func TestListSectionRosterForTeacher_CrossTeacherIsolation(t *testing.T) {
+	// Seed teacher A with a section containing 3 students.
+	teacherASID, sectionIDA, _, _, _ := seedRosterFixture(t, "iso-teacher-a@test.local", 3)
+
+	// Seed teacher B with their OWN section containing 2 students.
+	teacherBSID, sectionIDB, seIDsB, _, _ := seedRosterFixture(t, "iso-teacher-b@test.local", 2)
+
+	client := newSectionEnrollmentClient(nil)
+	ctx := context.Background()
+
+	// (1) Teacher B queries teacher A's section — must get empty (anti-leak).
+	respLeak, err := client.ListSectionRosterForTeacher(ctx, withSID(connect.NewRequest(
+		&section_enrollmentv1.ListSectionRosterForTeacherRequest{
+			SectionId: sectionIDA,
+			PageSize:  20,
+		},
+	), teacherBSID))
+	if err != nil {
+		t.Fatalf("cross-teacher anti-leak: expected OK, got %v", err)
+	}
+	if len(respLeak.Msg.GetSectionEnrollments()) != 0 {
+		t.Errorf("cross-teacher anti-leak: teacher B got %d rows for teacher A's section, want 0",
+			len(respLeak.Msg.GetSectionEnrollments()))
+	}
+
+	// (2) Teacher B queries their OWN section — must return B's enrollments (non-empty).
+	respOwn, err := client.ListSectionRosterForTeacher(ctx, withSID(connect.NewRequest(
+		&section_enrollmentv1.ListSectionRosterForTeacherRequest{
+			SectionId: sectionIDB,
+			PageSize:  20,
+		},
+	), teacherBSID))
+	if err != nil {
+		t.Fatalf("teacher B own roster: %v", err)
+	}
+	if len(respOwn.Msg.GetSectionEnrollments()) != len(seIDsB) {
+		t.Errorf("teacher B own roster: got %d rows, want %d",
+			len(respOwn.Msg.GetSectionEnrollments()), len(seIDsB))
+	}
+
+	// Confirm teacher A cannot see teacher B's section either (symmetry).
+	respSymmetric, err := client.ListSectionRosterForTeacher(ctx, withSID(connect.NewRequest(
+		&section_enrollmentv1.ListSectionRosterForTeacherRequest{
+			SectionId: sectionIDB,
+			PageSize:  20,
+		},
+	), teacherASID))
+	if err != nil {
+		t.Fatalf("cross-teacher symmetry: expected OK, got %v", err)
+	}
+	if len(respSymmetric.Msg.GetSectionEnrollments()) != 0 {
+		t.Errorf("cross-teacher symmetry: teacher A got %d rows for teacher B's section, want 0",
+			len(respSymmetric.Msg.GetSectionEnrollments()))
+	}
+}
+
 // --- S-06: Teacher gets roster for a section they teach (with student_id) ---
 
 // TestListSectionRosterForTeacher_HappyPath verifies that a teacher who teaches section_A
