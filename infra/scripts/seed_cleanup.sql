@@ -1,0 +1,157 @@
+-- seed_cleanup.sql — Post-demo cleanup: removes all rows inserted by seed_demo.sql.
+--
+-- Idempotent: safe to run multiple times; rows that no longer exist are silently skipped.
+-- Deletes only the seeded rows identified by their deterministic UUIDs.
+-- Does NOT delete the bootstrap admin user (a0000000-0000-0000-0000-000000000001).
+-- Resets the admin password hash to the original migration value.
+--
+-- FK deletion order: children before parents (reverse of seed_demo.sql insert order).
+
+BEGIN;
+
+-- Grades
+DELETE FROM grades
+WHERE id IN (
+    'f0000000-0000-0000-0000-000000000001',
+    'f0000000-0000-0000-0000-000000000002',
+    'f0000000-0000-0000-0000-000000000003',
+    'f0000000-0000-0000-0000-000000000004',
+    'f0000000-0000-0000-0000-000000000005',
+    'f0000000-0000-0000-0000-000000000006',
+    'f0000000-0000-0000-0000-000000000007',
+    'f0000000-0000-0000-0000-000000000008',
+    'f0000000-0000-0000-0000-000000000009'
+);
+
+-- Section enrollments
+DELETE FROM section_enrollments
+WHERE id IN (
+    'd0000000-0000-0000-0000-000000000011',
+    'd0000000-0000-0000-0000-000000000012',
+    'd0000000-0000-0000-0000-000000000013',
+    'd0000000-0000-0000-0000-000000000014',
+    'd0000000-0000-0000-0000-000000000015',
+    'd0000000-0000-0000-0000-000000000016',
+    'd0000000-0000-0000-0000-000000000021',
+    'd0000000-0000-0000-0000-000000000022',
+    'd0000000-0000-0000-0000-000000000023',
+    'd0000000-0000-0000-0000-000000000024',
+    'd0000000-0000-0000-0000-000000000025',
+    'd0000000-0000-0000-0000-000000000026'
+);
+
+-- Evaluations
+DELETE FROM evaluations
+WHERE id IN (
+    'e0000000-0000-0000-0000-000000000001',
+    'e0000000-0000-0000-0000-000000000002',
+    'e0000000-0000-0000-0000-000000000003',
+    'e0000000-0000-0000-0000-000000000004',
+    'e0000000-0000-0000-0000-000000000005'
+);
+
+-- Enrollments (program-level)
+DELETE FROM enrollments
+WHERE id IN (
+    'd0000000-0000-0000-0000-000000000001',
+    'd0000000-0000-0000-0000-000000000002',
+    'd0000000-0000-0000-0000-000000000003',
+    'd0000000-0000-0000-0000-000000000004',
+    'd0000000-0000-0000-0000-000000000005',
+    'd0000000-0000-0000-0000-000000000006'
+);
+
+-- Section teachers
+DELETE FROM section_teachers
+WHERE section_id IN (
+    'c0000000-0000-0000-0000-000000000006',
+    'c0000000-0000-0000-0000-000000000007',
+    'c0000000-0000-0000-0000-00000000000a',
+    'c0000000-0000-0000-0000-00000000000b'
+);
+
+-- Sections
+DELETE FROM sections
+WHERE id IN (
+    'c0000000-0000-0000-0000-000000000006',
+    'c0000000-0000-0000-0000-000000000007',
+    'c0000000-0000-0000-0000-00000000000a',
+    'c0000000-0000-0000-0000-00000000000b'
+);
+
+-- Program quotas
+DELETE FROM program_quotas
+WHERE id IN (
+    'c0000000-0000-0000-0000-000000000005',
+    'c0000000-0000-0000-0000-000000000009'
+);
+
+-- Academic periods
+DELETE FROM academic_periods
+WHERE id IN (
+    'c0000000-0000-0000-0000-000000000004',
+    'c0000000-0000-0000-0000-000000000008'
+);
+
+-- Program → course links
+DELETE FROM program_courses
+WHERE program_id = 'c0000000-0000-0000-0000-000000000001';
+
+-- Courses
+DELETE FROM courses
+WHERE id IN (
+    'c0000000-0000-0000-0000-000000000002',
+    'c0000000-0000-0000-0000-000000000003'
+);
+
+-- Programs
+DELETE FROM programs
+WHERE id = 'c0000000-0000-0000-0000-000000000001';
+
+-- Student profiles
+DELETE FROM student_profiles
+WHERE user_id IN (
+    'b0000000-0000-0000-0000-000000000002',
+    'b0000000-0000-0000-0000-000000000003',
+    'b0000000-0000-0000-0000-000000000004'
+);
+
+-- Teacher profiles
+DELETE FROM teacher_profiles
+WHERE user_id = 'b0000000-0000-0000-0000-000000000001';
+
+-- User profiles (seeded users + admin profile inserted by seed)
+DELETE FROM user_profiles
+WHERE user_id IN (
+    'a0000000-0000-0000-0000-000000000001',
+    'b0000000-0000-0000-0000-000000000001',
+    'b0000000-0000-0000-0000-000000000002',
+    'b0000000-0000-0000-0000-000000000003',
+    'b0000000-0000-0000-0000-000000000004'
+);
+
+-- User roles (seeded users only; admin role assigned by migration 000004 is preserved)
+DELETE FROM user_roles
+WHERE user_id IN (
+    'b0000000-0000-0000-0000-000000000001',
+    'b0000000-0000-0000-0000-000000000002',
+    'b0000000-0000-0000-0000-000000000003',
+    'b0000000-0000-0000-0000-000000000004'
+);
+
+-- Seeded users (excluding bootstrap admin)
+DELETE FROM users
+WHERE id IN (
+    'b0000000-0000-0000-0000-000000000001',
+    'b0000000-0000-0000-0000-000000000002',
+    'b0000000-0000-0000-0000-000000000003',
+    'b0000000-0000-0000-0000-000000000004'
+);
+
+-- Reset the admin password hash to the original bootstrap value (from migration 000002).
+UPDATE users
+SET    password_hash = '$2a$12$QFhfwzWhGAuMZPMq7srv.u95W0IdqVhblOhATUaurUcRc/0mexPeG',
+       updated_at    = now()
+WHERE  id = 'a0000000-0000-0000-0000-000000000001';
+
+COMMIT;

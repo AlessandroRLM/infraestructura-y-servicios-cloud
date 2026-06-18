@@ -40,7 +40,22 @@ cat > /opt/backup/restore.sh <<'__RESTORE_SCRIPT__'
 ${restore_script}
 __RESTORE_SCRIPT__
 
-chmod +x /opt/backup/backup.sh /opt/backup/restore.sh
+cat > /opt/backup/seed.sh <<'__SEED_SCRIPT__'
+${seed_script}
+__SEED_SCRIPT__
+
+chmod +x /opt/backup/backup.sh /opt/backup/restore.sh /opt/backup/seed.sh
+
+# ---------------------------------------------------------------------------
+# Install seed SQL artifacts (on-demand manual use; no cron)
+# ---------------------------------------------------------------------------
+cat > /opt/backup/seed_demo.sql <<'__SEED_DEMO_SQL__'
+${seed_sql}
+__SEED_DEMO_SQL__
+
+cat > /opt/backup/seed_cleanup.sql <<'__SEED_CLEANUP_SQL__'
+${seed_cleanup_sql}
+__SEED_CLEANUP_SQL__
 
 # ---------------------------------------------------------------------------
 # Environment defaults for the backup cron

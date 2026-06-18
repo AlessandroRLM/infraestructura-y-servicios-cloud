@@ -103,7 +103,45 @@ kubectl -n academico-dev get resourcequota academico-quota
 kubectl -n academico-dev rollout restart deploy/web deploy/api
 ```
 
-### 3.7 Limpieza
+### 3.7 Datos de demo (seed)
+
+El dataset de demo está en `infra/scripts/seed_demo.sql` (SQL escrito a mano, idempotente). El script `infra/scripts/seed.sh` lo envía a `psql` dentro del pod de postgres mediante `kubectl exec`, exactamente igual que el backup.
+
+**Ejecutar desde la laptop contra minikube:**
+
+```bash
+NAMESPACE=academico-dev SQL_FILE=infra/scripts/seed_demo.sql infra/scripts/seed.sh
+```
+
+O bien directamente:
+
+```bash
+kubectl -n academico-dev exec -i statefulset/postgres -- \
+  sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < infra/scripts/seed_demo.sql
+```
+
+El SQL es idempotente: ejecutarlo más de una vez no duplica datos ni produce errores.
+
+> **Requisito de base limpia.** `academic_periods` tiene `UNIQUE(year, term)`. El seed inserta los períodos 2025-1 y 2026-1 con UUID determinístico; si la base ya tiene un período con ese año/término creado por otra vía (la app o un seeder previo), el `INSERT` viola la unique y, con `ON_ERROR_STOP=1`, aborta toda la transacción. Sembrar contra una base limpia (minikube recién desplegado, o `kubectl -n academico-dev delete pvc` del volumen de postgres y volver a aplicar el overlay). Para re-sembrar una base ya sembrada por este script, ejecutar antes `seed_cleanup.sql`.
+
+**Credenciales de acceso:**
+
+| Email               | Contraseña   | Rol     | Acceso                                        |
+| ------------------- | ------------ | ------- | --------------------------------------------- |
+| admin@dev.local     | Admin1234!   | admin   | Todas las funciones                           |
+| teacher@dev.local   | Teacher1234! | teacher | Calificaciones, reportes                      |
+| student1@dev.local  | Student1234! | student | Calificaciones propias, inscripciones propias |
+| student2@dev.local  | Student1234! | student | Calificaciones propias, inscripciones propias |
+| student3@dev.local  | Student1234! | student | Calificaciones propias, inscripciones propias |
+
+**Limpiar datos de demo** (elimina solo las filas sembradas; el admin no se elimina):
+
+```bash
+NAMESPACE=academico-dev SQL_FILE=infra/scripts/seed_cleanup.sql infra/scripts/seed.sh
+```
+
+### 3.8 Limpieza
 
 ```bash
 kubectl delete -k k8s/overlays/dev    # borra el namespace y todo lo del overlay
