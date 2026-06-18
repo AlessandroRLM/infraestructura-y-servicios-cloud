@@ -22,6 +22,7 @@ func TestMapError_Sentinels(t *testing.T) {
 		{"ErrInvalidInput", catalog.ErrInvalidInput, connect.CodeInvalidArgument},
 		{"ErrAlreadyExists", catalog.ErrAlreadyExists, connect.CodeAlreadyExists},
 		{"ErrHasDependents", catalog.ErrHasDependents, connect.CodeFailedPrecondition},
+		{"ErrUnauthenticated", catalog.ErrUnauthenticated, connect.CodeUnauthenticated},
 		{"wrapped ErrNotFound", fmt.Errorf("wrap: %w", catalog.ErrNotFound), connect.CodeNotFound},
 		{"wrapped ErrAlreadyExists", fmt.Errorf("wrap: %w", catalog.ErrAlreadyExists), connect.CodeAlreadyExists},
 		{"unexpected error", errors.New("unexpected"), connect.CodeInternal},

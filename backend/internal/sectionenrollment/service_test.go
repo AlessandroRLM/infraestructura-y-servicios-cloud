@@ -93,7 +93,7 @@ func contextWithUser(userID uuid.UUID) context.Context {
 }
 
 // TestService_EnrollOwnSection_NoContext verifies that EnrollOwnSection without an
-// authenticated user in context returns ErrNotFound (fail-closed).
+// authenticated user in context returns ErrUnauthenticated (fail-closed).
 func TestService_EnrollOwnSection_NoContext(t *testing.T) {
 	t.Parallel()
 
@@ -101,8 +101,8 @@ func TestService_EnrollOwnSection_NoContext(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.EnrollOwnSection(context.Background(), uuid.New().String(), uuid.New().String())
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("EnrollOwnSection(no ctx user) = %v; want ErrNotFound", err)
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("EnrollOwnSection(no ctx user) = %v; want ErrUnauthenticated", err)
 	}
 	if repo.enrollTxCalled {
 		t.Error("EnrollSectionTx must not be called when user is absent from context")
@@ -201,7 +201,7 @@ func TestService_GetOwnSectionEnrollment_OwnershipMismatch(t *testing.T) {
 	}
 }
 
-// TestService_GetOwnSectionEnrollment_NoContext returns ErrNotFound when no user in context.
+// TestService_GetOwnSectionEnrollment_NoContext returns ErrUnauthenticated when no user in context.
 func TestService_GetOwnSectionEnrollment_NoContext(t *testing.T) {
 	t.Parallel()
 
@@ -209,8 +209,8 @@ func TestService_GetOwnSectionEnrollment_NoContext(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.GetOwnSectionEnrollment(context.Background(), uuid.New().String())
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("GetOwnSectionEnrollment(no ctx) = %v; want ErrNotFound", err)
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("GetOwnSectionEnrollment(no ctx) = %v; want ErrUnauthenticated", err)
 	}
 }
 
@@ -235,7 +235,7 @@ func TestService_ListOwnSectionEnrollments_DerivesFromContext(t *testing.T) {
 	}
 }
 
-// TestService_ListOwnSectionEnrollments_NoContext returns ErrNotFound.
+// TestService_ListOwnSectionEnrollments_NoContext returns ErrUnauthenticated.
 func TestService_ListOwnSectionEnrollments_NoContext(t *testing.T) {
 	t.Parallel()
 
@@ -243,8 +243,8 @@ func TestService_ListOwnSectionEnrollments_NoContext(t *testing.T) {
 	svc := NewService(repo)
 
 	_, err := svc.ListOwnSectionEnrollments(context.Background(), 0, "")
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("ListOwnSectionEnrollments(no ctx) = %v; want ErrNotFound", err)
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("ListOwnSectionEnrollments(no ctx) = %v; want ErrUnauthenticated", err)
 	}
 }
 
