@@ -20,7 +20,8 @@ Tres cosas a saber antes de empezar:
 5. [TLS y DNS](#5-tls-y-dns)
 6. [Verificación](#6-verificación)
 7. [Backups (verificación)](#7-backups-verificación)
-8. [Apagado (ahorro de costos)](#8-apagado-ahorro-de-costos)
+8. [Datos de demo (seed)](#8-datos-de-demo-seed)
+9. [Apagado (ahorro de costos)](#9-apagado-ahorro-de-costos)
 
 ---
 
@@ -513,7 +514,48 @@ aws s3 ls "s3://$(cd infra && terraform output -raw s3_backups_dr_bucket)/"
 
 ---
 
-## 8. Apagado (ahorro de costos)
+## 8. Datos de demo (seed)
+
+> **Advertencia:** este procedimiento establece la contraseña del admin (`admin@dev.local`) a un valor conocido e inserta datos de demo. Ejecutarlo solo en entornos de demo o grabación — nunca dejar corrido en producción con datos reales.
+
+El dataset de demo vive en `/opt/backup/seed_demo.sql` en la VM ops. El script `/opt/backup/seed.sh` lo envía a `psql` dentro del pod de postgres mediante `kubectl exec`, igual que el backup.
+
+**Desde la VM ops (producción o staging):**
+
+```bash
+# Cargar el namespace del entorno
+. /etc/default/academico-backup
+
+# Ejecutar el seed en el namespace activo (academico-prod o academico-staging)
+NAMESPACE=academico-prod /opt/backup/seed.sh
+
+# O para staging:
+NAMESPACE=academico-staging /opt/backup/seed.sh
+```
+
+El SQL es idempotente: ejecutarlo más de una vez no duplica datos ni produce errores.
+
+> **Requisito de base limpia.** `academic_periods` tiene `UNIQUE(year, term)`. El seed inserta los períodos 2025-1 y 2026-1 con UUID determinístico; si el entorno ya tiene un período con ese año/término de otro origen, el `INSERT` viola la unique y, con `ON_ERROR_STOP=1`, aborta toda la transacción. Sembrar sobre un entorno recién desplegado (base vacía tras las migraciones). Para re-sembrar un entorno ya sembrado por este script, ejecutar antes `seed_cleanup.sql`.
+
+**Credenciales insertadas:**
+
+| Email               | Contraseña   | Rol     | Acceso                                        |
+| ------------------- | ------------ | ------- | --------------------------------------------- |
+| admin@dev.local     | Admin1234!   | admin   | Todas las funciones                           |
+| teacher@dev.local   | Teacher1234! | teacher | Calificaciones, reportes                      |
+| student1@dev.local  | Student1234! | student | Calificaciones propias, inscripciones propias |
+| student2@dev.local  | Student1234! | student | Calificaciones propias, inscripciones propias |
+| student3@dev.local  | Student1234! | student | Calificaciones propias, inscripciones propias |
+
+**Limpiar después de la grabación** (elimina solo las filas sembradas; el admin no se elimina):
+
+```bash
+NAMESPACE=academico-prod SQL_FILE=/opt/backup/seed_cleanup.sql /opt/backup/seed.sh
+```
+
+---
+
+## 9. Apagado (ahorro de costos)
 
 Un `terraform destroy` completo **aborta**: las 3 claves KMS y el bucket de backups tienen `prevent_destroy` — y las claves KMS no se pueden borrar en GCP de todos modos (re-crearlas daría error 409). Esos recursos son baratos/permanentes y se conservan. El apagado destruye solo el **cómputo**, que es ~95% del costo:
 
