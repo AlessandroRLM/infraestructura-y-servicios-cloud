@@ -272,6 +272,32 @@ func (h *Handler) ListTeacherQualifications(
 	}), nil
 }
 
+// ListDisplayNamesByIDs resolves display names for the provided user IDs.
+// Empty input returns an empty response (S-21). Unknown IDs are omitted (S-20).
+// Requires profile.view_names — enforced by the authz interceptor.
+func (h *Handler) ListDisplayNamesByIDs(
+	ctx context.Context,
+	req *connect.Request[profilesv1.ListDisplayNamesByIDsRequest],
+) (*connect.Response[profilesv1.ListDisplayNamesByIDsResponse], error) {
+	entries, err := h.svc.ListDisplayNamesByIDs(ctx, req.Msg.GetUserIds())
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	names := make([]*profilesv1.DisplayName, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, &profilesv1.DisplayName{
+			UserId:           e.UserID,
+			GivenNames:       e.GivenNames,
+			LastNamePaternal: e.LastNamePaternal,
+		})
+	}
+
+	return connect.NewResponse(&profilesv1.ListDisplayNamesByIDsResponse{
+		Names: names,
+	}), nil
+}
+
 // mapError converts domain errors to connect.Error codes.
 func mapError(err error) error {
 	if errors.Is(err, ErrInvalidInput) {

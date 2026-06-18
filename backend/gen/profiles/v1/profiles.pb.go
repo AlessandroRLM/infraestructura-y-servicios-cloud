@@ -1164,6 +1164,159 @@ func (x *UpsertOwnProfileRequest) GetEmergencyContactPhone() string {
 	return ""
 }
 
+// ListDisplayNamesByIDsRequest carries a set of user IDs for batch display-name lookup.
+// An empty user_ids list is valid and returns an empty response.
+type ListDisplayNamesByIDsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserIds       []string               `protobuf:"bytes,1,rep,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDisplayNamesByIDsRequest) Reset() {
+	*x = ListDisplayNamesByIDsRequest{}
+	mi := &file_profiles_v1_profiles_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDisplayNamesByIDsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDisplayNamesByIDsRequest) ProtoMessage() {}
+
+func (x *ListDisplayNamesByIDsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_profiles_v1_profiles_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDisplayNamesByIDsRequest.ProtoReflect.Descriptor instead.
+func (*ListDisplayNamesByIDsRequest) Descriptor() ([]byte, []int) {
+	return file_profiles_v1_profiles_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ListDisplayNamesByIDsRequest) GetUserIds() []string {
+	if x != nil {
+		return x.UserIds
+	}
+	return nil
+}
+
+// DisplayName carries the display-name fields (names only, no PII) for a single user.
+type DisplayName struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	UserId           string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	GivenNames       string                 `protobuf:"bytes,2,opt,name=given_names,json=givenNames,proto3" json:"given_names,omitempty"`
+	LastNamePaternal string                 `protobuf:"bytes,3,opt,name=last_name_paternal,json=lastNamePaternal,proto3" json:"last_name_paternal,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *DisplayName) Reset() {
+	*x = DisplayName{}
+	mi := &file_profiles_v1_profiles_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisplayName) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisplayName) ProtoMessage() {}
+
+func (x *DisplayName) ProtoReflect() protoreflect.Message {
+	mi := &file_profiles_v1_profiles_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisplayName.ProtoReflect.Descriptor instead.
+func (*DisplayName) Descriptor() ([]byte, []int) {
+	return file_profiles_v1_profiles_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *DisplayName) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *DisplayName) GetGivenNames() string {
+	if x != nil {
+		return x.GivenNames
+	}
+	return ""
+}
+
+func (x *DisplayName) GetLastNamePaternal() string {
+	if x != nil {
+		return x.LastNamePaternal
+	}
+	return ""
+}
+
+// ListDisplayNamesByIDsResponse returns the resolved display names.
+// User IDs that do not exist or have deleted_at set are omitted from this list.
+type ListDisplayNamesByIDsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Names         []*DisplayName         `protobuf:"bytes,1,rep,name=names,proto3" json:"names,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDisplayNamesByIDsResponse) Reset() {
+	*x = ListDisplayNamesByIDsResponse{}
+	mi := &file_profiles_v1_profiles_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDisplayNamesByIDsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDisplayNamesByIDsResponse) ProtoMessage() {}
+
+func (x *ListDisplayNamesByIDsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_profiles_v1_profiles_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDisplayNamesByIDsResponse.ProtoReflect.Descriptor instead.
+func (*ListDisplayNamesByIDsResponse) Descriptor() ([]byte, []int) {
+	return file_profiles_v1_profiles_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ListDisplayNamesByIDsResponse) GetNames() []*DisplayName {
+	if x != nil {
+		return x.Names
+	}
+	return nil
+}
+
 var File_profiles_v1_profiles_proto protoreflect.FileDescriptor
 
 const file_profiles_v1_profiles_proto_rawDesc = "" +
@@ -1333,7 +1486,16 @@ const file_profiles_v1_profiles_proto_rawDesc = "" +
 	"\n" +
 	"_photo_urlB\x19\n" +
 	"\x17_emergency_contact_nameB\x1a\n" +
-	"\x18_emergency_contact_phone2\xaf\a\n" +
+	"\x18_emergency_contact_phone\"9\n" +
+	"\x1cListDisplayNamesByIDsRequest\x12\x19\n" +
+	"\buser_ids\x18\x01 \x03(\tR\auserIds\"u\n" +
+	"\vDisplayName\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
+	"\vgiven_names\x18\x02 \x01(\tR\n" +
+	"givenNames\x12,\n" +
+	"\x12last_name_paternal\x18\x03 \x01(\tR\x10lastNamePaternal\"O\n" +
+	"\x1dListDisplayNamesByIDsResponse\x12.\n" +
+	"\x05names\x18\x01 \x03(\v2\x18.profiles.v1.DisplayNameR\x05names2\x9f\b\n" +
 	"\x0eProfileService\x12T\n" +
 	"\x11UpsertUserProfile\x12%.profiles.v1.UpsertUserProfileRequest\x1a\x18.profiles.v1.UserProfile\x12N\n" +
 	"\x0eGetUserProfile\x12\".profiles.v1.GetUserProfileRequest\x1a\x18.profiles.v1.UserProfile\x12]\n" +
@@ -1344,7 +1506,8 @@ const file_profiles_v1_profiles_proto_rawDesc = "" +
 	"\x17AddTeacherQualification\x12+.profiles.v1.AddTeacherQualificationRequest\x1a!.profiles.v1.TeacherQualification\x12z\n" +
 	"\x19ListTeacherQualifications\x12-.profiles.v1.ListTeacherQualificationsRequest\x1a..profiles.v1.ListTeacherQualificationsResponse\x12L\n" +
 	"\rGetOwnProfile\x12!.profiles.v1.GetOwnProfileRequest\x1a\x18.profiles.v1.UserProfile\x12R\n" +
-	"\x10UpsertOwnProfile\x12$.profiles.v1.UpsertOwnProfileRequest\x1a\x18.profiles.v1.UserProfileB_Z]github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1;profilesv1b\x06proto3"
+	"\x10UpsertOwnProfile\x12$.profiles.v1.UpsertOwnProfileRequest\x1a\x18.profiles.v1.UserProfile\x12n\n" +
+	"\x15ListDisplayNamesByIDs\x12).profiles.v1.ListDisplayNamesByIDsRequest\x1a*.profiles.v1.ListDisplayNamesByIDsResponseB_Z]github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/profiles/v1;profilesv1b\x06proto3"
 
 var (
 	file_profiles_v1_profiles_proto_rawDescOnce sync.Once
@@ -1358,7 +1521,7 @@ func file_profiles_v1_profiles_proto_rawDescGZIP() []byte {
 	return file_profiles_v1_profiles_proto_rawDescData
 }
 
-var file_profiles_v1_profiles_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_profiles_v1_profiles_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_profiles_v1_profiles_proto_goTypes = []any{
 	(*UserProfile)(nil),                       // 0: profiles.v1.UserProfile
 	(*StudentProfile)(nil),                    // 1: profiles.v1.StudentProfile
@@ -1375,34 +1538,40 @@ var file_profiles_v1_profiles_proto_goTypes = []any{
 	(*ListTeacherQualificationsResponse)(nil), // 12: profiles.v1.ListTeacherQualificationsResponse
 	(*GetOwnProfileRequest)(nil),              // 13: profiles.v1.GetOwnProfileRequest
 	(*UpsertOwnProfileRequest)(nil),           // 14: profiles.v1.UpsertOwnProfileRequest
+	(*ListDisplayNamesByIDsRequest)(nil),      // 15: profiles.v1.ListDisplayNamesByIDsRequest
+	(*DisplayName)(nil),                       // 16: profiles.v1.DisplayName
+	(*ListDisplayNamesByIDsResponse)(nil),     // 17: profiles.v1.ListDisplayNamesByIDsResponse
 }
 var file_profiles_v1_profiles_proto_depIdxs = []int32{
 	3,  // 0: profiles.v1.ListTeacherQualificationsResponse.qualifications:type_name -> profiles.v1.TeacherQualification
-	4,  // 1: profiles.v1.ProfileService.UpsertUserProfile:input_type -> profiles.v1.UpsertUserProfileRequest
-	5,  // 2: profiles.v1.ProfileService.GetUserProfile:input_type -> profiles.v1.GetUserProfileRequest
-	6,  // 3: profiles.v1.ProfileService.UpsertStudentProfile:input_type -> profiles.v1.UpsertStudentProfileRequest
-	7,  // 4: profiles.v1.ProfileService.GetStudentProfile:input_type -> profiles.v1.GetStudentProfileRequest
-	8,  // 5: profiles.v1.ProfileService.UpsertTeacherProfile:input_type -> profiles.v1.UpsertTeacherProfileRequest
-	9,  // 6: profiles.v1.ProfileService.GetTeacherProfile:input_type -> profiles.v1.GetTeacherProfileRequest
-	10, // 7: profiles.v1.ProfileService.AddTeacherQualification:input_type -> profiles.v1.AddTeacherQualificationRequest
-	11, // 8: profiles.v1.ProfileService.ListTeacherQualifications:input_type -> profiles.v1.ListTeacherQualificationsRequest
-	13, // 9: profiles.v1.ProfileService.GetOwnProfile:input_type -> profiles.v1.GetOwnProfileRequest
-	14, // 10: profiles.v1.ProfileService.UpsertOwnProfile:input_type -> profiles.v1.UpsertOwnProfileRequest
-	0,  // 11: profiles.v1.ProfileService.UpsertUserProfile:output_type -> profiles.v1.UserProfile
-	0,  // 12: profiles.v1.ProfileService.GetUserProfile:output_type -> profiles.v1.UserProfile
-	1,  // 13: profiles.v1.ProfileService.UpsertStudentProfile:output_type -> profiles.v1.StudentProfile
-	1,  // 14: profiles.v1.ProfileService.GetStudentProfile:output_type -> profiles.v1.StudentProfile
-	2,  // 15: profiles.v1.ProfileService.UpsertTeacherProfile:output_type -> profiles.v1.TeacherProfile
-	2,  // 16: profiles.v1.ProfileService.GetTeacherProfile:output_type -> profiles.v1.TeacherProfile
-	3,  // 17: profiles.v1.ProfileService.AddTeacherQualification:output_type -> profiles.v1.TeacherQualification
-	12, // 18: profiles.v1.ProfileService.ListTeacherQualifications:output_type -> profiles.v1.ListTeacherQualificationsResponse
-	0,  // 19: profiles.v1.ProfileService.GetOwnProfile:output_type -> profiles.v1.UserProfile
-	0,  // 20: profiles.v1.ProfileService.UpsertOwnProfile:output_type -> profiles.v1.UserProfile
-	11, // [11:21] is the sub-list for method output_type
-	1,  // [1:11] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	16, // 1: profiles.v1.ListDisplayNamesByIDsResponse.names:type_name -> profiles.v1.DisplayName
+	4,  // 2: profiles.v1.ProfileService.UpsertUserProfile:input_type -> profiles.v1.UpsertUserProfileRequest
+	5,  // 3: profiles.v1.ProfileService.GetUserProfile:input_type -> profiles.v1.GetUserProfileRequest
+	6,  // 4: profiles.v1.ProfileService.UpsertStudentProfile:input_type -> profiles.v1.UpsertStudentProfileRequest
+	7,  // 5: profiles.v1.ProfileService.GetStudentProfile:input_type -> profiles.v1.GetStudentProfileRequest
+	8,  // 6: profiles.v1.ProfileService.UpsertTeacherProfile:input_type -> profiles.v1.UpsertTeacherProfileRequest
+	9,  // 7: profiles.v1.ProfileService.GetTeacherProfile:input_type -> profiles.v1.GetTeacherProfileRequest
+	10, // 8: profiles.v1.ProfileService.AddTeacherQualification:input_type -> profiles.v1.AddTeacherQualificationRequest
+	11, // 9: profiles.v1.ProfileService.ListTeacherQualifications:input_type -> profiles.v1.ListTeacherQualificationsRequest
+	13, // 10: profiles.v1.ProfileService.GetOwnProfile:input_type -> profiles.v1.GetOwnProfileRequest
+	14, // 11: profiles.v1.ProfileService.UpsertOwnProfile:input_type -> profiles.v1.UpsertOwnProfileRequest
+	15, // 12: profiles.v1.ProfileService.ListDisplayNamesByIDs:input_type -> profiles.v1.ListDisplayNamesByIDsRequest
+	0,  // 13: profiles.v1.ProfileService.UpsertUserProfile:output_type -> profiles.v1.UserProfile
+	0,  // 14: profiles.v1.ProfileService.GetUserProfile:output_type -> profiles.v1.UserProfile
+	1,  // 15: profiles.v1.ProfileService.UpsertStudentProfile:output_type -> profiles.v1.StudentProfile
+	1,  // 16: profiles.v1.ProfileService.GetStudentProfile:output_type -> profiles.v1.StudentProfile
+	2,  // 17: profiles.v1.ProfileService.UpsertTeacherProfile:output_type -> profiles.v1.TeacherProfile
+	2,  // 18: profiles.v1.ProfileService.GetTeacherProfile:output_type -> profiles.v1.TeacherProfile
+	3,  // 19: profiles.v1.ProfileService.AddTeacherQualification:output_type -> profiles.v1.TeacherQualification
+	12, // 20: profiles.v1.ProfileService.ListTeacherQualifications:output_type -> profiles.v1.ListTeacherQualificationsResponse
+	0,  // 21: profiles.v1.ProfileService.GetOwnProfile:output_type -> profiles.v1.UserProfile
+	0,  // 22: profiles.v1.ProfileService.UpsertOwnProfile:output_type -> profiles.v1.UserProfile
+	17, // 23: profiles.v1.ProfileService.ListDisplayNamesByIDs:output_type -> profiles.v1.ListDisplayNamesByIDsResponse
+	13, // [13:24] is the sub-list for method output_type
+	2,  // [2:13] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_profiles_v1_profiles_proto_init() }
@@ -1421,7 +1590,7 @@ func file_profiles_v1_profiles_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_profiles_v1_profiles_proto_rawDesc), len(file_profiles_v1_profiles_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

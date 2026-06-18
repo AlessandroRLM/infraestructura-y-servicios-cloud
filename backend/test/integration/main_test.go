@@ -201,6 +201,8 @@ func TestMain(m *testing.M) {
 		profilesv1connect.ProfileServiceListTeacherQualificationsProcedure: authz.RequirePermission(authz.PermUsersManage),
 		profilesv1connect.ProfileServiceGetOwnProfileProcedure:             authz.RequirePermission(authz.PermProfileViewOwn),
 		profilesv1connect.ProfileServiceUpsertOwnProfileProcedure:          authz.RequirePermission(authz.PermProfileEditOwn),
+		// Display-name batch lookup — requires profile.view_names (teacher + admin via migration 000017).
+		profilesv1connect.ProfileServiceListDisplayNamesByIDsProcedure: authz.RequirePermission(authz.PermProfileViewNames),
 
 		// Catalog procedures — all require catalog.manage.
 		catalogv1connect.CatalogServiceCreateProgramProcedure:            authz.RequirePermission(authz.PermCatalogManage),

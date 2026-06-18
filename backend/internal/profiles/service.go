@@ -21,6 +21,13 @@ type ListTeacherQualificationsResult struct {
 	NextPageToken  string
 }
 
+// DisplayNameEntry carries the resolved display-name fields for a single user.
+type DisplayNameEntry struct {
+	UserID           string
+	GivenNames       string
+	LastNamePaternal string
+}
+
 // Service orchestrates profile business logic: validation, audit-column population, and repo delegation.
 type Service struct {
 	repo Repository
@@ -184,6 +191,40 @@ func (s *Service) ListTeacherQualifications(
 		Qualifications: page.Items,
 		NextPageToken:  nextToken,
 	}, nil
+}
+
+// ListDisplayNamesByIDs resolves display names for the provided user IDs.
+// Empty input returns an empty result without error (S-21).
+// Unknown or soft-deleted user IDs are omitted from the result (S-20).
+// No cross-context scope check is performed — see ADR-4 trust boundary.
+func (s *Service) ListDisplayNamesByIDs(ctx context.Context, userIDStrs []string) ([]DisplayNameEntry, error) {
+	if len(userIDStrs) == 0 {
+		return nil, nil
+	}
+
+	ids := make([]uuid.UUID, 0, len(userIDStrs))
+	for _, raw := range userIDStrs {
+		parsed, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, fmt.Errorf("%w: invalid user_id %q", ErrInvalidInput, raw)
+		}
+		ids = append(ids, parsed)
+	}
+
+	rows, err := s.repo.ListDisplayNamesByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]DisplayNameEntry, 0, len(rows))
+	for _, r := range rows {
+		entries = append(entries, DisplayNameEntry{
+			UserID:           uuid.UUID(r.UserID.Bytes).String(),
+			GivenNames:       r.GivenNames,
+			LastNamePaternal: r.LastNamePaternal,
+		})
+	}
+	return entries, nil
 }
 
 // actorFromContext extracts the authenticated user_id from context and returns a pointer.

@@ -119,6 +119,12 @@ WHERE teacher_id = sqlc.arg('teacher_id')
 ORDER BY id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
+-- name: ListDisplayNamesByIDs :many
+SELECT user_id, given_names, last_name_paternal
+FROM user_profiles
+WHERE user_id = ANY(sqlc.arg('user_ids')::uuid[])
+  AND deleted_at IS NULL;
+
 -- name: UpsertOwnProfile :one
 UPDATE user_profiles SET
     birth_date              = COALESCE(sqlc.narg('birth_date'),              birth_date),

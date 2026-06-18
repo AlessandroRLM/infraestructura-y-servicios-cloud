@@ -63,6 +63,9 @@ const (
 	// ProfileServiceUpsertOwnProfileProcedure is the fully-qualified name of the ProfileService's
 	// UpsertOwnProfile RPC.
 	ProfileServiceUpsertOwnProfileProcedure = "/profiles.v1.ProfileService/UpsertOwnProfile"
+	// ProfileServiceListDisplayNamesByIDsProcedure is the fully-qualified name of the ProfileService's
+	// ListDisplayNamesByIDs RPC.
+	ProfileServiceListDisplayNamesByIDsProcedure = "/profiles.v1.ProfileService/ListDisplayNamesByIDs"
 )
 
 // ProfileServiceClient is a client for the profiles.v1.ProfileService service.
@@ -83,6 +86,10 @@ type ProfileServiceClient interface {
 	// Identity from session context; no user_id field. PATCH semantics: absent field
 	// preserves the column; present field writes it (present-empty clears).
 	UpsertOwnProfile(context.Context, *connect.Request[v1.UpsertOwnProfileRequest]) (*connect.Response[v1.UserProfile], error)
+	// Batch display-name lookup — requires profile.view_names permission.
+	// Returns given_names + last_name_paternal for the provided user IDs.
+	// Unknown or deleted user IDs are silently omitted. Names only — no other PII.
+	ListDisplayNamesByIDs(context.Context, *connect.Request[v1.ListDisplayNamesByIDsRequest]) (*connect.Response[v1.ListDisplayNamesByIDsResponse], error)
 }
 
 // NewProfileServiceClient constructs a client for the profiles.v1.ProfileService service. By
@@ -156,6 +163,12 @@ func NewProfileServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(profileServiceMethods.ByName("UpsertOwnProfile")),
 			connect.WithClientOptions(opts...),
 		),
+		listDisplayNamesByIDs: connect.NewClient[v1.ListDisplayNamesByIDsRequest, v1.ListDisplayNamesByIDsResponse](
+			httpClient,
+			baseURL+ProfileServiceListDisplayNamesByIDsProcedure,
+			connect.WithSchema(profileServiceMethods.ByName("ListDisplayNamesByIDs")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -171,6 +184,7 @@ type profileServiceClient struct {
 	listTeacherQualifications *connect.Client[v1.ListTeacherQualificationsRequest, v1.ListTeacherQualificationsResponse]
 	getOwnProfile             *connect.Client[v1.GetOwnProfileRequest, v1.UserProfile]
 	upsertOwnProfile          *connect.Client[v1.UpsertOwnProfileRequest, v1.UserProfile]
+	listDisplayNamesByIDs     *connect.Client[v1.ListDisplayNamesByIDsRequest, v1.ListDisplayNamesByIDsResponse]
 }
 
 // UpsertUserProfile calls profiles.v1.ProfileService.UpsertUserProfile.
@@ -223,6 +237,11 @@ func (c *profileServiceClient) UpsertOwnProfile(ctx context.Context, req *connec
 	return c.upsertOwnProfile.CallUnary(ctx, req)
 }
 
+// ListDisplayNamesByIDs calls profiles.v1.ProfileService.ListDisplayNamesByIDs.
+func (c *profileServiceClient) ListDisplayNamesByIDs(ctx context.Context, req *connect.Request[v1.ListDisplayNamesByIDsRequest]) (*connect.Response[v1.ListDisplayNamesByIDsResponse], error) {
+	return c.listDisplayNamesByIDs.CallUnary(ctx, req)
+}
+
 // ProfileServiceHandler is an implementation of the profiles.v1.ProfileService service.
 type ProfileServiceHandler interface {
 	// Management procedures — require users.manage permission.
@@ -241,6 +260,10 @@ type ProfileServiceHandler interface {
 	// Identity from session context; no user_id field. PATCH semantics: absent field
 	// preserves the column; present field writes it (present-empty clears).
 	UpsertOwnProfile(context.Context, *connect.Request[v1.UpsertOwnProfileRequest]) (*connect.Response[v1.UserProfile], error)
+	// Batch display-name lookup — requires profile.view_names permission.
+	// Returns given_names + last_name_paternal for the provided user IDs.
+	// Unknown or deleted user IDs are silently omitted. Names only — no other PII.
+	ListDisplayNamesByIDs(context.Context, *connect.Request[v1.ListDisplayNamesByIDsRequest]) (*connect.Response[v1.ListDisplayNamesByIDsResponse], error)
 }
 
 // NewProfileServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -310,6 +333,12 @@ func NewProfileServiceHandler(svc ProfileServiceHandler, opts ...connect.Handler
 		connect.WithSchema(profileServiceMethods.ByName("UpsertOwnProfile")),
 		connect.WithHandlerOptions(opts...),
 	)
+	profileServiceListDisplayNamesByIDsHandler := connect.NewUnaryHandler(
+		ProfileServiceListDisplayNamesByIDsProcedure,
+		svc.ListDisplayNamesByIDs,
+		connect.WithSchema(profileServiceMethods.ByName("ListDisplayNamesByIDs")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/profiles.v1.ProfileService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ProfileServiceUpsertUserProfileProcedure:
@@ -332,6 +361,8 @@ func NewProfileServiceHandler(svc ProfileServiceHandler, opts ...connect.Handler
 			profileServiceGetOwnProfileHandler.ServeHTTP(w, r)
 		case ProfileServiceUpsertOwnProfileProcedure:
 			profileServiceUpsertOwnProfileHandler.ServeHTTP(w, r)
+		case ProfileServiceListDisplayNamesByIDsProcedure:
+			profileServiceListDisplayNamesByIDsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -379,4 +410,8 @@ func (UnimplementedProfileServiceHandler) GetOwnProfile(context.Context, *connec
 
 func (UnimplementedProfileServiceHandler) UpsertOwnProfile(context.Context, *connect.Request[v1.UpsertOwnProfileRequest]) (*connect.Response[v1.UserProfile], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("profiles.v1.ProfileService.UpsertOwnProfile is not implemented"))
+}
+
+func (UnimplementedProfileServiceHandler) ListDisplayNamesByIDs(context.Context, *connect.Request[v1.ListDisplayNamesByIDsRequest]) (*connect.Response[v1.ListDisplayNamesByIDsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("profiles.v1.ProfileService.ListDisplayNamesByIDs is not implemented"))
 }

@@ -39,10 +39,10 @@ type fakeRepository struct {
 	addTeacherQualificationErr    error
 	addTeacherQualificationCalled bool
 
-	listTeacherQualificationsResult  []profilesdb.TeacherQualification
-	listTeacherQualificationsErr     error
-	listTeacherQualificationsCalled  bool
-	listTeacherQualificationsParams  profiles.ListTeacherQualificationsRepoParams
+	listTeacherQualificationsResult []profilesdb.TeacherQualification
+	listTeacherQualificationsErr    error
+	listTeacherQualificationsCalled bool
+	listTeacherQualificationsParams profiles.ListTeacherQualificationsRepoParams
 }
 
 func (f *fakeRepository) UpsertUserProfile(_ context.Context, p profiles.UpsertUserProfileParams) (profilesdb.UserProfile, error) {
@@ -95,6 +95,10 @@ func (f *fakeRepository) ListTeacherQualifications(_ context.Context, p profiles
 	f.listTeacherQualificationsCalled = true
 	f.listTeacherQualificationsParams = p
 	return f.listTeacherQualificationsResult, f.listTeacherQualificationsErr
+}
+
+func (f *fakeRepository) ListDisplayNamesByIDs(_ context.Context, _ []uuid.UUID) ([]profilesdb.ListDisplayNamesByIDsRow, error) {
+	return nil, nil
 }
 
 // Compile-time check.
@@ -236,9 +240,9 @@ func TestService_UpsertOwnProfile_TriStateMapping(t *testing.T) {
 	valueStr := "555-0100"
 
 	cases := []struct {
-		name          string
-		phone         *string
-		wantPhone     *string
+		name           string
+		phone          *string
+		wantPhone      *string
 		wantRepoCalled bool
 	}{
 		{
