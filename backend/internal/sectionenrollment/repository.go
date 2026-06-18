@@ -50,6 +50,12 @@ type Repository interface {
 	// (ownership is enforced by the service). It is distinct from GetSectionEnrollment to
 	// allow the service to apply scoping after the fetch.
 	GetOwnSectionEnrollment(ctx context.Context, id uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error)
+
+	// ListSectionRosterForTeacher returns a page of live roster rows for a section the caller
+	// teaches. The EXISTS guard on section_teachers produces an empty slice when the caller is
+	// not a teacher of the section — anti-leak: no error, no disclosure of existence.
+	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
+	ListSectionRosterForTeacher(ctx context.Context, p ListSectionRosterForTeacherRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error)
 }
 
 // EnrollSectionParams holds the validated inputs for EnrollSectionTx.
@@ -91,6 +97,19 @@ type ListSectionEnrollmentsRepoParams struct {
 type ListOwnSectionEnrollmentsRepoParams struct {
 	// StudentID is the owner of the inscriptions to return (required).
 	StudentID uuid.UUID
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
+}
+
+// ListSectionRosterForTeacherRepoParams holds keyset pagination and scope parameters
+// for ListSectionRosterForTeacher.
+type ListSectionRosterForTeacherRepoParams struct {
+	// SectionID is the target section (required).
+	SectionID uuid.UUID
+	// TeacherID is the session-derived caller (required). Used in the EXISTS guard.
+	TeacherID uuid.UUID
 	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
 	PageToken *uuid.UUID
 	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
@@ -387,6 +406,25 @@ func (r *postgresRepository) ListOwnSectionEnrollments(ctx context.Context, p Li
 		params.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
 	}
 	rows, err := r.q.ListOwnSectionEnrollments(ctx, params)
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
+}
+
+// ListSectionRosterForTeacher returns a page of roster rows for a section the caller teaches.
+// The EXISTS guard on section_teachers ensures that non-teaching callers receive an empty
+// slice rather than an error, preserving the anti-leak convention.
+func (r *postgresRepository) ListSectionRosterForTeacher(ctx context.Context, p ListSectionRosterForTeacherRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error) {
+	params := sectionenrollmentdb.ListSectionRosterForTeacherParams{
+		SectionID: pgtype.UUID{Bytes: p.SectionID, Valid: true},
+		TeacherID: pgtype.UUID{Bytes: p.TeacherID, Valid: true},
+		RowLimit:  p.RowLimit,
+	}
+	if p.PageToken != nil {
+		params.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListSectionRosterForTeacher(ctx, params)
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}

@@ -182,6 +182,8 @@ func main() {
 		section_enrollmentv1connect.SectionEnrollmentServiceWithdrawSectionProcedure:        authz.RequirePermission(authz.PermEnrollmentManage),
 		section_enrollmentv1connect.SectionEnrollmentServiceGetSectionEnrollmentProcedure:   authz.RequirePermission(authz.PermEnrollmentManage),
 		section_enrollmentv1connect.SectionEnrollmentServiceListSectionEnrollmentsProcedure: authz.RequirePermission(authz.PermEnrollmentManage),
+		// Section enrollment teacher teaching-scope procedure — requires section_enrollment.view_teaching.
+		section_enrollmentv1connect.SectionEnrollmentServiceListSectionRosterForTeacherProcedure: authz.RequirePermission(authz.PermSectionEnrollmentViewTeaching),
 
 		// Grades admin procedures — require grades.override.
 		gradesv1connect.GradesServiceCreateEvaluationSchemeProcedure:   authz.RequirePermission(authz.PermGradesOverride),

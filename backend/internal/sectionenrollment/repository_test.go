@@ -91,6 +91,11 @@ type fakeQuerier struct {
 	setOutcomeErr        error
 	setOutcomeLastStatus string
 	setOutcomeLastGrade  pgtype.Numeric
+
+	// ListSectionRosterForTeacher
+	listRosterCalled bool
+	listRosterRows   []sectionenrollmentdb.ListSectionRosterForTeacherRow
+	listRosterErr    error
 }
 
 func (f *fakeQuerier) GetSectionCapacity(_ context.Context, _ pgtype.UUID) (sectionenrollmentdb.GetSectionCapacityRow, error) {
@@ -163,6 +168,11 @@ func (f *fakeQuerier) SetSectionEnrollmentOutcome(_ context.Context, arg section
 	f.setOutcomeLastStatus = arg.Status
 	f.setOutcomeLastGrade = arg.FinalGrade
 	return f.setOutcomeRow, f.setOutcomeErr
+}
+
+func (f *fakeQuerier) ListSectionRosterForTeacher(_ context.Context, _ sectionenrollmentdb.ListSectionRosterForTeacherParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error) {
+	f.listRosterCalled = true
+	return f.listRosterRows, f.listRosterErr
 }
 
 // makePgUUID creates a valid pgtype.UUID from a uuid.UUID.

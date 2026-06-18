@@ -76,6 +76,10 @@ func (f *fakeRepository) SetSectionEnrollmentOutcomeTx(_ context.Context, _ pgx.
 	return sectionenrollmentdb.SectionEnrollment{}, nil
 }
 
+func (f *fakeRepository) ListSectionRosterForTeacher(_ context.Context, _ ListSectionRosterForTeacherRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error) {
+	return nil, nil
+}
+
 // contextWithUser adds a user ID to the context (mirrors auth.WithUserID).
 func contextWithUser(userID uuid.UUID) context.Context {
 	return auth.WithUserID(context.Background(), userID)

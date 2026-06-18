@@ -208,9 +208,33 @@ func (h *Handler) ListSectionEnrollments(
 	}), nil
 }
 
+// --- Teacher teaching-scope RPCs ---
+
+// ListSectionRosterForTeacher returns the paginated roster of students enrolled in the
+// requested section, scoped to sections the authenticated user teaches.
+func (h *Handler) ListSectionRosterForTeacher(
+	ctx context.Context,
+	req *connect.Request[section_enrollmentv1.ListSectionRosterForTeacherRequest],
+) (*connect.Response[section_enrollmentv1.ListSectionRosterForTeacherResponse], error) {
+	result, err := h.svc.ListSectionRosterForTeacher(ctx, req.Msg.GetSectionId(), req.Msg.GetPageSize(), req.Msg.GetPageToken())
+	if err != nil {
+		return nil, MapError(err)
+	}
+	protos := make([]*section_enrollmentv1.SectionEnrollment, 0, len(result.Rows))
+	for _, r := range result.Rows {
+		protos = append(protos, rosterRowToProto(r))
+	}
+	return connect.NewResponse(&section_enrollmentv1.ListSectionRosterForTeacherResponse{
+		SectionEnrollments: protos,
+		NextPageToken:      result.NextPageToken,
+	}), nil
+}
+
 // --- Proto converter ---
 
 // sectionEnrollmentToProto converts a database row to its proto representation.
+// The student_id field is left empty (zero value) — use rosterRowToProto for rows
+// that carry student_id from ListSectionRosterForTeacher.
 func sectionEnrollmentToProto(r sectionenrollmentdb.SectionEnrollment) *section_enrollmentv1.SectionEnrollment {
 	se := &section_enrollmentv1.SectionEnrollment{
 		Id:           uuidToString(r.ID),
@@ -229,8 +253,28 @@ func sectionEnrollmentToProto(r sectionenrollmentdb.SectionEnrollment) *section_
 	return se
 }
 
+// rosterRowToProto converts a ListSectionRosterForTeacherRow (which includes student_id)
+// to its proto representation. The student_id field is populated from the row's StudentID.
+func rosterRowToProto(r sectionenrollmentdb.ListSectionRosterForTeacherRow) *section_enrollmentv1.SectionEnrollment {
+	se := &section_enrollmentv1.SectionEnrollment{
+		Id:           uuidToString(r.ID),
+		EnrollmentId: uuidToString(r.EnrollmentID),
+		SectionId:    uuidToString(r.SectionID),
+		Status:       r.Status,
+		RegisteredAt: r.RegisteredAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:    r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:    r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		FinalGrade:   pgconv.NumericToString(r.FinalGrade),
+		StudentId:    uuidToString(r.StudentID),
+	}
+	if r.DeletedAt.Valid {
+		s := r.DeletedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+		se.DeletedAt = &s
+	}
+	return se
+}
+
 // uuidToString converts a pgtype.UUID to a standard hyphenated string.
 func uuidToString(id pgtype.UUID) string {
 	return uuid.UUID(id.Bytes).String()
 }
-

@@ -134,6 +134,30 @@ WHERE e.student_id = sqlc.arg('student_id')::uuid
 ORDER BY se.id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
+-- name: ListSectionRosterForTeacher :many
+-- Returns live section_enrollment rows for a section the caller teaches, with student_id
+-- projected from the linked enrollment.
+-- EXISTS guard: if the caller is not in section_teachers for the section, returns no rows
+-- (anti-leak: existence is never disclosed — empty page, not PermissionDenied).
+-- Includes withdrawn enrollments (status distinguishes them from active ones).
+-- Keyset pagination on se.id DESC; page_token is the exclusive upper bound.
+-- Cross-domain read: reads section_teachers (catalog schema) and enrollments.
+-- This is the same intra-DB coupling already established in this context (see file header).
+SELECT se.id, se.enrollment_id, se.section_id, se.status, se.registered_at,
+       se.created_at, se.updated_at, se.deleted_at, se.final_grade,
+       e.student_id
+FROM section_enrollments se
+JOIN enrollments e ON e.id = se.enrollment_id
+WHERE se.section_id = sqlc.arg('section_id')::uuid
+  AND se.deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR se.id < sqlc.narg('page_token')::uuid)
+  AND EXISTS (
+    SELECT 1 FROM section_teachers st
+    WHERE st.section_id = sqlc.arg('section_id')::uuid AND st.teacher_id = sqlc.arg('teacher_id')::uuid
+  )
+ORDER BY se.id DESC
+LIMIT sqlc.arg('row_limit')::int;
+
 -- name: SetSectionEnrollmentOutcome :one
 -- Transitions a section_enrollment status to passed or failed and writes the
 -- computed final grade, within a caller-owned transaction.

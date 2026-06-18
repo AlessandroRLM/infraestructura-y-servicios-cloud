@@ -84,4 +84,3 @@ func TestMapError_WrappedSentinels(t *testing.T) {
 		t.Errorf("code = %v, want CodeFailedPrecondition", ce.Code())
 	}
 }
-

@@ -38,7 +38,11 @@ type SectionEnrollment struct {
 	// final_grade is the computed weighted average set by the grades slice when status
 	// transitions to passed or failed. Empty string when the grade has not yet been computed
 	// (status is in_progress or withdrawn).
-	FinalGrade    string `protobuf:"bytes,9,opt,name=final_grade,json=finalGrade,proto3" json:"final_grade,omitempty"`
+	FinalGrade string `protobuf:"bytes,9,opt,name=final_grade,json=finalGrade,proto3" json:"final_grade,omitempty"`
+	// student_id is the user_id of the student who owns this section enrollment.
+	// Populated only when using the teacher-scoped ListSectionRosterForTeacher RPC;
+	// empty string on other RPCs that return SectionEnrollment (backward-compatible addition).
+	StudentId     string `protobuf:"bytes,10,opt,name=student_id,json=studentId,proto3" json:"student_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -132,6 +136,13 @@ func (x *SectionEnrollment) GetDeletedAt() string {
 func (x *SectionEnrollment) GetFinalGrade() string {
 	if x != nil {
 		return x.FinalGrade
+	}
+	return ""
+}
+
+func (x *SectionEnrollment) GetStudentId() string {
+	if x != nil {
+		return x.StudentId
 	}
 	return ""
 }
@@ -605,11 +616,132 @@ func (x *ListSectionEnrollmentsResponse) GetNextPageToken() string {
 	return ""
 }
 
+// ListSectionRosterForTeacherRequest carries the target section_id and pagination params.
+// No teacher_id field — caller identity is derived exclusively from session context.
+type ListSectionRosterForTeacherRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// section_id must be a valid UUID string.
+	SectionId string `protobuf:"bytes,1,opt,name=section_id,json=sectionId,proto3" json:"section_id,omitempty"`
+	// Maximum number of roster entries to return. Clamped to [20, 200]; zero → 20.
+	PageSize int32 `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Opaque cursor returned by a previous ListSectionRosterForTeacher call.
+	// Empty string returns the first page.
+	PageToken     string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSectionRosterForTeacherRequest) Reset() {
+	*x = ListSectionRosterForTeacherRequest{}
+	mi := &file_section_enrollment_v1_section_enrollment_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSectionRosterForTeacherRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSectionRosterForTeacherRequest) ProtoMessage() {}
+
+func (x *ListSectionRosterForTeacherRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_section_enrollment_v1_section_enrollment_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSectionRosterForTeacherRequest.ProtoReflect.Descriptor instead.
+func (*ListSectionRosterForTeacherRequest) Descriptor() ([]byte, []int) {
+	return file_section_enrollment_v1_section_enrollment_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListSectionRosterForTeacherRequest) GetSectionId() string {
+	if x != nil {
+		return x.SectionId
+	}
+	return ""
+}
+
+func (x *ListSectionRosterForTeacherRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListSectionRosterForTeacherRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+// ListSectionRosterForTeacherResponse is the dedicated response for the teacher-scoped roster RPC.
+// Each SectionEnrollment row includes student_id so the caller can resolve display names.
+type ListSectionRosterForTeacherResponse struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	SectionEnrollments []*SectionEnrollment   `protobuf:"bytes,1,rep,name=section_enrollments,json=sectionEnrollments,proto3" json:"section_enrollments,omitempty"`
+	// Opaque cursor for the next page. Empty when this is the last page.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSectionRosterForTeacherResponse) Reset() {
+	*x = ListSectionRosterForTeacherResponse{}
+	mi := &file_section_enrollment_v1_section_enrollment_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSectionRosterForTeacherResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSectionRosterForTeacherResponse) ProtoMessage() {}
+
+func (x *ListSectionRosterForTeacherResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_section_enrollment_v1_section_enrollment_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSectionRosterForTeacherResponse.ProtoReflect.Descriptor instead.
+func (*ListSectionRosterForTeacherResponse) Descriptor() ([]byte, []int) {
+	return file_section_enrollment_v1_section_enrollment_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListSectionRosterForTeacherResponse) GetSectionEnrollments() []*SectionEnrollment {
+	if x != nil {
+		return x.SectionEnrollments
+	}
+	return nil
+}
+
+func (x *ListSectionRosterForTeacherResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
 var File_section_enrollment_v1_section_enrollment_proto protoreflect.FileDescriptor
 
 const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"\n" +
-	".section_enrollment/v1/section_enrollment.proto\x12\x15section_enrollment.v1\"\xb6\x02\n" +
+	".section_enrollment/v1/section_enrollment.proto\x12\x15section_enrollment.v1\"\xd5\x02\n" +
 	"\x11SectionEnrollment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
 	"\renrollment_id\x18\x02 \x01(\tR\fenrollmentId\x12\x1d\n" +
@@ -624,7 +756,10 @@ const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"\n" +
 	"deleted_at\x18\b \x01(\tH\x00R\tdeletedAt\x88\x01\x01\x12\x1f\n" +
 	"\vfinal_grade\x18\t \x01(\tR\n" +
-	"finalGradeB\r\n" +
+	"finalGrade\x12\x1d\n" +
+	"\n" +
+	"student_id\x18\n" +
+	" \x01(\tR\tstudentIdB\r\n" +
 	"\v_deleted_at\"W\n" +
 	"\x17EnrollOwnSectionRequest\x12\x1d\n" +
 	"\n" +
@@ -656,7 +791,16 @@ const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"page_token\x18\x05 \x01(\tR\tpageToken\"\xa3\x01\n" +
 	"\x1eListSectionEnrollmentsResponse\x12Y\n" +
 	"\x13section_enrollments\x18\x01 \x03(\v2(.section_enrollment.v1.SectionEnrollmentR\x12sectionEnrollments\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xea\x06\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\x7f\n" +
+	"\"ListSectionRosterForTeacherRequest\x12\x1d\n" +
+	"\n" +
+	"section_id\x18\x01 \x01(\tR\tsectionId\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\"\xa8\x01\n" +
+	"#ListSectionRosterForTeacherResponse\x12Y\n" +
+	"\x13section_enrollments\x18\x01 \x03(\v2(.section_enrollment.v1.SectionEnrollmentR\x12sectionEnrollments\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\x81\b\n" +
 	"\x18SectionEnrollmentService\x12l\n" +
 	"\x10EnrollOwnSection\x12..section_enrollment.v1.EnrollOwnSectionRequest\x1a(.section_enrollment.v1.SectionEnrollment\x12\x8b\x01\n" +
 	"\x19ListOwnSectionEnrollments\x127.section_enrollment.v1.ListOwnSectionEnrollmentsRequest\x1a5.section_enrollment.v1.ListSectionEnrollmentsResponse\x12z\n" +
@@ -664,7 +808,8 @@ const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"\rEnrollSection\x12+.section_enrollment.v1.EnrollSectionRequest\x1a(.section_enrollment.v1.SectionEnrollment\x12p\n" +
 	"\x0fWithdrawSection\x12-.section_enrollment.v1.WithdrawSectionRequest\x1a..section_enrollment.v1.WithdrawSectionResponse\x12t\n" +
 	"\x14GetSectionEnrollment\x122.section_enrollment.v1.GetSectionEnrollmentRequest\x1a(.section_enrollment.v1.SectionEnrollment\x12\x85\x01\n" +
-	"\x16ListSectionEnrollments\x124.section_enrollment.v1.ListSectionEnrollmentsRequest\x1a5.section_enrollment.v1.ListSectionEnrollmentsResponseBsZqgithub.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1;section_enrollmentv1b\x06proto3"
+	"\x16ListSectionEnrollments\x124.section_enrollment.v1.ListSectionEnrollmentsRequest\x1a5.section_enrollment.v1.ListSectionEnrollmentsResponse\x12\x94\x01\n" +
+	"\x1bListSectionRosterForTeacher\x129.section_enrollment.v1.ListSectionRosterForTeacherRequest\x1a:.section_enrollment.v1.ListSectionRosterForTeacherResponseBsZqgithub.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/section_enrollment/v1;section_enrollmentv1b\x06proto3"
 
 var (
 	file_section_enrollment_v1_section_enrollment_proto_rawDescOnce sync.Once
@@ -678,40 +823,45 @@ func file_section_enrollment_v1_section_enrollment_proto_rawDescGZIP() []byte {
 	return file_section_enrollment_v1_section_enrollment_proto_rawDescData
 }
 
-var file_section_enrollment_v1_section_enrollment_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_section_enrollment_v1_section_enrollment_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_section_enrollment_v1_section_enrollment_proto_goTypes = []any{
-	(*SectionEnrollment)(nil),                // 0: section_enrollment.v1.SectionEnrollment
-	(*EnrollOwnSectionRequest)(nil),          // 1: section_enrollment.v1.EnrollOwnSectionRequest
-	(*ListOwnSectionEnrollmentsRequest)(nil), // 2: section_enrollment.v1.ListOwnSectionEnrollmentsRequest
-	(*GetOwnSectionEnrollmentRequest)(nil),   // 3: section_enrollment.v1.GetOwnSectionEnrollmentRequest
-	(*EnrollSectionRequest)(nil),             // 4: section_enrollment.v1.EnrollSectionRequest
-	(*WithdrawSectionRequest)(nil),           // 5: section_enrollment.v1.WithdrawSectionRequest
-	(*WithdrawSectionResponse)(nil),          // 6: section_enrollment.v1.WithdrawSectionResponse
-	(*GetSectionEnrollmentRequest)(nil),      // 7: section_enrollment.v1.GetSectionEnrollmentRequest
-	(*ListSectionEnrollmentsRequest)(nil),    // 8: section_enrollment.v1.ListSectionEnrollmentsRequest
-	(*ListSectionEnrollmentsResponse)(nil),   // 9: section_enrollment.v1.ListSectionEnrollmentsResponse
+	(*SectionEnrollment)(nil),                   // 0: section_enrollment.v1.SectionEnrollment
+	(*EnrollOwnSectionRequest)(nil),             // 1: section_enrollment.v1.EnrollOwnSectionRequest
+	(*ListOwnSectionEnrollmentsRequest)(nil),    // 2: section_enrollment.v1.ListOwnSectionEnrollmentsRequest
+	(*GetOwnSectionEnrollmentRequest)(nil),      // 3: section_enrollment.v1.GetOwnSectionEnrollmentRequest
+	(*EnrollSectionRequest)(nil),                // 4: section_enrollment.v1.EnrollSectionRequest
+	(*WithdrawSectionRequest)(nil),              // 5: section_enrollment.v1.WithdrawSectionRequest
+	(*WithdrawSectionResponse)(nil),             // 6: section_enrollment.v1.WithdrawSectionResponse
+	(*GetSectionEnrollmentRequest)(nil),         // 7: section_enrollment.v1.GetSectionEnrollmentRequest
+	(*ListSectionEnrollmentsRequest)(nil),       // 8: section_enrollment.v1.ListSectionEnrollmentsRequest
+	(*ListSectionEnrollmentsResponse)(nil),      // 9: section_enrollment.v1.ListSectionEnrollmentsResponse
+	(*ListSectionRosterForTeacherRequest)(nil),  // 10: section_enrollment.v1.ListSectionRosterForTeacherRequest
+	(*ListSectionRosterForTeacherResponse)(nil), // 11: section_enrollment.v1.ListSectionRosterForTeacherResponse
 }
 var file_section_enrollment_v1_section_enrollment_proto_depIdxs = []int32{
-	0, // 0: section_enrollment.v1.ListSectionEnrollmentsResponse.section_enrollments:type_name -> section_enrollment.v1.SectionEnrollment
-	1, // 1: section_enrollment.v1.SectionEnrollmentService.EnrollOwnSection:input_type -> section_enrollment.v1.EnrollOwnSectionRequest
-	2, // 2: section_enrollment.v1.SectionEnrollmentService.ListOwnSectionEnrollments:input_type -> section_enrollment.v1.ListOwnSectionEnrollmentsRequest
-	3, // 3: section_enrollment.v1.SectionEnrollmentService.GetOwnSectionEnrollment:input_type -> section_enrollment.v1.GetOwnSectionEnrollmentRequest
-	4, // 4: section_enrollment.v1.SectionEnrollmentService.EnrollSection:input_type -> section_enrollment.v1.EnrollSectionRequest
-	5, // 5: section_enrollment.v1.SectionEnrollmentService.WithdrawSection:input_type -> section_enrollment.v1.WithdrawSectionRequest
-	7, // 6: section_enrollment.v1.SectionEnrollmentService.GetSectionEnrollment:input_type -> section_enrollment.v1.GetSectionEnrollmentRequest
-	8, // 7: section_enrollment.v1.SectionEnrollmentService.ListSectionEnrollments:input_type -> section_enrollment.v1.ListSectionEnrollmentsRequest
-	0, // 8: section_enrollment.v1.SectionEnrollmentService.EnrollOwnSection:output_type -> section_enrollment.v1.SectionEnrollment
-	9, // 9: section_enrollment.v1.SectionEnrollmentService.ListOwnSectionEnrollments:output_type -> section_enrollment.v1.ListSectionEnrollmentsResponse
-	0, // 10: section_enrollment.v1.SectionEnrollmentService.GetOwnSectionEnrollment:output_type -> section_enrollment.v1.SectionEnrollment
-	0, // 11: section_enrollment.v1.SectionEnrollmentService.EnrollSection:output_type -> section_enrollment.v1.SectionEnrollment
-	6, // 12: section_enrollment.v1.SectionEnrollmentService.WithdrawSection:output_type -> section_enrollment.v1.WithdrawSectionResponse
-	0, // 13: section_enrollment.v1.SectionEnrollmentService.GetSectionEnrollment:output_type -> section_enrollment.v1.SectionEnrollment
-	9, // 14: section_enrollment.v1.SectionEnrollmentService.ListSectionEnrollments:output_type -> section_enrollment.v1.ListSectionEnrollmentsResponse
-	8, // [8:15] is the sub-list for method output_type
-	1, // [1:8] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0,  // 0: section_enrollment.v1.ListSectionEnrollmentsResponse.section_enrollments:type_name -> section_enrollment.v1.SectionEnrollment
+	0,  // 1: section_enrollment.v1.ListSectionRosterForTeacherResponse.section_enrollments:type_name -> section_enrollment.v1.SectionEnrollment
+	1,  // 2: section_enrollment.v1.SectionEnrollmentService.EnrollOwnSection:input_type -> section_enrollment.v1.EnrollOwnSectionRequest
+	2,  // 3: section_enrollment.v1.SectionEnrollmentService.ListOwnSectionEnrollments:input_type -> section_enrollment.v1.ListOwnSectionEnrollmentsRequest
+	3,  // 4: section_enrollment.v1.SectionEnrollmentService.GetOwnSectionEnrollment:input_type -> section_enrollment.v1.GetOwnSectionEnrollmentRequest
+	4,  // 5: section_enrollment.v1.SectionEnrollmentService.EnrollSection:input_type -> section_enrollment.v1.EnrollSectionRequest
+	5,  // 6: section_enrollment.v1.SectionEnrollmentService.WithdrawSection:input_type -> section_enrollment.v1.WithdrawSectionRequest
+	7,  // 7: section_enrollment.v1.SectionEnrollmentService.GetSectionEnrollment:input_type -> section_enrollment.v1.GetSectionEnrollmentRequest
+	8,  // 8: section_enrollment.v1.SectionEnrollmentService.ListSectionEnrollments:input_type -> section_enrollment.v1.ListSectionEnrollmentsRequest
+	10, // 9: section_enrollment.v1.SectionEnrollmentService.ListSectionRosterForTeacher:input_type -> section_enrollment.v1.ListSectionRosterForTeacherRequest
+	0,  // 10: section_enrollment.v1.SectionEnrollmentService.EnrollOwnSection:output_type -> section_enrollment.v1.SectionEnrollment
+	9,  // 11: section_enrollment.v1.SectionEnrollmentService.ListOwnSectionEnrollments:output_type -> section_enrollment.v1.ListSectionEnrollmentsResponse
+	0,  // 12: section_enrollment.v1.SectionEnrollmentService.GetOwnSectionEnrollment:output_type -> section_enrollment.v1.SectionEnrollment
+	0,  // 13: section_enrollment.v1.SectionEnrollmentService.EnrollSection:output_type -> section_enrollment.v1.SectionEnrollment
+	6,  // 14: section_enrollment.v1.SectionEnrollmentService.WithdrawSection:output_type -> section_enrollment.v1.WithdrawSectionResponse
+	0,  // 15: section_enrollment.v1.SectionEnrollmentService.GetSectionEnrollment:output_type -> section_enrollment.v1.SectionEnrollment
+	9,  // 16: section_enrollment.v1.SectionEnrollmentService.ListSectionEnrollments:output_type -> section_enrollment.v1.ListSectionEnrollmentsResponse
+	11, // 17: section_enrollment.v1.SectionEnrollmentService.ListSectionRosterForTeacher:output_type -> section_enrollment.v1.ListSectionRosterForTeacherResponse
+	10, // [10:18] is the sub-list for method output_type
+	2,  // [2:10] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_section_enrollment_v1_section_enrollment_proto_init() }
@@ -726,7 +876,7 @@ func file_section_enrollment_v1_section_enrollment_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_section_enrollment_v1_section_enrollment_proto_rawDesc), len(file_section_enrollment_v1_section_enrollment_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

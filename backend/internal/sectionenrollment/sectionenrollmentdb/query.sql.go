@@ -304,6 +304,87 @@ func (q *Queries) ListSectionEnrollments(ctx context.Context, arg ListSectionEnr
 	return items, nil
 }
 
+const listSectionRosterForTeacher = `-- name: ListSectionRosterForTeacher :many
+SELECT se.id, se.enrollment_id, se.section_id, se.status, se.registered_at,
+       se.created_at, se.updated_at, se.deleted_at, se.final_grade,
+       e.student_id
+FROM section_enrollments se
+JOIN enrollments e ON e.id = se.enrollment_id
+WHERE se.section_id = $1::uuid
+  AND se.deleted_at IS NULL
+  AND ($2::uuid IS NULL OR se.id < $2::uuid)
+  AND EXISTS (
+    SELECT 1 FROM section_teachers st
+    WHERE st.section_id = $1::uuid AND st.teacher_id = $3::uuid
+  )
+ORDER BY se.id DESC
+LIMIT $4::int
+`
+
+type ListSectionRosterForTeacherParams struct {
+	SectionID pgtype.UUID
+	PageToken pgtype.UUID
+	TeacherID pgtype.UUID
+	RowLimit  int32
+}
+
+type ListSectionRosterForTeacherRow struct {
+	ID           pgtype.UUID
+	EnrollmentID pgtype.UUID
+	SectionID    pgtype.UUID
+	Status       string
+	RegisteredAt pgtype.Timestamptz
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+	DeletedAt    pgtype.Timestamptz
+	FinalGrade   pgtype.Numeric
+	StudentID    pgtype.UUID
+}
+
+// Returns live section_enrollment rows for a section the caller teaches, with student_id
+// projected from the linked enrollment.
+// EXISTS guard: if the caller is not in section_teachers for the section, returns no rows
+// (anti-leak: existence is never disclosed — empty page, not PermissionDenied).
+// Includes withdrawn enrollments (status distinguishes them from active ones).
+// Keyset pagination on se.id DESC; page_token is the exclusive upper bound.
+// Cross-domain read: reads section_teachers (catalog schema) and enrollments.
+// This is the same intra-DB coupling already established in this context (see file header).
+func (q *Queries) ListSectionRosterForTeacher(ctx context.Context, arg ListSectionRosterForTeacherParams) ([]ListSectionRosterForTeacherRow, error) {
+	rows, err := q.db.Query(ctx, listSectionRosterForTeacher,
+		arg.SectionID,
+		arg.PageToken,
+		arg.TeacherID,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSectionRosterForTeacherRow
+	for rows.Next() {
+		var i ListSectionRosterForTeacherRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EnrollmentID,
+			&i.SectionID,
+			&i.Status,
+			&i.RegisteredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.FinalGrade,
+			&i.StudentID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const resolveEnrollmentByID = `-- name: ResolveEnrollmentByID :one
 SELECT e.id, e.student_id, e.program_id, e.year, e.status, e.deleted_at
 FROM enrollments e
