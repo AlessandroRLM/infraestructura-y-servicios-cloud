@@ -15,7 +15,6 @@ type CellSaveStatus = "idle" | "saved" | "failed";
 
 interface GradeRowProps {
   sectionEnrollmentId: string;
-  studentId: string;
   displayName: string;
   /** Enrollment status: "in_progress", "withdrawn", "passed", "failed". */
   status: string;
@@ -36,11 +35,10 @@ interface GradeRowProps {
   }) => Promise<{ id: string; version: number; value: string }>;
   /**
    * Called after a conflict (CodeAborted) on this row.
-   * Returns fresh cell data for ALL cells in the row so the caller can merge.
+   * Invalidates the grades query cache so TanStack Query re-fetches and rows
+   * update automatically. The caller is responsible for clearing stale overrides.
    */
-  onConflictRefetch: (
-    sectionEnrollmentId: string,
-  ) => Promise<Map<string, CellVM>>;
+  onConflictRefetch: () => Promise<void>;
 }
 
 /**
@@ -50,8 +48,8 @@ interface GradeRowProps {
  * - Withdrawn rows: grade inputs are disabled, Guardar is hidden.
  * - Per-row save: "Guardar" fans out one write per edited cell via Promise.allSettled.
  * - Partial failure: failed cells stay editable; succeeded cells commit new version.
- * - Conflict (CodeAborted): triggers row-scoped refetch + merge; cell resets to idle
- *   showing the refreshed server value; conflict message shown transiently.
+ * - Conflict (CodeAborted): triggers cache invalidation via onConflictRefetch; cell resets
+ *   to idle showing the fresh server value; conflict message shown transiently.
  * - "Reintentar" retries only non-succeeded cells.
  * - Validation (Zod): on blur, rejects out-of-range or multi-decimal values.
  * - drafts is a SPARSE overlay: only cells the user has actively edited are present.
@@ -220,13 +218,14 @@ export function GradeRow({
 
     if (hadConflict) {
       setConflictMessage(
-        "Otro usuario modificó esta nota. Se muestra el valor actualizado.",
+        "Otro usuario modificó esta nota. Se actualizó al valor más reciente.",
       );
-      // Row-scoped refetch: merge fresh versions for ALL cells in this row into query cache
+      // Invalidate the grades cache: TanStack Query re-fetches and rows update
+      // automatically, showing the authoritative server value.
       try {
-        await onConflictRefetch(sectionEnrollmentId);
+        await onConflictRefetch();
       } catch {
-        // Refetch failed; conflict message is already showing
+        // Cache invalidation failed; the conflict message is still shown
       }
     }
 

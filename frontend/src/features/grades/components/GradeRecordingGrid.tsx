@@ -53,6 +53,8 @@ function mergeRowsWithOverrides(
  * - Composing useSectionGrid (roster × evaluations × grades × display names)
  * - Session-level overrides: cells saved this session are stored in `overrides`
  *   and merged over server rows via useMemo — background refetches never clobber edits.
+ * - Conflict path: clears the stale row override before invalidating the grades cache
+ *   so the fresh server value flows through without the stale override masking it.
  * - Write dispatch: grades.override → OverrideGrade, else → RecordGrade
  * - Empty states: no scheme, no enrolled students
  * - Admin "Administrar Notas" button in the top-right (grades.override only)
@@ -64,7 +66,7 @@ export function GradeRecordingGrid({
   const session = useSession();
   const isAdmin = hasPermission(session, "grades.override");
 
-  const { evaluations, rows, isLoading, isError, mergeRowGrades } =
+  const { evaluations, rows, isLoading, isError, refetchGrades } =
     useSectionGrid(section.id, section.courseId);
 
   const { record } = useRecordGrade();
@@ -131,9 +133,21 @@ export function GradeRecordingGrid({
     [isAdmin, override, record],
   );
 
-  const handleConflictRefetch = useCallback(
-    (sectionEnrollmentId: string) => mergeRowGrades(sectionEnrollmentId),
-    [mergeRowGrades],
+  // Builds the per-row conflict handler for a given sectionEnrollmentId.
+  // On conflict: clears the stale row override so the fresh cache value wins,
+  // then invalidates the grades query so TanStack Query re-fetches.
+  const makeConflictRefetch = useCallback(
+    (sectionEnrollmentId: string) => (): Promise<void> => {
+      // Remove the stale override for this row before invalidating — without
+      // this the override map would mask the fresh server value after re-fetch.
+      setOverrides((prev) => {
+        const next = new Map(prev);
+        next.delete(sectionEnrollmentId);
+        return next;
+      });
+      return refetchGrades();
+    },
+    [refetchGrades],
   );
 
   return (
@@ -246,13 +260,14 @@ export function GradeRecordingGrid({
                 <GradeRow
                   key={row.sectionEnrollmentId}
                   sectionEnrollmentId={row.sectionEnrollmentId}
-                  studentId={row.studentId}
                   displayName={row.displayName}
                   status={row.status}
                   evaluations={evaluations}
                   cells={row.cells}
                   onSaveCell={handleSaveCell}
-                  onConflictRefetch={handleConflictRefetch}
+                  onConflictRefetch={makeConflictRefetch(
+                    row.sectionEnrollmentId,
+                  )}
                 />
               ))}
             </TableBody>

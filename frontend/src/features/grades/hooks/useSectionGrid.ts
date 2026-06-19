@@ -1,6 +1,6 @@
-import { createClient } from "@connectrpc/connect";
-import { useQuery, useTransport } from "@connectrpc/connect-query";
-import { useCallback } from "react";
+import { useQuery } from "@connectrpc/connect-query";
+import { createConnectQueryKey } from "@connectrpc/connect-query-core";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Evaluation } from "@/gen/grades/v1/grades_pb";
 import { GradesService } from "@/gen/grades/v1/grades_pb";
 import { ProfileService } from "@/gen/profiles/v1/profiles_pb";
@@ -43,11 +43,12 @@ export interface SectionGridVM {
   /** True when one of the required queries failed. */
   isError: boolean;
   /**
-   * Merges fresh grade data for a single student row into the VM.
-   * Called after a CodeAborted (optimistic lock conflict) refetch.
-   * Returns a new map for the row without mutating state.
+   * Invalidates the listGradesForSection query cache entry for this section.
+   * Called after a CodeAborted (optimistic lock conflict) so TanStack Query
+   * re-fetches the authoritative server data. Rows update automatically via
+   * the query subscription — no imperative fetch or local state merge needed.
    */
-  mergeRowGrades: (sectionEnrollmentId: string) => Promise<Map<string, CellVM>>;
+  refetchGrades: () => Promise<void>;
 }
 
 const ROSTER_PAGE_SIZE = 200;
@@ -164,53 +165,25 @@ export function useSectionGrid(
     }
   }
 
-  // Client for imperative refetch in mergeRowGrades
-  const transport = useTransport();
-  const gradesClient = createClient(GradesService, transport);
+  const queryClient = useQueryClient();
 
-  const mergeRowGrades = useCallback(
-    async (sectionEnrollmentId: string): Promise<Map<string, CellVM>> => {
-      // Re-fetch all grades for the section and extract the row's fresh cells.
-      const fresh = await gradesClient.listGradesForSection({
-        sectionId,
-        pageSize: GRADES_PAGE_SIZE,
-        pageToken: "",
-      });
-
-      const freshCells = new Map<string, CellVM>();
-      for (const ev of evaluations) {
-        const grade = fresh.grades.find(
-          (g) =>
-            g.sectionEnrollmentId === sectionEnrollmentId &&
-            g.evaluationId === ev.id,
-        );
-        freshCells.set(
-          ev.id,
-          grade
-            ? {
-                evaluationId: grade.evaluationId,
-                value: grade.value,
-                version: grade.version,
-                gradeId: grade.id,
-              }
-            : {
-                evaluationId: ev.id,
-                value: "",
-                version: 0,
-                gradeId: "",
-              },
-        );
-      }
-      return freshCells;
-    },
-    [gradesClient, sectionId, evaluations],
-  );
+  // Invalidates the listGradesForSection cache entry so TanStack Query
+  // triggers a background re-fetch. Rows update automatically via the
+  // query subscription — no imperative client or local state merge.
+  const refetchGrades = (): Promise<void> =>
+    queryClient.invalidateQueries({
+      queryKey: createConnectQueryKey({
+        schema: GradesService.method.listGradesForSection,
+        input: { sectionId, pageSize: GRADES_PAGE_SIZE, pageToken: "" },
+        cardinality: "finite",
+      }),
+    });
 
   return {
     evaluations,
     rows,
     isLoading,
     isError,
-    mergeRowGrades,
+    refetchGrades,
   };
 }
