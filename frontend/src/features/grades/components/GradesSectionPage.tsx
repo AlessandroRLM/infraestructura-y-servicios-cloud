@@ -45,7 +45,13 @@ export function GradesSectionPage({
     stateSection ?? sections.find((s) => s.id === sectionId) ?? null;
 
   if (stateSection) {
-    return <GradeRecordingGrid section={stateSection} onBack={onBack} />;
+    return (
+      <GradeRecordingGrid
+        key={stateSection.id}
+        section={stateSection}
+        onBack={onBack}
+      />
+    );
   }
 
   if (isLoading) {
@@ -79,7 +85,13 @@ export function GradesSectionPage({
     );
   }
 
-  return <GradeRecordingGrid section={resolvedSection} onBack={onBack} />;
+  return (
+    <GradeRecordingGrid
+      key={resolvedSection.id}
+      section={resolvedSection}
+      onBack={onBack}
+    />
+  );
 }
 
 /**

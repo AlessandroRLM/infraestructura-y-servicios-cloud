@@ -1,5 +1,5 @@
 import { RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -13,7 +13,7 @@ import { hasPermission, useSession } from "@/features/auth";
 import type { TeachingSection } from "@/gen/catalog/v1/catalog_pb";
 import { useOverrideGrade } from "../hooks/useOverrideGrade";
 import { useRecordGrade } from "../hooks/useRecordGrade";
-import type { CellVM } from "../hooks/useSectionGrid";
+import type { CellVM, RowVM } from "../hooks/useSectionGrid";
 import { useSectionGrid } from "../hooks/useSectionGrid";
 import { AdminSchemeButton } from "./AdminSchemeButton";
 import { GradeRow } from "./GradeRow";
@@ -26,11 +26,33 @@ interface GradeRecordingGridProps {
 }
 
 /**
+ * Merges session-level saved overrides into the server rows.
+ * Override cells (from successful saves in this session) take precedence over
+ * the server value so background refetches do not clobber saved grades.
+ */
+function mergeRowsWithOverrides(
+  rows: RowVM[],
+  overrides: Map<string, Map<string, CellVM>>,
+): RowVM[] {
+  if (overrides.size === 0) return rows;
+  return rows.map((row) => {
+    const rowOverrides = overrides.get(row.sectionEnrollmentId);
+    if (!rowOverrides || rowOverrides.size === 0) return row;
+    const mergedCells = new Map(row.cells);
+    for (const [evalId, cell] of rowOverrides) {
+      mergedCells.set(evalId, cell);
+    }
+    return { ...row, cells: mergedCells };
+  });
+}
+
+/**
  * Orchestrator component for the grade recording grid.
  *
  * Manages:
  * - Composing useSectionGrid (roster × evaluations × grades × display names)
- * - Local mutable copy of cells (so row updates don't require a full refetch)
+ * - Session-level overrides: cells saved this session are stored in `overrides`
+ *   and merged over server rows via useMemo — background refetches never clobber edits.
  * - Write dispatch: grades.override → OverrideGrade, else → RecordGrade
  * - Empty states: no scheme, no enrolled students
  * - Admin "Administrar Notas" button in the top-right (grades.override only)
@@ -48,21 +70,18 @@ export function GradeRecordingGrid({
   const { record } = useRecordGrade();
   const { override } = useOverrideGrade();
 
-  // Local mutable cells state (seeded from rows, re-initialized when section or loaded rows change).
-  const [localCells, setLocalCells] = useState<
-    Map<string, Map<string, CellVM>>
-  >(new Map());
+  // Session-level saved overrides: seId → (evalId → CellVM).
+  // Saved cells are stored here so background refetches of `rows` do not
+  // clobber values already committed this session.
+  const [overrides, setOverrides] = useState<Map<string, Map<string, CellVM>>>(
+    new Map(),
+  );
 
-  // Re-seed localCells whenever the loaded rows change (which happens on section switch too,
-  // since each section has its own query key and returns a distinct rows identity).
-  useEffect(() => {
-    if (isLoading || isError || rows.length === 0) return;
-    const m = new Map<string, Map<string, CellVM>>();
-    for (const row of rows) {
-      m.set(row.sectionEnrollmentId, new Map(row.cells));
-    }
-    setLocalCells(m);
-  }, [rows, isLoading, isError]);
+  // Merge overrides into server rows — override wins on value + version.
+  const displayRows = useMemo(
+    () => mergeRowsWithOverrides(rows, overrides),
+    [rows, overrides],
+  );
 
   const handleSaveCell = useCallback(
     async (params: {
@@ -84,20 +103,32 @@ export function GradeRecordingGrid({
             value: params.value,
             expectedVersion: params.expectedVersion,
           });
-      return { id: grade.id, version: grade.version, value: grade.value };
-    },
-    [isAdmin, override, record],
-  );
 
-  const handleCellsUpdated = useCallback(
-    (sectionEnrollmentId: string, updatedCells: Map<string, CellVM>) => {
-      setLocalCells((prev) => {
+      const saved = {
+        id: grade.id,
+        version: grade.version,
+        value: grade.value,
+      };
+
+      // Record the saved cell in overrides so it survives background refetches.
+      setOverrides((prev) => {
         const next = new Map(prev);
-        next.set(sectionEnrollmentId, updatedCells);
+        const rowOverrides = new Map(
+          next.get(params.sectionEnrollmentId) ?? [],
+        );
+        rowOverrides.set(params.evaluationId, {
+          evaluationId: params.evaluationId,
+          value: saved.value,
+          version: saved.version,
+          gradeId: saved.id,
+        });
+        next.set(params.sectionEnrollmentId, rowOverrides);
         return next;
       });
+
+      return saved;
     },
-    [],
+    [isAdmin, override, record],
   );
 
   const handleConflictRefetch = useCallback(
@@ -211,24 +242,19 @@ export function GradeRecordingGrid({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => {
-                const rowCells =
-                  localCells.get(row.sectionEnrollmentId) ?? row.cells;
-                return (
-                  <GradeRow
-                    key={row.sectionEnrollmentId}
-                    sectionEnrollmentId={row.sectionEnrollmentId}
-                    studentId={row.studentId}
-                    displayName={row.displayName}
-                    status={row.status}
-                    evaluations={evaluations}
-                    cells={rowCells}
-                    onSaveCell={handleSaveCell}
-                    onConflictRefetch={handleConflictRefetch}
-                    onCellsUpdated={handleCellsUpdated}
-                  />
-                );
-              })}
+              {displayRows.map((row) => (
+                <GradeRow
+                  key={row.sectionEnrollmentId}
+                  sectionEnrollmentId={row.sectionEnrollmentId}
+                  studentId={row.studentId}
+                  displayName={row.displayName}
+                  status={row.status}
+                  evaluations={evaluations}
+                  cells={row.cells}
+                  onSaveCell={handleSaveCell}
+                  onConflictRefetch={handleConflictRefetch}
+                />
+              ))}
             </TableBody>
           </Table>
         </div>

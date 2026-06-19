@@ -1,5 +1,5 @@
 import { RefreshCw, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import type { CellVM } from "../hooks/useSectionGrid";
 import { mapGradeWriteError } from "./errorMapping";
 
 /** Per-cell save status within a row. */
-type CellSaveStatus = "idle" | "saved" | "failed" | "conflict";
+type CellSaveStatus = "idle" | "saved" | "failed";
 
 interface GradeRowProps {
   sectionEnrollmentId: string;
@@ -21,7 +21,7 @@ interface GradeRowProps {
   status: string;
   /** Ordered evaluations (columns). */
   evaluations: Evaluation[];
-  /** Current cell values for this row. */
+  /** Current cell values for this row (from displayRows — includes session overrides). */
   cells: Map<string, CellVM>;
   /**
    * Issues a write call for a single cell.
@@ -41,14 +41,6 @@ interface GradeRowProps {
   onConflictRefetch: (
     sectionEnrollmentId: string,
   ) => Promise<Map<string, CellVM>>;
-  /**
-   * Called when cells in this row are successfully saved or conflict-merged,
-   * so the parent VM can be updated.
-   */
-  onCellsUpdated: (
-    sectionEnrollmentId: string,
-    updatedCells: Map<string, CellVM>,
-  ) => void;
 }
 
 /**
@@ -57,10 +49,13 @@ interface GradeRowProps {
  * Behaviour:
  * - Withdrawn rows: grade inputs are disabled, Guardar is hidden.
  * - Per-row save: "Guardar" fans out one write per edited cell via Promise.allSettled.
- * - Partial failure: failed/conflict cells stay editable; succeeded cells commit new version.
- * - Conflict (CodeAborted): triggers row-scoped refetch + merge + inline message.
+ * - Partial failure: failed cells stay editable; succeeded cells commit new version.
+ * - Conflict (CodeAborted): triggers row-scoped refetch + merge; cell resets to idle
+ *   showing the refreshed server value; conflict message shown transiently.
  * - "Reintentar" retries only non-succeeded cells.
  * - Validation (Zod): on blur, rejects out-of-range or multi-decimal values.
+ * - drafts is a SPARSE overlay: only cells the user has actively edited are present.
+ *   The displayed value derives as: draft (if present) else server value from cells prop.
  */
 export function GradeRow({
   sectionEnrollmentId,
@@ -70,36 +65,23 @@ export function GradeRow({
   cells,
   onSaveCell,
   onConflictRefetch,
-  onCellsUpdated,
 }: GradeRowProps) {
   const isWithdrawn = status === "withdrawn";
 
-  // Local draft values: evaluationId → string input value
-  const [drafts, setDrafts] = useState<Map<string, string>>(() => {
-    const m = new Map<string, string>();
-    for (const ev of evaluations) {
-      m.set(ev.id, cells.get(ev.id)?.value ?? "");
-    }
-    return m;
-  });
+  // Sparse draft overlay: only contains evaluationIds the user has actively typed into.
+  const [drafts, setDrafts] = useState<Map<string, string>>(new Map());
 
   // Per-cell validation errors
   const [validationErrors, setValidationErrors] = useState<Map<string, string>>(
     new Map(),
   );
 
-  // Per-cell save status
+  // Per-cell save status — "conflict" removed: conflicts reset cells to idle immediately
   const [cellStatuses, setCellStatuses] = useState<Map<string, CellSaveStatus>>(
-    () => {
-      const m = new Map<string, CellSaveStatus>();
-      for (const ev of evaluations) {
-        m.set(ev.id, "idle");
-      }
-      return m;
-    },
+    new Map(),
   );
 
-  // Row-level conflict message (shown after CodeAborted)
+  // Row-level conflict message (shown after CodeAborted, cleared on next save)
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
 
   // True while the row save (or retry) is in flight
@@ -108,37 +90,12 @@ export function GradeRow({
   // Track which cells have succeeded (so retry skips them)
   const [succeededCells, setSucceededCells] = useState<Set<string>>(new Set());
 
-  // When the parent updates `cells` after a conflict refetch, re-sync drafts for any cell
-  // whose status is "conflict" to the fresh server value. Cells that are idle, saved, or
-  // in-progress (being actively edited) are left untouched so in-progress edits are not
-  // clobbered. This effect runs ONLY when `cells` identity changes (parent merge completed).
-  useEffect(() => {
-    setCellStatuses((prevStatuses) => {
-      const hasConflict = Array.from(prevStatuses.values()).some(
-        (s) => s === "conflict",
-      );
-      if (!hasConflict) return prevStatuses;
-      setDrafts((prevDrafts) => {
-        const nextDrafts = new Map(prevDrafts);
-        for (const [evId, status] of prevStatuses) {
-          if (status === "conflict") {
-            const freshValue = cells.get(evId)?.value ?? "";
-            nextDrafts.set(evId, freshValue);
-          }
-        }
-        return nextDrafts;
-      });
-      return prevStatuses;
-    });
-  }, [cells]);
-
   const hasValidationErrors =
     validationErrors.size > 0 &&
     Array.from(validationErrors.values()).some((e) => e !== "");
 
   const handleBlur = (evaluationId: string, value: string) => {
     if (value === "") {
-      // Empty is allowed (no grade yet)
       setValidationErrors((prev) => {
         const next = new Map(prev);
         next.delete(evaluationId);
@@ -162,7 +119,6 @@ export function GradeRow({
 
   const handleChange = (evaluationId: string, value: string) => {
     setDrafts((prev) => new Map(prev).set(evaluationId, value));
-    // Clear the cell's status and error when the user edits it
     setCellStatuses((prev) => new Map(prev).set(evaluationId, "idle"));
     setValidationErrors((prev) => {
       const next = new Map(prev);
@@ -173,9 +129,8 @@ export function GradeRow({
 
   /**
    * Determines which cells need to be saved in a given pass.
-   * In the initial save, all cells with non-empty drafts that differ from the current
-   * server value and that haven't already succeeded.
-   * In retry, only non-succeeded cells that have a non-empty draft.
+   * Skips: already succeeded, empty draft, invalid draft.
+   * Uses the sparse draft overlay — cells without a draft entry are not pending.
    */
   const getPendingCells = (
     skipSucceeded: Set<string>,
@@ -193,10 +148,10 @@ export function GradeRow({
     for (const ev of evaluations) {
       if (skipSucceeded.has(ev.id)) continue;
 
-      const draft = drafts.get(ev.id) ?? "";
-      if (draft === "") continue;
+      const draft = drafts.get(ev.id);
+      // No draft entry means the user hasn't touched this cell — skip it
+      if (draft === undefined || draft === "") continue;
 
-      // Validate before including
       const parseResult = gradeValueSchema.safeParse(draft);
       if (!parseResult.success) continue;
 
@@ -233,7 +188,7 @@ export function GradeRow({
 
     const newSucceeded = new Set(skipSucceeded);
     const newCellStatuses = new Map(cellStatuses);
-    const updatedCells = new Map(cells);
+    const newDrafts = new Map(drafts);
     let hadConflict = false;
 
     for (let i = 0; i < results.length; i++) {
@@ -243,18 +198,16 @@ export function GradeRow({
       if (result.status === "fulfilled") {
         newSucceeded.add(cell.evaluationId);
         newCellStatuses.set(cell.evaluationId, "saved");
-        // Commit the new version into the cells map
-        updatedCells.set(cell.evaluationId, {
-          evaluationId: cell.evaluationId,
-          value: result.value.value,
-          version: result.value.version,
-          gradeId: result.value.id,
-        });
+        // Remove draft: input falls back to the server value (provided by onSaveCell
+        // updating the parent's overrides, which flows back via cells prop)
+        newDrafts.delete(cell.evaluationId);
       } else {
         const kind = mapGradeWriteError(result.reason);
         if (kind === "conflict") {
           hadConflict = true;
-          newCellStatuses.set(cell.evaluationId, "conflict");
+          // Conflict: reset to idle immediately — do NOT leave cell stuck in red
+          newCellStatuses.set(cell.evaluationId, "idle");
+          newDrafts.delete(cell.evaluationId);
         } else {
           newCellStatuses.set(cell.evaluationId, "failed");
         }
@@ -263,26 +216,20 @@ export function GradeRow({
 
     setSucceededCells(newSucceeded);
     setCellStatuses(newCellStatuses);
+    setDrafts(newDrafts);
 
     if (hadConflict) {
       setConflictMessage(
-        "Otro usuario modificó esta nota. Recarga para ver el valor actualizado.",
+        "Otro usuario modificó esta nota. Se muestra el valor actualizado.",
       );
-      // Row-scoped refetch: merge fresh versions for ALL cells in this row
+      // Row-scoped refetch: merge fresh versions for ALL cells in this row into query cache
       try {
-        const freshCells = await onConflictRefetch(sectionEnrollmentId);
-        // Merge: keep succeeded cell data (already committed), update others
-        for (const [evId, freshCell] of freshCells) {
-          if (!newSucceeded.has(evId)) {
-            updatedCells.set(evId, freshCell);
-          }
-        }
+        await onConflictRefetch(sectionEnrollmentId);
       } catch {
-        // Refetch failed; the conflict message is already showing
+        // Refetch failed; conflict message is already showing
       }
     }
 
-    onCellsUpdated(sectionEnrollmentId, updatedCells);
     setIsSaving(false);
   };
 
@@ -297,12 +244,12 @@ export function GradeRow({
   };
 
   const hasFailedCells = Array.from(cellStatuses.values()).some(
-    (s) => s === "failed" || s === "conflict",
+    (s) => s === "failed",
   );
 
   const hasPendingCells = evaluations.some((ev) => {
-    const draft = drafts.get(ev.id) ?? "";
-    return draft !== "" && !succeededCells.has(ev.id);
+    const draft = drafts.get(ev.id);
+    return draft !== undefined && draft !== "" && !succeededCells.has(ev.id);
   });
 
   return (
@@ -319,7 +266,10 @@ export function GradeRow({
       </TableCell>
 
       {evaluations.map((ev) => {
-        const draft = drafts.get(ev.id) ?? "";
+        // Derive displayed value: draft wins if present, else server value
+        const displayValue = drafts.has(ev.id)
+          ? (drafts.get(ev.id) ?? "")
+          : (cells.get(ev.id)?.value ?? "");
         const validationError = validationErrors.get(ev.id);
         const cellStatus = cellStatuses.get(ev.id) ?? "idle";
 
@@ -329,7 +279,7 @@ export function GradeRow({
               <Input
                 type="text"
                 inputMode="decimal"
-                value={draft}
+                value={displayValue}
                 disabled={isWithdrawn || isSaving}
                 onChange={(e) => handleChange(ev.id, e.target.value)}
                 onBlur={(e) => handleBlur(ev.id, e.target.value)}
@@ -337,8 +287,7 @@ export function GradeRow({
                   "h-8 w-20 text-sm",
                   validationError && "border-destructive",
                   cellStatus === "saved" && "border-green-500",
-                  (cellStatus === "failed" || cellStatus === "conflict") &&
-                    "border-destructive",
+                  cellStatus === "failed" && "border-destructive",
                 )}
                 aria-label={`Nota para evaluación ${ev.position}`}
                 aria-invalid={!!validationError}
@@ -351,10 +300,9 @@ export function GradeRow({
                 {!validationError && cellStatus === "saved" && (
                   <span className="text-green-600">Guardado</span>
                 )}
-                {!validationError &&
-                  (cellStatus === "failed" || cellStatus === "conflict") && (
-                    <span className="text-destructive">Error</span>
-                  )}
+                {!validationError && cellStatus === "failed" && (
+                  <span className="text-destructive">Error</span>
+                )}
               </div>
             </div>
           </TableCell>
