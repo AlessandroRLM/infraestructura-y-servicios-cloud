@@ -1,5 +1,5 @@
 import { RefreshCw, Save } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,6 +107,30 @@ export function GradeRow({
 
   // Track which cells have succeeded (so retry skips them)
   const [succeededCells, setSucceededCells] = useState<Set<string>>(new Set());
+
+  // When the parent updates `cells` after a conflict refetch, re-sync drafts for any cell
+  // whose status is "conflict" to the fresh server value. Cells that are idle, saved, or
+  // in-progress (being actively edited) are left untouched so in-progress edits are not
+  // clobbered. This effect runs ONLY when `cells` identity changes (parent merge completed).
+  useEffect(() => {
+    setCellStatuses((prevStatuses) => {
+      const hasConflict = Array.from(prevStatuses.values()).some(
+        (s) => s === "conflict",
+      );
+      if (!hasConflict) return prevStatuses;
+      setDrafts((prevDrafts) => {
+        const nextDrafts = new Map(prevDrafts);
+        for (const [evId, status] of prevStatuses) {
+          if (status === "conflict") {
+            const freshValue = cells.get(evId)?.value ?? "";
+            nextDrafts.set(evId, freshValue);
+          }
+        }
+        return nextDrafts;
+      });
+      return prevStatuses;
+    });
+  }, [cells]);
 
   const hasValidationErrors =
     validationErrors.size > 0 &&
@@ -242,7 +266,7 @@ export function GradeRow({
 
     if (hadConflict) {
       setConflictMessage(
-        "Otro usuario modificó esta nota. Recargá para ver el valor actualizado.",
+        "Otro usuario modificó esta nota. Recarga para ver el valor actualizado.",
       );
       // Row-scoped refetch: merge fresh versions for ALL cells in this row
       try {

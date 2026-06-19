@@ -22,7 +22,7 @@ export type GradeWriteErrorKind = "conflict" | "generic";
  *
  * - CodeAborted (stale expected_version) → "conflict"
  *   Caller triggers row-scoped refetch and surfaces:
- *   "Otro usuario modificó esta nota. Recargá para ver el valor actualizado."
+ *   "Otro usuario modificó esta nota. Recarga para ver el valor actualizado."
  * - Anything else → "generic"
  *   Caller shows per-cell inline error.
  *
