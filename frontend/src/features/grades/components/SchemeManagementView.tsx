@@ -12,6 +12,16 @@ import { CurrentSchemeDisplay } from "./CurrentSchemeDisplay";
 import { EvaluationSchemeForm, type InitialRow } from "./EvaluationSchemeForm";
 import { mapSchemeError, type SchemeErrorKind } from "./errorMapping";
 
+interface SchemeManagementViewProps {
+  /**
+   * Course ID to pre-select when the view mounts.
+   * When provided, the CourseSchemePicker opens pre-filled and useEvaluations
+   * fires immediately for that course — no user interaction needed to see the
+   * current scheme.
+   */
+  initialCourseId?: string;
+}
+
 /**
  * Container for the admin evaluation-scheme management UI.
  *
@@ -23,8 +33,10 @@ import { mapSchemeError, type SchemeErrorKind } from "./errorMapping";
  * - useCreateEvaluationScheme / useRecreateEvaluationScheme: mutations
  * - mapSchemeError: maps RPC errors to user-facing messages
  */
-export function SchemeManagementView() {
-  const [courseId, setCourseId] = useState("");
+export function SchemeManagementView({
+  initialCourseId = "",
+}: SchemeManagementViewProps) {
+  const [courseId, setCourseId] = useState(initialCourseId);
   const [showForm, setShowForm] = useState(false);
   const [submitError, setSubmitError] = useState<SchemeErrorKind | null>(null);
   // Snapshotted at form-open time so a background refetch cannot flip create↔recreate

@@ -73,13 +73,17 @@ function makeEvaluations() {
 function renderView(
   gradesImpl: GradesImpl,
   catalogImpl: CatalogImpl = defaultCatalogImpl,
+  initialCourseId?: string,
 ) {
-  return renderComponent(<SchemeManagementView />, {
-    transport: makeStubTransport(
-      [GradesService, gradesImpl],
-      [CatalogService, catalogImpl],
-    ),
-  });
+  return renderComponent(
+    <SchemeManagementView initialCourseId={initialCourseId} />,
+    {
+      transport: makeStubTransport(
+        [GradesService, gradesImpl],
+        [CatalogService, catalogImpl],
+      ),
+    },
+  );
 }
 
 /** Opens the course picker popover and selects the stub course (MAT101). */
@@ -502,6 +506,59 @@ describe("SchemeManagementView — generic error handling", () => {
         "No se pudo guardar el esquema. Inténtalo de nuevo.",
       );
     });
+  });
+});
+
+// ──────────────────────────────────────────────
+// Change 2: initialCourseId pre-scope
+// ──────────────────────────────────────────────
+
+describe("SchemeManagementView — initialCourseId pre-scope (Change 2)", () => {
+  it("fires useEvaluations immediately when initialCourseId is provided", async () => {
+    // When initialCourseId is set, the scheme section must render without any
+    // user interaction — useEvaluations fires on mount for the preset id.
+    renderView(
+      {
+        listEvaluations: async () =>
+          create(ListEvaluationsResponseSchema, { evaluations: [] }),
+      },
+      defaultCatalogImpl,
+      "course-1",
+    );
+
+    // The empty-scheme message must appear without selecting a course manually.
+    await screen.findByText(/este curso no tiene un esquema/i);
+  });
+
+  it("renders the existing scheme immediately when initialCourseId has evaluations", async () => {
+    renderView(
+      {
+        listEvaluations: async () =>
+          create(ListEvaluationsResponseSchema, {
+            evaluations: makeEvaluations(),
+          }),
+      },
+      defaultCatalogImpl,
+      "course-1",
+    );
+
+    // Evaluation rows must load without the user picking a course.
+    await screen.findByText("Evaluación 1");
+    expect(screen.getByText("Evaluación 2")).toBeInTheDocument();
+    expect(screen.getByText("Evaluación 3")).toBeInTheDocument();
+  });
+
+  it("renders blank picker (no pre-scope) when initialCourseId is omitted", () => {
+    // Default behaviour unchanged: no scheme section before a course is selected.
+    renderView({
+      listEvaluations: async () =>
+        create(ListEvaluationsResponseSchema, { evaluations: [] }),
+    });
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/este curso no tiene un esquema/i),
+    ).not.toBeInTheDocument();
   });
 });
 

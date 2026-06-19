@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { SchemeManagementView } from "./SchemeManagementView";
 
 interface AdminSchemeButtonProps {
-  /** Course ID pre-selected when the dialog opens. Reserved for future use. */
+  /** Course ID forwarded to SchemeManagementView as initialCourseId. */
   courseId: string;
   /** Button variant; defaults to "default". */
   variant?: "default" | "outline" | "ghost";
@@ -16,11 +16,14 @@ interface AdminSchemeButtonProps {
  * Rendered inside GradeRecordingGrid top-right for users with grades.override.
  * Also rendered in the empty-scheme state as a secondary call-to-action.
  *
+ * Forwards courseId as initialCourseId so the picker opens pre-scoped to the
+ * section's course — no redundant search needed.
+ *
  * The button is never rendered for non-admin users — the caller is responsible
  * for the grades.override gate.
  */
 export function AdminSchemeButton({
-  courseId: _courseId,
+  courseId,
   variant = "default",
 }: AdminSchemeButtonProps) {
   const [open, setOpen] = useState(false);
@@ -42,7 +45,7 @@ export function AdminSchemeButton({
           <DialogTitle className="sr-only">
             Administrar esquema de evaluación
           </DialogTitle>
-          <SchemeManagementView />
+          <SchemeManagementView initialCourseId={courseId} />
         </DialogContent>
       </Dialog>
     </>
