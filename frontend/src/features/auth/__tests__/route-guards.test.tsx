@@ -131,7 +131,6 @@ describe("R-10 — old flat paths yield 404 after route deletion", () => {
     "/grades",
     "/reports",
     "/users",
-    "/access-control",
   ];
 
   it.each(oldFlatPaths)("%s renders the 404 not-found route", async (route) => {
@@ -150,14 +149,11 @@ describe("R-10 — old flat paths yield 404 after route deletion", () => {
 // session holds the route's permission (resolved via the new prefixed key).
 describe("nav link visibility derives from ROUTE_PERMISSIONS", () => {
   it("shows a guarded link when the session holds the permission", async () => {
-    // Navigate directly to an admin area route the session can access so the
-    // admin sidebar renders. /admin/users requires users.manage.
-    // /forbidden no longer renders inside an area shell (no sidebar), so we
-    // use a real area route to get AppSidebar.
-    // /admin/access-control page does not call Route.useSearch() so it renders
-    // without the flat-route coupling issue. The admin sidebar is always present.
+    // Navigate to /admin/users (requires users.manage) so the admin area guard
+    // passes and the admin sidebar renders. /forbidden does not render inside
+    // an area shell (no sidebar), so a real area route is needed to get AppSidebar.
     renderWithProviders({
-      route: "/admin/access-control",
+      route: "/admin/users",
       session: authenticated(["users.manage"]),
     });
 

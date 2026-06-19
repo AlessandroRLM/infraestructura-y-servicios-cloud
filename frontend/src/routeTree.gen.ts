@@ -26,7 +26,6 @@ import { Route as AuthenticatedAdminSectionEnrollmentsRouteImport } from './rout
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin/reports'
 import { Route as AuthenticatedAdminGradesRouteImport } from './routes/_authenticated/admin/grades'
 import { Route as AuthenticatedAdminEnrollmentsRouteImport } from './routes/_authenticated/admin/enrollments'
-import { Route as AuthenticatedAdminAccessControlRouteImport } from './routes/_authenticated/admin/access-control'
 import { Route as AuthenticatedAdminAcademicsRouteImport } from './routes/_authenticated/admin/academics'
 
 const LoginRoute = LoginRouteImport.update({
@@ -118,12 +117,6 @@ const AuthenticatedAdminEnrollmentsRoute =
     path: '/enrollments',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
-const AuthenticatedAdminAccessControlRoute =
-  AuthenticatedAdminAccessControlRouteImport.update({
-    id: '/access-control',
-    path: '/access-control',
-    getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
 const AuthenticatedAdminAcademicsRoute =
   AuthenticatedAdminAcademicsRouteImport.update({
     id: '/academics',
@@ -140,7 +133,6 @@ export interface FileRoutesByFullPath {
   '/forbidden': typeof AuthenticatedForbiddenRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/admin/academics': typeof AuthenticatedAdminAcademicsRoute
-  '/admin/access-control': typeof AuthenticatedAdminAccessControlRoute
   '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/admin/grades': typeof AuthenticatedAdminGradesRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
@@ -158,7 +150,6 @@ export interface FileRoutesByTo {
   '/profile': typeof AuthenticatedProfileRoute
   '/': typeof AuthenticatedIndexRoute
   '/admin/academics': typeof AuthenticatedAdminAcademicsRoute
-  '/admin/access-control': typeof AuthenticatedAdminAccessControlRoute
   '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/admin/grades': typeof AuthenticatedAdminGradesRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
@@ -180,7 +171,6 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/academics': typeof AuthenticatedAdminAcademicsRoute
-  '/_authenticated/admin/access-control': typeof AuthenticatedAdminAccessControlRoute
   '/_authenticated/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/_authenticated/admin/grades': typeof AuthenticatedAdminGradesRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
@@ -202,7 +192,6 @@ export interface FileRouteTypes {
     | '/forbidden'
     | '/profile'
     | '/admin/academics'
-    | '/admin/access-control'
     | '/admin/enrollments'
     | '/admin/grades'
     | '/admin/reports'
@@ -220,7 +209,6 @@ export interface FileRouteTypes {
     | '/profile'
     | '/'
     | '/admin/academics'
-    | '/admin/access-control'
     | '/admin/enrollments'
     | '/admin/grades'
     | '/admin/reports'
@@ -241,7 +229,6 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/_authenticated/'
     | '/_authenticated/admin/academics'
-    | '/_authenticated/admin/access-control'
     | '/_authenticated/admin/enrollments'
     | '/_authenticated/admin/grades'
     | '/_authenticated/admin/reports'
@@ -379,13 +366,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminEnrollmentsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
-    '/_authenticated/admin/access-control': {
-      id: '/_authenticated/admin/access-control'
-      path: '/access-control'
-      fullPath: '/admin/access-control'
-      preLoaderRoute: typeof AuthenticatedAdminAccessControlRouteImport
-      parentRoute: typeof AuthenticatedAdminRouteRoute
-    }
     '/_authenticated/admin/academics': {
       id: '/_authenticated/admin/academics'
       path: '/academics'
@@ -398,7 +378,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminAcademicsRoute: typeof AuthenticatedAdminAcademicsRoute
-  AuthenticatedAdminAccessControlRoute: typeof AuthenticatedAdminAccessControlRoute
   AuthenticatedAdminEnrollmentsRoute: typeof AuthenticatedAdminEnrollmentsRoute
   AuthenticatedAdminGradesRoute: typeof AuthenticatedAdminGradesRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
@@ -410,7 +389,6 @@ interface AuthenticatedAdminRouteRouteChildren {
 const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren =
   {
     AuthenticatedAdminAcademicsRoute: AuthenticatedAdminAcademicsRoute,
-    AuthenticatedAdminAccessControlRoute: AuthenticatedAdminAccessControlRoute,
     AuthenticatedAdminEnrollmentsRoute: AuthenticatedAdminEnrollmentsRoute,
     AuthenticatedAdminGradesRoute: AuthenticatedAdminGradesRoute,
     AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
