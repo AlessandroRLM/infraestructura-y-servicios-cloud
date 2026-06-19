@@ -6,7 +6,6 @@ import {
   GraduationCap,
   ListChecks,
   PenLine,
-  ShieldCheck,
   Users,
 } from "lucide-react";
 import {
@@ -50,7 +49,17 @@ export const ADMIN_NAV = [
   {
     label: "Reportes",
     icon: ChartColumn,
-    options: linkOptions({ to: "/admin/reports" }),
+    options: linkOptions({
+      to: "/admin/reports",
+      search: {
+        tab: "section-grade",
+        sectionId: "",
+        periodId: "",
+        programId: "",
+        studentId: "",
+        year: undefined,
+      },
+    }),
   },
   {
     label: "Usuarios",
@@ -59,11 +68,6 @@ export const ADMIN_NAV = [
       to: "/admin/users",
       search: { q: "", pageSize: 20 },
     }),
-  },
-  {
-    label: "Control de acceso",
-    icon: ShieldCheck,
-    options: linkOptions({ to: "/admin/access-control" }),
   },
 ] as const;
 
