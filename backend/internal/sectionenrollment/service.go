@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pagination"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
@@ -235,16 +236,21 @@ func (s *Service) ListSectionEnrollments(ctx context.Context, f ListSectionEnrol
 }
 
 // ListSectionRosterForTeacher returns a paginated roster of students enrolled in the
-// requested section, scoped to sections the authenticated user teaches. The caller's
-// teacher identity is derived exclusively from the session context (no teacher_id in request).
+// requested section. When the caller holds enrollment.manage, the full roster is returned
+// without any section_teachers scope guard (admin bypass). Otherwise the roster is scoped
+// to sections the authenticated user teaches.
 //
-// If the caller is not a teacher of the requested section, the repository EXISTS guard
-// produces an empty result — existence of the section is never disclosed (anti-leak).
+// The entry gate (section_enrollment.view_teaching) is UNCHANGED — this internal
+// discriminator must never swap or replace that gate.
+//
+// If the caller is not a teacher of the requested section (teacher path), the repository
+// EXISTS guard produces an empty result — existence of the section is never disclosed
+// (anti-leak: no error, no PermissionDenied).
 //
 // section_id must be a valid UUID string; returns ErrInvalidInput if malformed.
 // pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
 func (s *Service) ListSectionRosterForTeacher(ctx context.Context, sectionIDStr string, pageSize int32, pageToken string) (ListSectionRosterForTeacherResult, error) {
-	callerID, ok := auth.UserIDFromContext(ctx)
+	_, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		// Defensive guard — unreachable behind the auth interceptor in normal operation.
 		return ListSectionRosterForTeacherResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
@@ -266,9 +272,42 @@ func (s *Service) ListSectionRosterForTeacher(ctx context.Context, sectionIDStr 
 		tokenUUID = &id
 	}
 
+	if callerIsEnrollmentAdmin(ctx) {
+		return s.listRosterAll(ctx, sectionID, tokenUUID, clamped)
+	}
+
+	// Teacher-scoped path: requires caller ID for the EXISTS guard.
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return ListSectionRosterForTeacherResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
+	}
+
 	rows, err := s.repo.ListSectionRosterForTeacher(ctx, ListSectionRosterForTeacherRepoParams{
 		SectionID: sectionID,
 		TeacherID: callerID,
+		PageToken: tokenUUID,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListSectionRosterForTeacherResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r sectionenrollmentdb.ListSectionRosterForTeacherRow) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListSectionRosterForTeacherResult{
+		Rows:          page.Items,
+		NextPageToken: nextToken,
+	}, nil
+}
+
+// listRosterAll executes the admin bypass path for ListSectionRosterForTeacher. It returns
+// all enrollments for the section without the section_teachers EXISTS guard.
+func (s *Service) listRosterAll(ctx context.Context, sectionID uuid.UUID, tokenUUID *uuid.UUID, clamped int) (ListSectionRosterForTeacherResult, error) {
+	rows, err := s.repo.ListSectionRosterForTeacherAll(ctx, ListSectionRosterForTeacherAllRepoParams{
+		SectionID: sectionID,
 		PageToken: tokenUUID,
 		RowLimit:  int32(clamped + 1),
 	})
@@ -296,6 +335,17 @@ func (s *Service) SetSectionEnrollmentOutcomeTx(ctx context.Context, tx pgx.Tx, 
 }
 
 // --- Helpers ---
+
+// callerIsEnrollmentAdmin returns true when the caller holds enrollment.manage.
+// This is the internal discriminator for ListSectionRosterForTeacher: it must never be
+// swapped with or used to replace the entry gate (section_enrollment.view_teaching).
+func callerIsEnrollmentAdmin(ctx context.Context) bool {
+	perms, ok := authz.PermissionsFromContext(ctx)
+	if !ok {
+		return false
+	}
+	return perms.Has(authz.PermEnrollmentManage)
+}
 
 // parseServiceUUID parses a string UUID and returns ErrInvalidInput on failure.
 func parseServiceUUID(s string) (uuid.UUID, error) {
