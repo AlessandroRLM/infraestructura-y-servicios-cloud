@@ -14,12 +14,23 @@ import { mapSchemeError, type SchemeErrorKind } from "./errorMapping";
 
 interface SchemeManagementViewProps {
   /**
-   * Course ID to pre-select when the view mounts.
-   * When provided, the CourseSchemePicker opens pre-filled and useEvaluations
-   * fires immediately for that course — no user interaction needed to see the
-   * current scheme.
+   * Course ID to lock the view to when the view mounts inside a known context
+   * (e.g. opened from AdminSchemeButton for a specific section).
+   *
+   * When provided (non-empty), the CourseSchemePicker is hidden and replaced by
+   * a read-only label showing `initialCourseLabel`. The course is locked — the
+   * user cannot search for or switch to another course.
+   *
+   * When omitted or empty, the full CourseSchemePicker is rendered and the user
+   * can search for any course.
    */
   initialCourseId?: string;
+  /**
+   * Human-readable label for the locked course.
+   * Used only when `initialCourseId` is non-empty.
+   * Example: "MAT101 — Cálculo I"
+   */
+  initialCourseLabel?: string;
 }
 
 /**
@@ -35,7 +46,10 @@ interface SchemeManagementViewProps {
  */
 export function SchemeManagementView({
   initialCourseId = "",
+  initialCourseLabel,
 }: SchemeManagementViewProps) {
+  /** When a course is locked via initialCourseId, the picker is hidden. */
+  const isCourseLocked = initialCourseId !== "";
   const [courseId, setCourseId] = useState(initialCourseId);
   const [showForm, setShowForm] = useState(false);
   const [submitError, setSubmitError] = useState<SchemeErrorKind | null>(null);
@@ -130,7 +144,19 @@ export function SchemeManagementView({
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium">Asignatura</span>
-          <CourseSchemePicker value={courseId} onChange={handleCourseChange} />
+          {isCourseLocked ? (
+            <p
+              className="text-sm text-muted-foreground"
+              aria-label="Asignatura seleccionada"
+            >
+              {initialCourseLabel ?? initialCourseId}
+            </p>
+          ) : (
+            <CourseSchemePicker
+              value={courseId}
+              onChange={handleCourseChange}
+            />
+          )}
         </div>
 
         {/* Scheme section — only shown when a course is selected */}

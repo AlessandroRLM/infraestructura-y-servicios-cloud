@@ -74,9 +74,13 @@ function renderView(
   gradesImpl: GradesImpl,
   catalogImpl: CatalogImpl = defaultCatalogImpl,
   initialCourseId?: string,
+  initialCourseLabel?: string,
 ) {
   return renderComponent(
-    <SchemeManagementView initialCourseId={initialCourseId} />,
+    <SchemeManagementView
+      initialCourseId={initialCourseId}
+      initialCourseLabel={initialCourseLabel}
+    />,
     {
       transport: makeStubTransport(
         [GradesService, gradesImpl],
@@ -559,6 +563,61 @@ describe("SchemeManagementView — initialCourseId pre-scope (Change 2)", () => 
     expect(
       screen.queryByText(/este curso no tiene un esquema/i),
     ).not.toBeInTheDocument();
+  });
+});
+
+// ──────────────────────────────────────────────
+// Lock course label: Change 1 UX fix
+// ──────────────────────────────────────────────
+
+describe("SchemeManagementView — locked course label (Change 1 UX fix)", () => {
+  it("shows the locked course label instead of the picker when initialCourseId is set", () => {
+    renderView(
+      {
+        listEvaluations: async () =>
+          create(ListEvaluationsResponseSchema, { evaluations: [] }),
+      },
+      defaultCatalogImpl,
+      "course-1",
+      "MAT101 — Cálculo I",
+    );
+
+    // The label is shown.
+    expect(screen.getByText("MAT101 — Cálculo I")).toBeInTheDocument();
+
+    // The searchable picker combobox must NOT be present.
+    expect(
+      screen.queryByRole("combobox", { name: /seleccionar asignatura/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("falls back to showing initialCourseId when initialCourseLabel is omitted", () => {
+    renderView(
+      {
+        listEvaluations: async () =>
+          create(ListEvaluationsResponseSchema, { evaluations: [] }),
+      },
+      defaultCatalogImpl,
+      "course-1",
+      // no label — should fall back to the raw ID
+    );
+
+    expect(screen.getByText("course-1")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: /seleccionar asignatura/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("still renders the picker when initialCourseId is empty", () => {
+    renderView({
+      listEvaluations: async () =>
+        create(ListEvaluationsResponseSchema, { evaluations: [] }),
+    });
+
+    // Picker combobox must be present.
+    expect(
+      screen.getByRole("combobox", { name: /seleccionar asignatura/i }),
+    ).toBeInTheDocument();
   });
 });
 

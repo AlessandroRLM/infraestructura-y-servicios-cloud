@@ -7,6 +7,11 @@ import { SchemeManagementView } from "./SchemeManagementView";
 interface AdminSchemeButtonProps {
   /** Course ID forwarded to SchemeManagementView as initialCourseId. */
   courseId: string;
+  /**
+   * Human-readable course label forwarded to SchemeManagementView as initialCourseLabel.
+   * Example: "MAT101 — Cálculo I"
+   */
+  courseLabel?: string;
   /** Button variant; defaults to "default". */
   variant?: "default" | "outline" | "ghost";
 }
@@ -24,6 +29,7 @@ interface AdminSchemeButtonProps {
  */
 export function AdminSchemeButton({
   courseId,
+  courseLabel,
   variant = "default",
 }: AdminSchemeButtonProps) {
   const [open, setOpen] = useState(false);
@@ -45,7 +51,10 @@ export function AdminSchemeButton({
           <DialogTitle className="sr-only">
             Administrar esquema de evaluación
           </DialogTitle>
-          <SchemeManagementView initialCourseId={courseId} />
+          <SchemeManagementView
+            initialCourseId={courseId}
+            initialCourseLabel={courseLabel}
+          />
         </DialogContent>
       </Dialog>
     </>

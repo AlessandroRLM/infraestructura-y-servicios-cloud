@@ -121,7 +121,12 @@ export function GradeRecordingGrid({
             </span>
           </h2>
         </div>
-        {isAdmin && <AdminSchemeButton courseId={section.courseId} />}
+        {isAdmin && (
+          <AdminSchemeButton
+            courseId={section.courseId}
+            courseLabel={`${section.courseCode} — ${section.courseName}`}
+          />
+        )}
       </div>
 
       {/* Loading state */}
@@ -166,7 +171,11 @@ export function GradeRecordingGrid({
             Esta sección no tiene esquema de evaluación.
           </p>
           {isAdmin && (
-            <AdminSchemeButton courseId={section.courseId} variant="outline" />
+            <AdminSchemeButton
+              courseId={section.courseId}
+              courseLabel={`${section.courseCode} — ${section.courseName}`}
+              variant="outline"
+            />
           )}
         </div>
       )}
