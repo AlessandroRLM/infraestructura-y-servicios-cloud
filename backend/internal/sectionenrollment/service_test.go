@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/sectionenrollment/sectionenrollmentdb"
 )
 
@@ -84,6 +85,10 @@ func (f *fakeRepository) SetSectionEnrollmentOutcomeTx(_ context.Context, _ pgx.
 func (f *fakeRepository) ListSectionRosterForTeacher(_ context.Context, p ListSectionRosterForTeacherRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error) {
 	f.rosterCalled = true
 	f.rosterParams = p
+	return f.rosterRows, f.rosterErr
+}
+
+func (f *fakeRepository) ListSectionRosterForTeacherAll(_ context.Context, _ ListSectionRosterForTeacherAllRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error) {
 	return f.rosterRows, f.rosterErr
 }
 
@@ -446,5 +451,160 @@ func TestService_ListSectionRosterForTeacher_PassesCallerIDFromContext(t *testin
 	}
 	if repo.rosterParams.SectionID != sectionID {
 		t.Errorf("repo received SectionID = %v, want %v", repo.rosterParams.SectionID, sectionID)
+	}
+}
+
+// --- ListSectionRosterForTeacher admin-bypass discriminator unit tests ---
+
+// fakeRepositoryWithRosterBypass extends fakeRepository with call sentinels for the
+// admin-bypass path so tests can assert WHICH repo method was invoked.
+type fakeRepositoryWithRosterBypass struct {
+	fakeRepository
+
+	// rosterAllCalled is true when ListSectionRosterForTeacherAll was invoked.
+	rosterAllCalled bool
+	// rosterAllParams captures the params passed to ListSectionRosterForTeacherAll.
+	rosterAllParams ListSectionRosterForTeacherAllRepoParams
+	// rosterAllRows is the slice returned by ListSectionRosterForTeacherAll.
+	rosterAllRows []sectionenrollmentdb.ListSectionRosterForTeacherRow
+	// rosterAllErr is the error returned by ListSectionRosterForTeacherAll.
+	rosterAllErr error
+
+	// rosterScopedCalled is true when ListSectionRosterForTeacher was invoked.
+	rosterScopedCalled bool
+}
+
+func (f *fakeRepositoryWithRosterBypass) ListSectionRosterForTeacherAll(_ context.Context, p ListSectionRosterForTeacherAllRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error) {
+	f.rosterAllCalled = true
+	f.rosterAllParams = p
+	return f.rosterAllRows, f.rosterAllErr
+}
+
+// Override ListSectionRosterForTeacher so tests track calls independently.
+func (f *fakeRepositoryWithRosterBypass) ListSectionRosterForTeacher(_ context.Context, p ListSectionRosterForTeacherRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error) {
+	f.rosterScopedCalled = true
+	f.fakeRepository.rosterCalled = true
+	f.fakeRepository.rosterParams = p
+	return f.fakeRepository.rosterRows, f.fakeRepository.rosterErr
+}
+
+// TestListSectionRosterForTeacher_AdminBypass_CallsAllVariant verifies that a caller
+// holding PermEnrollmentManage is routed to ListSectionRosterForTeacherAll and NOT to
+// the scoped ListSectionRosterForTeacher.
+func TestListSectionRosterForTeacher_AdminBypass_CallsAllVariant(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionEnrollmentViewTeaching,
+		authz.PermEnrollmentManage,
+	}))
+
+	repo := &fakeRepositoryWithRosterBypass{}
+	svc := NewService(repo)
+
+	sectionID := uuid.New()
+	_, err := svc.ListSectionRosterForTeacher(ctx, sectionID.String(), 20, "")
+	if err != nil {
+		t.Fatalf("ListSectionRosterForTeacher (admin): unexpected error: %v", err)
+	}
+	if !repo.rosterAllCalled {
+		t.Error("ListSectionRosterForTeacher (admin): ListSectionRosterForTeacherAll was NOT called")
+	}
+	if repo.rosterScopedCalled {
+		t.Error("ListSectionRosterForTeacher (admin): scoped method was called — should NOT be for admin")
+	}
+}
+
+// TestListSectionRosterForTeacher_TeacherPath_CallsScopedVariant verifies that a caller
+// holding PermSectionEnrollmentViewTeaching but NOT PermEnrollmentManage is routed to
+// the scoped ListSectionRosterForTeacher.
+func TestListSectionRosterForTeacher_TeacherPath_CallsScopedVariant(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionEnrollmentViewTeaching,
+	}))
+
+	repo := &fakeRepositoryWithRosterBypass{}
+	svc := NewService(repo)
+
+	_, err := svc.ListSectionRosterForTeacher(ctx, uuid.New().String(), 20, "")
+	if err != nil {
+		t.Fatalf("ListSectionRosterForTeacher (teacher): unexpected error: %v", err)
+	}
+	if repo.rosterAllCalled {
+		t.Error("ListSectionRosterForTeacher (teacher): admin variant was called — should NOT be for teacher")
+	}
+	if !repo.rosterScopedCalled {
+		t.Error("ListSectionRosterForTeacher (teacher): scoped method was NOT called")
+	}
+}
+
+// TestListSectionRosterForTeacher_TeacherEmpty_NoLeak verifies that a teacher with 0
+// enrollments in the section returns an empty result with no error (anti-leak).
+func TestListSectionRosterForTeacher_TeacherEmpty_NoLeak(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionEnrollmentViewTeaching,
+	}))
+
+	repo := &fakeRepositoryWithRosterBypass{
+		fakeRepository: fakeRepository{
+			rosterRows: []sectionenrollmentdb.ListSectionRosterForTeacherRow{},
+		},
+	}
+	svc := NewService(repo)
+
+	result, err := svc.ListSectionRosterForTeacher(ctx, uuid.New().String(), 20, "")
+	if err != nil {
+		t.Fatalf("ListSectionRosterForTeacher (empty teacher): unexpected error: %v", err)
+	}
+	if len(result.Rows) != 0 {
+		t.Errorf("got %d rows, want 0", len(result.Rows))
+	}
+}
+
+// TestListSectionRosterForTeacher_EntryGate_StillPermSectionEnrollmentViewTeaching verifies
+// that the entry gate constant has not changed — any swap to enrollment.manage would lock
+// out teachers who hold only section_enrollment.view_teaching.
+func TestListSectionRosterForTeacher_EntryGate_StillPermSectionEnrollmentViewTeaching(t *testing.T) {
+	t.Parallel()
+
+	const wantGate = "section_enrollment.view_teaching"
+	got := string(authz.PermSectionEnrollmentViewTeaching)
+	if got != wantGate {
+		t.Errorf("entry-gate constant changed: got %q, want %q — teachers would be locked out", got, wantGate)
+	}
+
+	const wantBypass = "enrollment.manage"
+	gotBypass := string(authz.PermEnrollmentManage)
+	if gotBypass != wantBypass {
+		t.Errorf("bypass constant changed: got %q, want %q", gotBypass, wantBypass)
+	}
+}
+
+// TestListSectionRosterForTeacher_Unauthenticated_Guard verifies that ErrUnauthenticated
+// is returned when no user is in the context — no repo call should occur.
+func TestListSectionRosterForTeacher_Unauthenticated_Guard(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background() // no user in context
+
+	repo := &fakeRepositoryWithRosterBypass{}
+	svc := NewService(repo)
+
+	_, err := svc.ListSectionRosterForTeacher(ctx, uuid.New().String(), 20, "")
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("got %v, want ErrUnauthenticated", err)
+	}
+	if repo.rosterAllCalled || repo.rosterScopedCalled {
+		t.Error("a repo method was called — should have been rejected before any DB call")
 	}
 }

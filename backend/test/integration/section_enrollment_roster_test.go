@@ -516,3 +516,146 @@ func TestListSectionEnrollments_TeacherPermissionDenied(t *testing.T) {
 	), teacherSID))
 	assertConnectCode(t, err, connect.CodePermissionDenied)
 }
+
+// --- Admin bypass integration tests (T10) ---
+
+// TestListSectionRosterForTeacher_AdminSeesFullRoster verifies that an admin (enrollment.manage)
+// calling ListSectionRosterForTeacher on a section they do NOT teach receives the full roster,
+// bypassing the section_teachers EXISTS guard.
+func TestListSectionRosterForTeacher_AdminSeesFullRoster(t *testing.T) {
+	ctx := context.Background()
+
+	// Seed teacher A with a section containing 3 students. adminSID is the catalog admin
+	// returned by seedRosterFixture — it has enrollment.manage via the CROSS JOIN admin grant.
+	_, sectionID, seIDs, adminSID, _ := seedRosterFixture(t, "admin-full-roster@test.local", 3)
+
+	client := newSectionEnrollmentClient(nil)
+
+	// Admin queries roster for a section they do NOT teach.
+	resp, err := client.ListSectionRosterForTeacher(ctx, withSID(connect.NewRequest(
+		&section_enrollmentv1.ListSectionRosterForTeacherRequest{
+			SectionId: sectionID,
+			PageSize:  20,
+		},
+	), adminSID))
+	if err != nil {
+		t.Fatalf("ListSectionRosterForTeacher (admin full roster): %v", err)
+	}
+
+	rows := resp.Msg.GetSectionEnrollments()
+	if len(rows) != 3 {
+		t.Fatalf("admin bypass: got %d rows, want 3", len(rows))
+	}
+
+	gotIDs := make(map[string]bool)
+	for _, r := range rows {
+		gotIDs[r.GetId()] = true
+	}
+	for _, id := range seIDs {
+		if !gotIDs[id] {
+			t.Errorf("admin bypass: section_enrollment %s missing — admin should see full roster", id)
+		}
+	}
+
+	// Verify fields are populated.
+	for _, r := range rows {
+		if r.GetStudentId() == "" {
+			t.Errorf("admin bypass: row %s has empty student_id", r.GetId())
+		}
+		if r.GetSectionId() != sectionID {
+			t.Errorf("admin bypass: row %s section_id = %q, want %q", r.GetId(), r.GetSectionId(), sectionID)
+		}
+	}
+}
+
+// TestListSectionRosterForTeacher_TeacherSeesMembershipScoped verifies that a teacher
+// calling ListSectionRosterForTeacher on their OWN section receives only their scoped
+// roster (not all section_enrollments in the system) even when another section exists.
+func TestListSectionRosterForTeacher_TeacherSeesMembershipScoped(t *testing.T) {
+	ctx := context.Background()
+
+	// Seed teacher A with 2 enrollments.
+	teacherASID, sectionIDA, seIDsA, _, _ := seedRosterFixture(t, "teacher-scoped-a@test.local", 2)
+
+	// Seed teacher B with 3 enrollments in a different section — teacher A must not see these.
+	_, sectionIDB, _, _, _ := seedRosterFixture(t, "teacher-scoped-b@test.local", 3)
+
+	client := newSectionEnrollmentClient(nil)
+
+	// Teacher A queries their own section.
+	resp, err := client.ListSectionRosterForTeacher(ctx, withSID(connect.NewRequest(
+		&section_enrollmentv1.ListSectionRosterForTeacherRequest{
+			SectionId: sectionIDA,
+			PageSize:  20,
+		},
+	), teacherASID))
+	if err != nil {
+		t.Fatalf("teacher scoped: %v", err)
+	}
+
+	rows := resp.Msg.GetSectionEnrollments()
+	if len(rows) != len(seIDsA) {
+		t.Fatalf("teacher scoped: got %d rows, want %d", len(rows), len(seIDsA))
+	}
+
+	// Teacher A must not see any row from section B.
+	// We verify by confirming all returned section_ids belong to section A.
+	for _, r := range rows {
+		if r.GetSectionId() != sectionIDA {
+			t.Errorf("teacher scoped: row %s has section_id %q, expected %q (own section)",
+				r.GetId(), r.GetSectionId(), sectionIDA)
+		}
+	}
+	_ = sectionIDB
+}
+
+// TestListSectionRosterForTeacher_TeacherEmptyNoLeak verifies that a teacher who does NOT
+// teach the requested section receives an empty page with OK — no PermissionDenied, no
+// existence disclosure.
+func TestListSectionRosterForTeacher_TeacherEmptyNoLeak(t *testing.T) {
+	// Create a fresh teacher with no section_teachers rows.
+	_, outTeacherSID := seedTeacherProfile(t, "roster-noleak-out@test.local")
+
+	// Seed another teacher's section with 2 enrollments (the target).
+	_, targetSectionID, _, _, _ := seedRosterFixture(t, "roster-noleak-owner@test.local", 2)
+
+	client := newSectionEnrollmentClient(nil)
+	ctx := context.Background()
+
+	resp, err := client.ListSectionRosterForTeacher(ctx, withSID(connect.NewRequest(
+		&section_enrollmentv1.ListSectionRosterForTeacherRequest{
+			SectionId: targetSectionID,
+			PageSize:  20,
+		},
+	), outTeacherSID))
+	if err != nil {
+		t.Fatalf("teacher no-leak: expected OK, got %v", err)
+	}
+	if len(resp.Msg.GetSectionEnrollments()) != 0 {
+		t.Errorf("teacher no-leak: got %d rows, want 0 (anti-leak)",
+			len(resp.Msg.GetSectionEnrollments()))
+	}
+	if resp.Msg.GetNextPageToken() != "" {
+		t.Errorf("teacher no-leak: next_page_token = %q, want empty", resp.Msg.GetNextPageToken())
+	}
+}
+
+// TestListSectionRosterForTeacher_UnauthenticatedReturnsError verifies that a request
+// with no session cookie is rejected with CodeUnauthenticated.
+func TestListSectionRosterForTeacher_UnauthenticatedReturnsError(t *testing.T) {
+	// Seed a section so we have a real section_id (not a random UUID that might cause
+	// a different code path).
+	_, sectionID, _, _, _ := seedRosterFixture(t, "roster-unauth@test.local", 1)
+
+	client := newSectionEnrollmentClient(nil)
+	ctx := context.Background()
+
+	// No session cookie — request without withSID.
+	_, err := client.ListSectionRosterForTeacher(ctx, connect.NewRequest(
+		&section_enrollmentv1.ListSectionRosterForTeacherRequest{
+			SectionId: sectionID,
+			PageSize:  20,
+		},
+	))
+	assertConnectCode(t, err, connect.CodeUnauthenticated)
+}
