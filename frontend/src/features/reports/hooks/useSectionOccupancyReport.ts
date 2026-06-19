@@ -51,7 +51,7 @@ export function useSectionOccupancyReport(
     isLoading: result.isLoading,
     isFetching: result.isFetching,
     isError: result.isError,
-    error: result.error as Error | null,
+    error: result.error instanceof Error ? result.error : null,
     refetch: result.refetch,
   };
 }

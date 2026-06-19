@@ -99,6 +99,7 @@ export function AcademicPeriodPicker({
                     <CommandItem
                       key={p.id}
                       value={p.id}
+                      keywords={[academicPeriodLabel(p.year, p.term)]}
                       onSelect={() => handleSelect(p.id)}
                     >
                       {academicPeriodLabel(p.year, p.term)}

@@ -228,4 +228,55 @@ describe("toSectionGradeReportModel", () => {
     const model = toSectionGradeReportModel(response, "Sección K");
     expect(model.rows).toHaveLength(0);
   });
+
+  it("partial grade value '0' is NOT coerced to '—' ('0' is truthy so || preserves it)", () => {
+    // "0" || "—" === "0" — the string "0" is truthy in JS; the fallback is never reached.
+    const response = makeResponse({
+      rows: [
+        makeRow({
+          partialGrades: [{ position: 1, value: "0" }],
+          finalGrade: "0",
+          outcome: "failed",
+        }),
+      ],
+    });
+    const model = toSectionGradeReportModel(response, "Sección L");
+    const row = model.rows[0]!;
+    const evalColIdx = model.columns.findIndex((c) => c.key === "eval_1");
+    expect(row[evalColIdx]).toBe("0");
+  });
+
+  it("partial grade value '' (proto3 default for absent grade) renders as '—'", () => {
+    // proto3 sends "" for an unset string field; || "—" converts "" to "—" (empty is falsy).
+    const response = makeResponse({
+      rows: [
+        makeRow({
+          partialGrades: [{ position: 1, value: "" }],
+          finalGrade: "5.0",
+          outcome: "passed",
+        }),
+      ],
+    });
+    const model = toSectionGradeReportModel(response, "Sección M");
+    const row = model.rows[0]!;
+    const evalColIdx = model.columns.findIndex((c) => c.key === "eval_1");
+    expect(row[evalColIdx]).toBe("—");
+  });
+
+  it("finalGrade '' (proto3 default for absent final grade) renders as '—'", () => {
+    // proto3 sends "" for an unset finalGrade; || "—" converts "" to "—".
+    const response = makeResponse({
+      rows: [
+        makeRow({
+          partialGrades: [{ position: 1, value: "5.0" }],
+          finalGrade: "",
+          outcome: "in_progress",
+        }),
+      ],
+    });
+    const model = toSectionGradeReportModel(response, "Sección N");
+    const row = model.rows[0]!;
+    const finalColIdx = model.columns.findIndex((c) => c.key === "final");
+    expect(row[finalColIdx]).toBe("—");
+  });
 });

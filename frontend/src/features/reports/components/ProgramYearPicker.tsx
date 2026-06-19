@@ -1,5 +1,5 @@
 import { ChevronsUpDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -43,9 +43,21 @@ export function ProgramYearPicker({
   onYearChange,
 }: ProgramYearPickerProps) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  // Local text state so the input is not controlled by the URL-committed `year` prop.
+  // This prevents the field from clearing mid-type (e.g. typing "2" resets "2026").
+  const [yearText, setYearText] = useState(year != null ? String(year) : "");
 
-  const { programs, isLoading } = usePrograms();
+  // Sync external prop changes (back/forward navigation) back into the local text.
+  // Only sync when `year` is set: a transition to `undefined` is always driven by
+  // in-progress local typing (partial/out-of-range), not navigation, so clearing the
+  // field here would wipe what the user is typing.
+  useEffect(() => {
+    if (year != null) setYearText(String(year));
+  }, [year]);
+
+  const { programs, isLoading } = usePrograms(search);
 
   const liveProgram = programs.find((p) => p.id === programId);
 
@@ -61,26 +73,37 @@ export function ProgramYearPicker({
     const picked = programs.find((p) => p.id === pid);
     setSelectedLabel(picked ? `${picked.code} — ${picked.name}` : null);
     onProgramChange(pid);
+    setSearch("");
     setOpen(false);
   };
 
   const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.trim();
-    if (raw === "") {
+    const raw = e.target.value;
+    // Always keep visible text in sync so the field does not clear mid-type.
+    setYearText(raw);
+    const trimmed = raw.trim();
+    if (trimmed === "") {
       onYearChange(undefined);
       return;
     }
-    const parsed = Number.parseInt(raw, 10);
+    const parsed = Number.parseInt(trimmed, 10);
     if (!Number.isNaN(parsed) && parsed >= 2000 && parsed <= 2100) {
       onYearChange(parsed);
     } else {
+      // Partial / out-of-range input: commit undefined upstream but keep text visible.
       onYearChange(undefined);
     }
   };
 
   return (
     <div className="flex flex-col gap-3">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(o) => {
+          setOpen(o);
+          if (!o) setSearch("");
+        }}
+      >
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -98,8 +121,12 @@ export function ProgramYearPicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]">
-          <Command>
-            <CommandInput placeholder="Buscar programa…" />
+          <Command shouldFilter={false}>
+            <CommandInput
+              placeholder="Buscar programa…"
+              value={search}
+              onValueChange={setSearch}
+            />
             <CommandList>
               {isLoading ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">
@@ -112,7 +139,7 @@ export function ProgramYearPicker({
                     {programs.map((p) => (
                       <CommandItem
                         key={p.id}
-                        value={p.id}
+                        value={`${p.code} — ${p.name}`}
                         onSelect={() => handleSelectProgram(p.id)}
                       >
                         {p.code} — {p.name}
@@ -134,7 +161,7 @@ export function ProgramYearPicker({
           min={2000}
           max={2100}
           placeholder="Ej. 2026"
-          defaultValue={year ?? ""}
+          value={yearText}
           onChange={handleYearChange}
           className="max-w-[120px]"
         />

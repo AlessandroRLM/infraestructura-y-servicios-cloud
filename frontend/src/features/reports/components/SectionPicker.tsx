@@ -1,5 +1,5 @@
 import { ChevronsUpDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -68,9 +68,21 @@ export function SectionPicker({ value, onChange }: SectionPickerProps) {
   const [open, setOpen] = useState(false);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
-  const { sections, isLoading: sectionsLoading } = useSections();
+  const {
+    sections,
+    isLoading: sectionsLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useSections();
   const { courses } = useCourses();
   const { periods } = useAcademicPeriods();
+
+  // Drain all pages while the popover is open so client-side search covers every section.
+  // Gated on `open` to avoid eager background network traffic before the user interacts.
+  useEffect(() => {
+    if (open && hasNextPage && !isFetchingNextPage) fetchNextPage();
+  }, [open, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const isLoading = sectionsLoading;
 
@@ -142,6 +154,7 @@ export function SectionPicker({ value, onChange }: SectionPickerProps) {
                     <CommandItem
                       key={s.id}
                       value={s.id}
+                      keywords={[buildSectionLabel(s, courseMap, periodMap)]}
                       onSelect={() => handleSelect(s.id)}
                     >
                       {buildSectionLabel(s, courseMap, periodMap)}
