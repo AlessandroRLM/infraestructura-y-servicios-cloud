@@ -1,34 +1,59 @@
+import { useState } from "react";
 import { hasPermission, useSession } from "@/features/auth";
-import { SchemeManagementView } from "./SchemeManagementView";
+import type { TeachingSection } from "@/gen/catalog/v1/catalog_pb";
+import { GradeRecordingGrid } from "./GradeRecordingGrid";
+import { SectionSelectionTable } from "./SectionSelectionTable";
 
 /**
- * Placeholder rendered at /admin/grades for sessions that lack grades.override.
- * Kept as a named component so the gate below reads clearly.
- */
-function SchemePlaceholder() {
-  return (
-    <div className="space-y-1">
-      <h1 className="font-semibold text-2xl tracking-tight">Notas</h1>
-      <p className="text-muted-foreground">Registro de notas — próximamente.</p>
-    </div>
-  );
-}
-
-/**
- * Entry point for the admin grades area at /admin/grades.
+ * Entry point for the grades area at /admin/grades.
  *
- * Gates on `grades.override`:
- * - Granted  → renders SchemeManagementView (evaluation-scheme admin UI).
- * - Absent   → renders the SchemePlaceholder ("próximamente").
+ * Permission switch:
+ * - grades.write (teacher) → recording flow (SectionSelectionTable → GradeRecordingGrid).
+ *   No "Administrar Notas" button is shown.
+ * - grades.override (admin) → same recording flow + "Administrar Notas" button inside
+ *   the section grid (rendered by GradeRecordingGrid when the caller has grades.override).
+ * - Neither permission → placeholder.
  *
- * No server call is made before the permission check resolves.
+ * Navigation state is local: selected section lives here so the back button works without
+ * a router history entry.
  */
 export function GradesPage() {
   const session = useSession();
+  const canWrite = hasPermission(session, "grades.write");
+  const canOverride = hasPermission(session, "grades.override");
 
-  if (hasPermission(session, "grades.override")) {
-    return <SchemeManagementView />;
+  const [selectedSection, setSelectedSection] =
+    useState<TeachingSection | null>(null);
+
+  if (!canWrite && !canOverride) {
+    return (
+      <div className="flex flex-col gap-1">
+        <h1 className="font-semibold text-2xl tracking-tight">Notas</h1>
+        <p className="text-muted-foreground">
+          No tienes permisos para acceder a esta sección.
+        </p>
+      </div>
+    );
   }
 
-  return <SchemePlaceholder />;
+  if (selectedSection) {
+    return (
+      <GradeRecordingGrid
+        section={selectedSection}
+        onBack={() => setSelectedSection(null)}
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-semibold text-2xl tracking-tight">Notas</h1>
+        <p className="text-muted-foreground text-sm">
+          Selecciona una sección para registrar notas.
+        </p>
+      </div>
+      <SectionSelectionTable onSelectSection={setSelectedSection} />
+    </div>
+  );
 }
