@@ -34,6 +34,12 @@ export interface UseOwnSectionsParams {
    * Changing this value resets pagination to page 1.
    */
   query?: string;
+  /**
+   * When false, the query is skipped entirely (no RPC fired).
+   * Defaults to true. Pass false when the section is already known
+   * from router navigation state to avoid a redundant ListOwnSections call.
+   */
+  enabled?: boolean;
 }
 
 /**
@@ -51,13 +57,14 @@ export interface UseOwnSectionsParams {
 export function useOwnSections(
   params: UseOwnSectionsParams = {},
 ): UseOwnSectionsResult {
-  const { pageSize = SECTIONS_PAGE_SIZE, query = "" } = params;
+  const { pageSize = SECTIONS_PAGE_SIZE, query = "", enabled = true } = params;
   const result = useInfiniteQuery(
     CatalogService.method.listOwnSections,
     { pageSize, pageToken: "", query },
     {
       pageParamKey: "pageToken",
       getNextPageParam: (lastPage) => lastPage.nextPageToken || undefined,
+      enabled,
     },
   );
 

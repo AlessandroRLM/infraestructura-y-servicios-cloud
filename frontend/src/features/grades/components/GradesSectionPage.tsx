@@ -37,9 +37,10 @@ export function GradesSectionPage({
   // Attempt 1: section passed via router navigation state on click-through.
   const stateSection = extractSectionFromState(locationState, sectionId);
 
-  const { sections, isLoading } = useOwnSections();
+  // Attempt 2: deep-link / refresh — resolve from the section list.
+  // Disabled when stateSection is available to avoid a redundant ListOwnSections RPC.
+  const { sections, isLoading } = useOwnSections({ enabled: !stateSection });
 
-  // Attempt 2: resolve from the loaded sections list.
   const resolvedSection =
     stateSection ?? sections.find((s) => s.id === sectionId) ?? null;
 
