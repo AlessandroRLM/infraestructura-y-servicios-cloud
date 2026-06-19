@@ -1,4 +1,5 @@
 import { Loader2, RefreshCw } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,8 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SearchInput } from "@/core/components";
 import type { TeachingSection } from "@/gen/catalog/v1/catalog_pb";
 import { useOwnSections } from "../hooks/useOwnSections";
+
+const SECTIONS_SEARCH_DEBOUNCE_MS = 300;
 
 interface SectionSelectionTableProps {
   /** Called when the user clicks a section row. */
@@ -31,6 +35,14 @@ interface SectionSelectionTableProps {
 export function SectionSelectionTable({
   onSelectSection,
 }: SectionSelectionTableProps) {
+  /**
+   * Committed (debounced) query value.
+   * SearchInput owns the raw keystroke state internally; this state holds the
+   * last value emitted by SearchInput.onChange (after the debounce window).
+   * Passing it back as `value` keeps SearchInput in sync after external resets.
+   */
+  const [query, setQuery] = useState("");
+
   const {
     sections,
     isLoading,
@@ -39,10 +51,17 @@ export function SectionSelectionTable({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useOwnSections();
+  } = useOwnSections({ query });
 
   return (
     <div className="flex flex-col gap-4">
+      <SearchInput
+        value={query}
+        onChange={setQuery}
+        debounceMs={SECTIONS_SEARCH_DEBOUNCE_MS}
+        placeholder="Buscar asignatura…"
+        className="max-w-sm"
+      />
       {isLoading && (
         <div
           role="status"
@@ -79,7 +98,9 @@ export function SectionSelectionTable({
       {!isLoading && !isError && sections.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-4 rounded-md border border-dashed p-12 text-center">
           <p className="text-muted-foreground text-sm">
-            No hay secciones asignadas.
+            {query !== ""
+              ? "No se encontraron secciones para la búsqueda."
+              : "No hay secciones asignadas."}
           </p>
         </div>
       )}

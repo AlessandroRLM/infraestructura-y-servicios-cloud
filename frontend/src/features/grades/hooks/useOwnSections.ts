@@ -24,6 +24,18 @@ export interface UseOwnSectionsResult {
   isFetchNextPageError: boolean;
 }
 
+/** Parameters accepted by useOwnSections. */
+export interface UseOwnSectionsParams {
+  /** Maximum rows per page; defaults to 50. */
+  pageSize?: number;
+  /**
+   * Optional server-side search string.
+   * ILIKE-matched against course code and name.
+   * Changing this value resets pagination to page 1.
+   */
+  query?: string;
+}
+
 /**
  * Cursor-paginated list of teaching sections for the authenticated caller.
  *
@@ -32,15 +44,17 @@ export interface UseOwnSectionsResult {
  *   - Admins (catalog.manage) → all sections.
  *
  * Mirrors the ProgramsTable usePrograms pattern (infinite-query + pagination).
+ * Changing `query` resets pagination to page 1 (new query key).
  *
- * @param pageSize - Maximum rows per page; defaults to 50.
+ * @param params - Optional pageSize and query parameters.
  */
 export function useOwnSections(
-  pageSize: number = SECTIONS_PAGE_SIZE,
+  params: UseOwnSectionsParams = {},
 ): UseOwnSectionsResult {
+  const { pageSize = SECTIONS_PAGE_SIZE, query = "" } = params;
   const result = useInfiniteQuery(
     CatalogService.method.listOwnSections,
-    { pageSize, pageToken: "" },
+    { pageSize, pageToken: "", query },
     {
       pageParamKey: "pageToken",
       getNextPageParam: (lastPage) => lastPage.nextPageToken || undefined,
