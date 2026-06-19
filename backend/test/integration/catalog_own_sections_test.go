@@ -378,3 +378,124 @@ func TestListSections_TeacherPermissionDenied(t *testing.T) {
 	_, err := client.ListSections(ctx, withSID(connect.NewRequest(&catalogv1.ListSectionsRequest{}), teacherSID))
 	assertConnectCode(t, err, connect.CodePermissionDenied)
 }
+
+// --- Admin bypass integration tests ---
+
+// TestListOwnSections_AdminSeesAll verifies that an admin (catalog.manage) calling
+// ListOwnSections receives ALL sections, including sections the admin does not teach.
+func TestListOwnSections_AdminSeesAll(t *testing.T) {
+	ctx := context.Background()
+
+	// Seed teacher A with 2 sections the admin does NOT teach.
+	_, _, sectionIDsA, adminSID, _ := seedTeacherWithSections(t, "admin-sees-all-a@test.local", 2)
+
+	// Seed teacher B with 1 more section the admin does NOT teach.
+	_, _, sectionIDsB, _, _ := seedTeacherWithSections(t, "admin-sees-all-b@test.local", 1)
+
+	client := newCatalogClientPlain()
+
+	// Admin queries ListOwnSections — must return all sections (not just own).
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 200,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (admin sees all): %v", err)
+	}
+
+	gotIDs := make(map[string]bool)
+	for _, s := range resp.Msg.GetSections() {
+		gotIDs[s.GetId()] = true
+	}
+
+	// All seeded sections must be present in the admin's result.
+	allExpected := append(sectionIDsA, sectionIDsB...)
+	for _, id := range allExpected {
+		if !gotIDs[id] {
+			t.Errorf("admin bypass: section %s missing — admin should see all sections", id)
+		}
+	}
+
+	// Verify enriched fields are populated for admin results too.
+	for _, s := range resp.Msg.GetSections() {
+		if s.GetCourseCode() == "" {
+			t.Errorf("admin: section %s has empty course_code", s.GetId())
+		}
+		if s.GetCourseName() == "" {
+			t.Errorf("admin: section %s has empty course_name", s.GetId())
+		}
+		if s.GetPeriodYear() == 0 {
+			t.Errorf("admin: section %s has zero period_year", s.GetId())
+		}
+	}
+}
+
+// TestListOwnSections_TeacherSeesOwn verifies that a teacher calling ListOwnSections
+// receives only their own sections (not all sections) even when other sections exist.
+func TestListOwnSections_TeacherSeesOwn(t *testing.T) {
+	ctx := context.Background()
+
+	// Seed teacher A with 2 sections.
+	_, teacherASID, sectionIDsA, _, _ := seedTeacherWithSections(t, "teacher-sees-own-a@test.local", 2)
+
+	// Seed teacher B with 3 OTHER sections to confirm teacher A does not see them.
+	_, _, sectionIDsB, _, _ := seedTeacherWithSections(t, "teacher-sees-own-b@test.local", 3)
+
+	client := newCatalogClientPlain()
+
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 200,
+	}), teacherASID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher sees own): %v", err)
+	}
+
+	gotIDs := make(map[string]bool)
+	for _, s := range resp.Msg.GetSections() {
+		gotIDs[s.GetId()] = true
+	}
+
+	// Teacher A must see their own sections.
+	for _, id := range sectionIDsA {
+		if !gotIDs[id] {
+			t.Errorf("teacher A: own section %s missing", id)
+		}
+	}
+
+	// Teacher A must NOT see teacher B's sections.
+	for _, id := range sectionIDsB {
+		if gotIDs[id] {
+			t.Errorf("teacher A: sees teacher B's section %s — cross-teacher leak", id)
+		}
+	}
+}
+
+// TestListOwnSections_TeacherEmptyNoLeak verifies that a teacher with no section_teachers rows
+// returns an empty page with OK — no PermissionDenied, no existence leak.
+func TestListOwnSections_TeacherEmptyNoLeak(t *testing.T) {
+	_, teacherSID := seedTeacherProfile(t, "teacher-empty-no-leak@test.local")
+	client := newCatalogClientPlain()
+	ctx := context.Background()
+
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 20,
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher empty no-leak): %v", err)
+	}
+	if len(resp.Msg.GetSections()) != 0 {
+		t.Errorf("ListOwnSections (teacher empty): got %d sections, want 0", len(resp.Msg.GetSections()))
+	}
+}
+
+// TestListOwnSections_UnauthenticatedReturnsError verifies that a request with no auth header
+// returns an unauthenticated error.
+func TestListOwnSections_UnauthenticatedReturnsError(t *testing.T) {
+	client := newCatalogClientPlain()
+	ctx := context.Background()
+
+	// No session cookie — unauthenticated.
+	_, err := client.ListOwnSections(ctx, connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 20,
+	}))
+	assertConnectCode(t, err, connect.CodeUnauthenticated)
+}
