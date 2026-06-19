@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { makeStubTransport } from "@/core/test";
 import type { Permission, SessionState } from "@/features/auth";
@@ -6,8 +6,7 @@ import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
 import { GradesService } from "@/gen/grades/v1/grades_pb";
 import { ProfileService } from "@/gen/profiles/v1/profiles_pb";
 import { SectionEnrollmentService } from "@/gen/section_enrollment/v1/section_enrollment_pb";
-import { renderComponent } from "@/test";
-import { GradesPage } from "../components/GradesPage";
+import { renderWithProviders } from "@/test";
 
 /**
  * Full transport stub covering all services queried at mount time:
@@ -48,70 +47,90 @@ function session(permissions: Permission[]): SessionState {
   };
 }
 
+// GradesPage now uses useNavigate, so it must run inside a RouterProvider.
+// renderWithProviders starts at a specific route and renders the full routeTree.
+// Note: the admin sidebar also renders a "Notas" nav link — use heading role to
+// disambiguate from the sidebar link.
 describe("GradesPage — rewired recording flow (T20)", () => {
   it("S-01a: grades.write → renders SectionSelectionTable heading", async () => {
-    renderComponent(<GradesPage />, {
+    renderWithProviders({
+      route: "/admin/grades",
       session: session(["grades.write"]),
       transport: minimalTransport,
     });
 
-    // GradesPage renders the "Notas" heading + selection subtitle
-    expect(screen.getByText("Notas")).toBeInTheDocument();
+    // Find the page heading (h1), not the sidebar link
+    expect(
+      await screen.findByRole("heading", { name: "Notas" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Selecciona una sección para registrar notas."),
     ).toBeInTheDocument();
   });
 
   it("S-01b: grades.override → renders SectionSelectionTable heading (recording flow)", async () => {
-    renderComponent(<GradesPage />, {
-      session: session(["grades.override"]),
+    renderWithProviders({
+      route: "/admin/grades",
+      session: session(["grades.override", "grades.read"]),
       transport: minimalTransport,
     });
 
-    expect(screen.getByText("Notas")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Notas" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Selecciona una sección para registrar notas."),
     ).toBeInTheDocument();
   });
 
-  it("S-01c: no relevant permission → renders access denied message", () => {
-    renderComponent(<GradesPage />, {
+  it("S-01c: no relevant permission → renders access denied message (grades.read only)", async () => {
+    // grades.read alone passes the route guard (grades.read is in ROUTE_PERMISSIONS[/admin/grades])
+    // but GradesPage itself checks grades.write OR grades.override — neither satisfied.
+    renderWithProviders({
+      route: "/admin/grades",
       session: session(["grades.read"]),
+      transport: minimalTransport,
     });
 
-    expect(screen.getByText("Notas")).toBeInTheDocument();
     expect(
-      screen.getByText("No tienes permisos para acceder a esta sección."),
+      await screen.findByRole("heading", { name: "Notas" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "No tienes permisos para acceder a esta sección.",
+      ),
     ).toBeInTheDocument();
   });
 
-  it("loading session → renders access denied (hasPermission returns false during loading)", () => {
-    renderComponent(<GradesPage />, {
+  it("loading session → redirects away from /admin/grades (no area eligibility)", async () => {
+    // Loading session → no permissions → area guard redirects from /admin
+    const { router } = renderWithProviders({
+      route: "/admin/grades",
       session: { status: "loading" },
     });
 
-    // hasPermission returns false during loading → no write/override
-    expect(
-      screen.getByText("No tienes permisos para acceder a esta sección."),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(router.state.location.pathname).not.toBe("/admin/grades"),
+    );
   });
 
-  it("unauthenticated session → renders access denied", () => {
-    renderComponent(<GradesPage />, {
+  it("unauthenticated session → redirects to /login", async () => {
+    const { router } = renderWithProviders({
+      route: "/admin/grades",
       session: { status: "unauthenticated" },
     });
 
-    expect(
-      screen.getByText("No tienes permisos para acceder a esta sección."),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
   });
 
-  it("S-01d: grades.write → SchemeManagementView subtitle NOT in DOM (recording flow, no scheme admin)", () => {
-    renderComponent(<GradesPage />, {
+  it("S-01d: grades.write → SchemeManagementView subtitle NOT in DOM (recording flow, no scheme admin)", async () => {
+    renderWithProviders({
+      route: "/admin/grades",
       session: session(["grades.write"]),
       transport: minimalTransport,
     });
 
+    await screen.findByRole("heading", { name: "Notas" });
     // SchemeManagementView should NOT be rendered directly
     expect(
       screen.queryByText(

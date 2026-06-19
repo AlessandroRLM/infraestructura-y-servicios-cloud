@@ -21,3 +21,12 @@ declare module "@tanstack/react-router" {
     router: typeof router;
   }
 }
+
+// Extends the history state shape so navigate() accepts a `section` payload.
+// GradesPage passes the full TeachingSection on row click so GradesSectionPage
+// can render instantly without re-fetching ListOwnSections on click-through.
+declare module "@tanstack/history" {
+  interface HistoryState {
+    section?: Record<string, unknown>;
+  }
+}
