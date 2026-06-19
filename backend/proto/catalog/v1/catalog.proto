@@ -359,6 +359,9 @@ message ListProgramCoursesResponse {
 message ListOwnSectionsRequest {
   int32  page_size  = 1;
   string page_token = 2;
+  // query is an optional case-insensitive search string matched against course code and name.
+  // Empty string means no filter.
+  string query      = 3;
 }
 
 // TeachingSection is a section enriched with course and period labels, returned by ListOwnSections.

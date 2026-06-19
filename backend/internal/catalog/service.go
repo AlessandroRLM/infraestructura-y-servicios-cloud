@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -492,9 +493,11 @@ func (s *Service) ListSectionTeachers(ctx context.Context, sectionID uuid.UUID) 
 // The caller's identity is derived exclusively from the session context (auth.UserIDFromContext).
 // No teacher_id parameter is accepted to avoid IDOR vectors.
 // pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// query is an optional case-insensitive search string matched against course code and name;
+// whitespace-only or empty string disables the filter.
 // A teacher with zero section_teachers rows returns an empty page (not an error).
 // Returns ErrInvalidInput when the page_token cannot be parsed as a UUID.
-func (s *Service) ListOwnSections(ctx context.Context, pageSize int32, pageToken string) (ListOwnSectionsResult, error) {
+func (s *Service) ListOwnSections(ctx context.Context, pageSize int32, pageToken string, query string) (ListOwnSectionsResult, error) {
 	_, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		// Defensive guard — unreachable behind the auth interceptor in normal operation.
@@ -512,8 +515,10 @@ func (s *Service) ListOwnSections(ctx context.Context, pageSize int32, pageToken
 		tokenUUID = &id
 	}
 
+	queryPtr := pagination.SearchPattern(strings.TrimSpace(query))
+
 	if callerIsCatalogAdmin(ctx) {
-		return s.listAllSections(ctx, tokenUUID, clamped)
+		return s.listAllSections(ctx, tokenUUID, clamped, queryPtr)
 	}
 
 	// Teacher-scoped path: requires the caller's user ID.
@@ -525,6 +530,7 @@ func (s *Service) ListOwnSections(ctx context.Context, pageSize int32, pageToken
 	rows, err := s.repo.ListOwnSectionsPaged(ctx, ListOwnSectionsPagedRepoParams{
 		TeacherID: callerID,
 		PageToken: tokenUUID,
+		Query:     queryPtr,
 		RowLimit:  int32(clamped + 1),
 	})
 	if err != nil {
@@ -544,9 +550,10 @@ func (s *Service) ListOwnSections(ctx context.Context, pageSize int32, pageToken
 
 // listAllSections executes the admin bypass path for ListOwnSections. It queries all live
 // sections via ListAllSectionsPaged and converts the rows to the common result type.
-func (s *Service) listAllSections(ctx context.Context, tokenUUID *uuid.UUID, clamped int) (ListOwnSectionsResult, error) {
+func (s *Service) listAllSections(ctx context.Context, tokenUUID *uuid.UUID, clamped int, queryPtr *string) (ListOwnSectionsResult, error) {
 	rows, err := s.repo.ListAllSectionsPaged(ctx, ListAllSectionsPagedRepoParams{
 		PageToken: tokenUUID,
+		Query:     queryPtr,
 		RowLimit:  int32(clamped + 1),
 	})
 	if err != nil {

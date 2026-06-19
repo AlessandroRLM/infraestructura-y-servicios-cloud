@@ -199,6 +199,9 @@ type ListOwnSectionsPagedRepoParams struct {
 	TeacherID uuid.UUID
 	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
 	PageToken *uuid.UUID
+	// Query is an optional case-insensitive search string matched against course code and name.
+	// nil means no filter. The service trims whitespace and sets this to nil for empty strings.
+	Query *string
 	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
 	RowLimit int32
 }
@@ -207,6 +210,9 @@ type ListOwnSectionsPagedRepoParams struct {
 type ListAllSectionsPagedRepoParams struct {
 	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
 	PageToken *uuid.UUID
+	// Query is an optional case-insensitive search string matched against course code and name.
+	// nil means no filter. The service trims whitespace and sets this to nil for empty strings.
+	Query *string
 	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
 	RowLimit int32
 }
@@ -786,6 +792,9 @@ func (r *postgresRepository) ListOwnSectionsPaged(ctx context.Context, params Li
 	if params.PageToken != nil {
 		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
 	}
+	if params.Query != nil {
+		p.Query = pgtype.Text{String: *params.Query, Valid: true}
+	}
 	rows, err := r.q.ListOwnSectionsPaged(ctx, p)
 	if err != nil {
 		return nil, TranslatePgError(err)
@@ -799,6 +808,9 @@ func (r *postgresRepository) ListAllSectionsPaged(ctx context.Context, params Li
 	}
 	if params.PageToken != nil {
 		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
+	}
+	if params.Query != nil {
+		p.Query = pgtype.Text{String: *params.Query, Valid: true}
 	}
 	rows, err := r.q.ListAllSectionsPaged(ctx, p)
 	if err != nil {

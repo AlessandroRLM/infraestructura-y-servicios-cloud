@@ -95,10 +95,12 @@ type fakeRepository struct {
 	// Teaching-scope reads
 	listOwnSectionsPagedRows []catalogdb.ListOwnSectionsPagedRow
 	listOwnSectionsPagedErr  error
+	listOwnSectionsPagedArgs catalog.ListOwnSectionsPagedRepoParams
 
 	// Admin-scope reads
 	listAllSectionsPagedRows []catalogdb.ListAllSectionsPagedRow
 	listAllSectionsPagedErr  error
+	listAllSectionsPagedArgs catalog.ListAllSectionsPagedRepoParams
 }
 
 // Compile-time check: fakeRepository must satisfy catalog.Repository.
@@ -239,11 +241,13 @@ func (f *fakeRepository) RemoveTeacherFromSection(_ context.Context, _, _ uuid.U
 func (f *fakeRepository) ListSectionTeachers(_ context.Context, _ uuid.UUID) ([]catalogdb.SectionTeacher, error) {
 	return f.listSectionTeachersRows, nil
 }
-func (f *fakeRepository) ListOwnSectionsPaged(_ context.Context, _ catalog.ListOwnSectionsPagedRepoParams) ([]catalogdb.ListOwnSectionsPagedRow, error) {
+func (f *fakeRepository) ListOwnSectionsPaged(_ context.Context, params catalog.ListOwnSectionsPagedRepoParams) ([]catalogdb.ListOwnSectionsPagedRow, error) {
+	f.listOwnSectionsPagedArgs = params
 	return f.listOwnSectionsPagedRows, f.listOwnSectionsPagedErr
 }
 
-func (f *fakeRepository) ListAllSectionsPaged(_ context.Context, _ catalog.ListAllSectionsPagedRepoParams) ([]catalogdb.ListAllSectionsPagedRow, error) {
+func (f *fakeRepository) ListAllSectionsPaged(_ context.Context, params catalog.ListAllSectionsPagedRepoParams) ([]catalogdb.ListAllSectionsPagedRow, error) {
+	f.listAllSectionsPagedArgs = params
 	return f.listAllSectionsPagedRows, f.listAllSectionsPagedErr
 }
 
@@ -1103,14 +1107,16 @@ type fakeRepositoryWithAdminBypass struct {
 	listOwnSectionsPagedCalled bool
 }
 
-func (f *fakeRepositoryWithAdminBypass) ListAllSectionsPaged(_ context.Context, _ catalog.ListAllSectionsPagedRepoParams) ([]catalogdb.ListAllSectionsPagedRow, error) {
+func (f *fakeRepositoryWithAdminBypass) ListAllSectionsPaged(_ context.Context, params catalog.ListAllSectionsPagedRepoParams) ([]catalogdb.ListAllSectionsPagedRow, error) {
 	f.listAllSectionsPagedCalled = true
+	f.fakeRepository.listAllSectionsPagedArgs = params
 	return f.listAllSectionsPagedRows, f.listAllSectionsPagedErr
 }
 
 // Override ListOwnSectionsPaged so we can track calls independently of fakeRepository.
-func (f *fakeRepositoryWithAdminBypass) ListOwnSectionsPaged(_ context.Context, _ catalog.ListOwnSectionsPagedRepoParams) ([]catalogdb.ListOwnSectionsPagedRow, error) {
+func (f *fakeRepositoryWithAdminBypass) ListOwnSectionsPaged(_ context.Context, params catalog.ListOwnSectionsPagedRepoParams) ([]catalogdb.ListOwnSectionsPagedRow, error) {
 	f.listOwnSectionsPagedCalled = true
+	f.fakeRepository.listOwnSectionsPagedArgs = params
 	return f.fakeRepository.listOwnSectionsPagedRows, f.fakeRepository.listOwnSectionsPagedErr
 }
 
@@ -1129,7 +1135,7 @@ func TestListOwnSections_AdminBypass_CallsAllVariant(t *testing.T) {
 	repo := &fakeRepositoryWithAdminBypass{}
 	svc := catalog.NewService(repo)
 
-	_, err := svc.ListOwnSections(ctx, 20, "")
+	_, err := svc.ListOwnSections(ctx, 20, "", "")
 	if err != nil {
 		t.Fatalf("ListOwnSections (admin): unexpected error: %v", err)
 	}
@@ -1155,7 +1161,7 @@ func TestListOwnSections_TeacherPath_CallsOwnVariant(t *testing.T) {
 	repo := &fakeRepositoryWithAdminBypass{}
 	svc := catalog.NewService(repo)
 
-	_, err := svc.ListOwnSections(ctx, 20, "")
+	_, err := svc.ListOwnSections(ctx, 20, "", "")
 	if err != nil {
 		t.Fatalf("ListOwnSections (teacher): unexpected error: %v", err)
 	}
@@ -1185,7 +1191,7 @@ func TestListOwnSections_TeacherEmpty_NoLeak(t *testing.T) {
 	}
 	svc := catalog.NewService(repo)
 
-	result, err := svc.ListOwnSections(ctx, 20, "")
+	result, err := svc.ListOwnSections(ctx, 20, "", "")
 	if err != nil {
 		t.Fatalf("ListOwnSections (empty teacher): unexpected error: %v", err)
 	}
@@ -1226,12 +1232,290 @@ func TestListOwnSections_Unauthenticated_Guard(t *testing.T) {
 	repo := &fakeRepositoryWithAdminBypass{}
 	svc := catalog.NewService(repo)
 
-	_, err := svc.ListOwnSections(ctx, 20, "")
+	_, err := svc.ListOwnSections(ctx, 20, "", "")
 	if !errors.Is(err, catalog.ErrUnauthenticated) {
 		t.Errorf("ListOwnSections (unauthenticated): got %v, want ErrUnauthenticated", err)
 	}
 	if repo.listAllSectionsPagedCalled || repo.listOwnSectionsPagedCalled {
 		t.Error("ListOwnSections (unauthenticated): a repo method was called — should have been rejected before any DB call")
+	}
+}
+
+// --- ListOwnSections search-filter unit tests ---
+
+// These tests exercise the query parameter threaded through both the teacher and admin paths.
+// They compile only after ListOwnSections accepts a fourth `query string` argument and
+// the repo params carry a Query field — this is the RED phase of strict TDD.
+
+// TestListOwnSections_TeacherPath_QueryMatchesCode verifies that a non-empty query is
+// forwarded as a non-nil Query in ListOwnSectionsPagedRepoParams (teacher path).
+func TestListOwnSections_TeacherPath_QueryMatchesCode(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+	}))
+
+	matchRow := catalogdb.ListOwnSectionsPagedRow{
+		ID:         pgtype.UUID{Bytes: uuid.New(), Valid: true},
+		CourseCode: "CS101",
+		CourseName: "Intro to CS",
+	}
+	repo := &fakeRepositoryWithAdminBypass{
+		fakeRepository: fakeRepository{
+			listOwnSectionsPagedRows: []catalogdb.ListOwnSectionsPagedRow{matchRow},
+		},
+	}
+	svc := catalog.NewService(repo)
+
+	result, err := svc.ListOwnSections(ctx, 20, "", "CS101")
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher query): unexpected error: %v", err)
+	}
+	if len(result.Sections) != 1 {
+		t.Fatalf("ListOwnSections (teacher query): got %d sections, want 1", len(result.Sections))
+	}
+
+	// The query must have been forwarded to the repo params.
+	gotQuery := repo.fakeRepository.listOwnSectionsPagedArgs.Query
+	if gotQuery == nil {
+		t.Fatal("ListOwnSections (teacher query): Query param was nil — search filter not forwarded")
+	}
+	if *gotQuery != "CS101" {
+		t.Errorf("ListOwnSections (teacher query): Query = %q, want %q", *gotQuery, "CS101")
+	}
+}
+
+// TestListOwnSections_TeacherPath_EmptyQueryPassesNil verifies that an empty query
+// results in a nil Query in ListOwnSectionsPagedRepoParams (no filter).
+func TestListOwnSections_TeacherPath_EmptyQueryPassesNil(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+	}))
+
+	repo := &fakeRepositoryWithAdminBypass{
+		fakeRepository: fakeRepository{
+			listOwnSectionsPagedRows: []catalogdb.ListOwnSectionsPagedRow{},
+		},
+	}
+	svc := catalog.NewService(repo)
+
+	_, err := svc.ListOwnSections(ctx, 20, "", "")
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher empty query): unexpected error: %v", err)
+	}
+
+	if repo.fakeRepository.listOwnSectionsPagedArgs.Query != nil {
+		t.Errorf("ListOwnSections (teacher empty query): Query should be nil, got %q",
+			*repo.fakeRepository.listOwnSectionsPagedArgs.Query)
+	}
+}
+
+// TestListOwnSections_TeacherPath_WhitespaceQueryPassesNil verifies that a whitespace-only
+// query is treated as empty (nil Query in repo params).
+func TestListOwnSections_TeacherPath_WhitespaceQueryPassesNil(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+	}))
+
+	repo := &fakeRepositoryWithAdminBypass{
+		fakeRepository: fakeRepository{
+			listOwnSectionsPagedRows: []catalogdb.ListOwnSectionsPagedRow{},
+		},
+	}
+	svc := catalog.NewService(repo)
+
+	_, err := svc.ListOwnSections(ctx, 20, "", "   ")
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher whitespace query): unexpected error: %v", err)
+	}
+
+	if repo.fakeRepository.listOwnSectionsPagedArgs.Query != nil {
+		t.Errorf("ListOwnSections (teacher whitespace): Query should be nil, got %q",
+			*repo.fakeRepository.listOwnSectionsPagedArgs.Query)
+	}
+}
+
+// TestListOwnSections_TeacherPath_NoMatch_Empty verifies that when the repo returns no rows
+// (query matched nothing), the result is an empty page — not an error.
+func TestListOwnSections_TeacherPath_NoMatch_Empty(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+	}))
+
+	repo := &fakeRepositoryWithAdminBypass{
+		fakeRepository: fakeRepository{
+			listOwnSectionsPagedRows: []catalogdb.ListOwnSectionsPagedRow{},
+		},
+	}
+	svc := catalog.NewService(repo)
+
+	result, err := svc.ListOwnSections(ctx, 20, "", "NOMATCH")
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher no-match): unexpected error: %v", err)
+	}
+	if len(result.Sections) != 0 {
+		t.Errorf("ListOwnSections (teacher no-match): got %d sections, want 0", len(result.Sections))
+	}
+}
+
+// TestListOwnSections_AdminPath_QueryMatchesCode verifies that a non-empty query is
+// forwarded as a non-nil Query in ListAllSectionsPagedRepoParams (admin path).
+func TestListOwnSections_AdminPath_QueryMatchesCode(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+		authz.PermCatalogManage,
+	}))
+
+	matchRow := catalogdb.ListAllSectionsPagedRow{
+		ID:         pgtype.UUID{Bytes: uuid.New(), Valid: true},
+		CourseCode: "MATH200",
+		CourseName: "Linear Algebra",
+	}
+	repo := &fakeRepositoryWithAdminBypass{
+		listAllSectionsPagedRows: []catalogdb.ListAllSectionsPagedRow{matchRow},
+	}
+	svc := catalog.NewService(repo)
+
+	result, err := svc.ListOwnSections(ctx, 20, "", "MATH200")
+	if err != nil {
+		t.Fatalf("ListOwnSections (admin query): unexpected error: %v", err)
+	}
+	if len(result.Sections) != 1 {
+		t.Fatalf("ListOwnSections (admin query): got %d sections, want 1", len(result.Sections))
+	}
+
+	gotQuery := repo.fakeRepository.listAllSectionsPagedArgs.Query
+	if gotQuery == nil {
+		t.Fatal("ListOwnSections (admin query): Query param was nil — search filter not forwarded to admin path")
+	}
+	if *gotQuery != "MATH200" {
+		t.Errorf("ListOwnSections (admin query): Query = %q, want %q", *gotQuery, "MATH200")
+	}
+}
+
+// TestListOwnSections_AdminPath_EmptyQueryPassesNil verifies that an empty query
+// results in a nil Query in ListAllSectionsPagedRepoParams (no filter).
+func TestListOwnSections_AdminPath_EmptyQueryPassesNil(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+		authz.PermCatalogManage,
+	}))
+
+	repo := &fakeRepositoryWithAdminBypass{
+		listAllSectionsPagedRows: []catalogdb.ListAllSectionsPagedRow{},
+	}
+	svc := catalog.NewService(repo)
+
+	_, err := svc.ListOwnSections(ctx, 20, "", "")
+	if err != nil {
+		t.Fatalf("ListOwnSections (admin empty query): unexpected error: %v", err)
+	}
+
+	if repo.fakeRepository.listAllSectionsPagedArgs.Query != nil {
+		t.Errorf("ListOwnSections (admin empty query): Query should be nil, got %q",
+			*repo.fakeRepository.listAllSectionsPagedArgs.Query)
+	}
+}
+
+// TestListOwnSections_AdminPath_NoMatch_Empty verifies that when the repo returns no rows
+// (admin query matched nothing), the result is an empty page — not an error.
+func TestListOwnSections_AdminPath_NoMatch_Empty(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+		authz.PermCatalogManage,
+	}))
+
+	repo := &fakeRepositoryWithAdminBypass{
+		listAllSectionsPagedRows: []catalogdb.ListAllSectionsPagedRow{},
+	}
+	svc := catalog.NewService(repo)
+
+	result, err := svc.ListOwnSections(ctx, 20, "", "NOMATCH")
+	if err != nil {
+		t.Fatalf("ListOwnSections (admin no-match): unexpected error: %v", err)
+	}
+	if len(result.Sections) != 0 {
+		t.Errorf("ListOwnSections (admin no-match): got %d sections, want 0", len(result.Sections))
+	}
+}
+
+// TestListOwnSections_ExistingBehaviorUnchanged_AdminBypassWithEmptyQuery verifies that
+// the admin bypass routing is unchanged when query is empty.
+func TestListOwnSections_ExistingBehaviorUnchanged_AdminBypassWithEmptyQuery(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+		authz.PermCatalogManage,
+	}))
+
+	repo := &fakeRepositoryWithAdminBypass{}
+	svc := catalog.NewService(repo)
+
+	_, err := svc.ListOwnSections(ctx, 20, "", "")
+	if err != nil {
+		t.Fatalf("ListOwnSections (admin bypass empty query): unexpected error: %v", err)
+	}
+	if !repo.listAllSectionsPagedCalled {
+		t.Error("admin bypass: ListAllSectionsPaged NOT called — bypass routing broken")
+	}
+	if repo.listOwnSectionsPagedCalled {
+		t.Error("admin bypass: ListOwnSectionsPaged was called — should NOT be for admin")
+	}
+}
+
+// TestListOwnSections_ExistingBehaviorUnchanged_TeacherPathWithEmptyQuery verifies that
+// the teacher path routing is unchanged when query is empty.
+func TestListOwnSections_ExistingBehaviorUnchanged_TeacherPathWithEmptyQuery(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+	}))
+
+	repo := &fakeRepositoryWithAdminBypass{}
+	svc := catalog.NewService(repo)
+
+	_, err := svc.ListOwnSections(ctx, 20, "", "")
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher empty query): unexpected error: %v", err)
+	}
+	if repo.listAllSectionsPagedCalled {
+		t.Error("teacher path: ListAllSectionsPaged was called — bypass should not activate")
+	}
+	if !repo.listOwnSectionsPagedCalled {
+		t.Error("teacher path: ListOwnSectionsPaged NOT called — teacher path broken")
 	}
 }
 

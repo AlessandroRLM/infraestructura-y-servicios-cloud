@@ -499,3 +499,268 @@ func TestListOwnSections_UnauthenticatedReturnsError(t *testing.T) {
 	}))
 	assertConnectCode(t, err, connect.CodeUnauthenticated)
 }
+
+// --- Search filter integration tests (query parameter) ---
+
+// seedTeacherWithNamedSection creates a teacher and one section whose course has a specific
+// code and name. Returns (teacherUserID, teacherSID, sectionID, adminSID).
+func seedTeacherWithNamedSection(t *testing.T, email, courseCode, courseName string) (teacherUserID, teacherSID, sectionID, adminSID string) {
+	t.Helper()
+	ctx := context.Background()
+	adminSID = catalogSeedAdminSession(t, "search-filter-admin-"+email)
+	teacherUserID, teacherSID = seedTeacherProfile(t, email)
+
+	client := newCatalogClient(nil)
+
+	cResp, err := client.CreateCourse(ctx, withSID(connect.NewRequest(&catalogv1.CreateCourseRequest{
+		Code:    courseCode,
+		Name:    courseName,
+		Credits: 3,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("seedTeacherWithNamedSection: CreateCourse: %v", err)
+	}
+	courseID := cResp.Msg.GetId()
+
+	year := ownSectionsYearCounter.Add(1)
+	pResp, err := client.CreateAcademicPeriod(ctx, withSID(connect.NewRequest(&catalogv1.CreateAcademicPeriodRequest{
+		Year:      year,
+		Term:      2,
+		StartDate: "9100-08-01",
+		EndDate:   "9100-12-31",
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("seedTeacherWithNamedSection: CreateAcademicPeriod: %v", err)
+	}
+	periodID := pResp.Msg.GetId()
+
+	sResp, err := client.CreateSection(ctx, withSID(connect.NewRequest(&catalogv1.CreateSectionRequest{
+		CourseId:         courseID,
+		AcademicPeriodId: periodID,
+		SeatCapacity:     25,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("seedTeacherWithNamedSection: CreateSection: %v", err)
+	}
+	sectionID = sResp.Msg.GetId()
+
+	_, err = client.AssignTeacherToSection(ctx, withSID(connect.NewRequest(&catalogv1.AssignTeacherToSectionRequest{
+		SectionId: sectionID,
+		TeacherId: teacherUserID,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("seedTeacherWithNamedSection: AssignTeacherToSection: %v", err)
+	}
+
+	t.Cleanup(func() {
+		c := context.Background()
+		_, _ = pgxPool.Exec(c, `DELETE FROM section_teachers WHERE section_id = $1`, sectionID)
+		_, _ = pgxPool.Exec(c, `DELETE FROM sections WHERE id = $1`, sectionID)
+		_, _ = pgxPool.Exec(c, `DELETE FROM academic_periods WHERE id = $1`, periodID)
+		_, _ = pgxPool.Exec(c, `DELETE FROM courses WHERE id = $1`, courseID)
+	})
+
+	return teacherUserID, teacherSID, sectionID, adminSID
+}
+
+// TestListOwnSections_Teacher_QueryFiltersByCourseCode verifies that when a teacher passes
+// a query matching the course code, only sections with matching courses are returned.
+func TestListOwnSections_Teacher_QueryFiltersByCourseCode(t *testing.T) {
+	suffix := uuid.New().String()[:8]
+	uniqueCode := "SRCHCODE-" + suffix
+
+	// Seed a matching section for this teacher.
+	_, teacherSID, matchID, _ := seedTeacherWithNamedSection(
+		t, "search-code-teacher-"+suffix+"@test.local",
+		uniqueCode, "Searchable Course by Code",
+	)
+
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	// Filter by the unique course code — teacher path.
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 50,
+		Query:    uniqueCode,
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher query by code): %v", err)
+	}
+
+	gotIDs := make(map[string]bool)
+	for _, s := range resp.Msg.GetSections() {
+		gotIDs[s.GetId()] = true
+	}
+
+	if !gotIDs[matchID] {
+		t.Errorf("teacher query by code: matching section %s not in results", matchID)
+	}
+}
+
+// TestListOwnSections_Teacher_QueryFiltersByCourseName verifies ILIKE filtering on
+// course name for the teacher path (case-insensitive partial match).
+func TestListOwnSections_Teacher_QueryFiltersByCourseName(t *testing.T) {
+	suffix := uuid.New().String()[:8]
+	uniqueName := "UniqCourseName-" + suffix
+
+	_, teacherSID, matchID, _ := seedTeacherWithNamedSection(
+		t, "search-name-teacher-"+suffix+"@test.local",
+		"NAMECODE-"+suffix, uniqueName,
+	)
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	// Query with lowercase prefix of the unique name — ILIKE must match.
+	query := "uniqcoursename-" // lowercase, partial match
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 50,
+		Query:    query,
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher query by name): %v", err)
+	}
+
+	gotIDs := make(map[string]bool)
+	for _, s := range resp.Msg.GetSections() {
+		gotIDs[s.GetId()] = true
+	}
+
+	if !gotIDs[matchID] {
+		t.Errorf("teacher query by name (ILIKE): matching section %s not in results (query=%q)", matchID, query)
+	}
+}
+
+// TestListOwnSections_Teacher_EmptyQuery_ReturnsAll verifies that an empty query returns
+// all of the teacher's sections unchanged (no filter applied).
+func TestListOwnSections_Teacher_EmptyQuery_ReturnsAll(t *testing.T) {
+	_, teacherSID, sectionIDs, _, _ := seedTeacherWithSections(
+		t, "search-empty-teacher-"+uuid.New().String()[:8]+"@test.local", 2,
+	)
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 50,
+		Query:    "", // empty → all sections
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher empty query): %v", err)
+	}
+
+	gotIDs := make(map[string]bool)
+	for _, s := range resp.Msg.GetSections() {
+		gotIDs[s.GetId()] = true
+	}
+
+	for _, id := range sectionIDs {
+		if !gotIDs[id] {
+			t.Errorf("empty query: own section %s missing — filter should not apply", id)
+		}
+	}
+}
+
+// TestListOwnSections_Teacher_NoMatch_ReturnsEmpty verifies that a query with no matching
+// courses returns an empty page (not an error).
+func TestListOwnSections_Teacher_NoMatch_ReturnsEmpty(t *testing.T) {
+	_, teacherSID, _, _, _ := seedTeacherWithSections(
+		t, "search-nomatch-teacher-"+uuid.New().String()[:8]+"@test.local", 1,
+	)
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 50,
+		Query:    "ZZZNOCOURSEWILLHAVETHISNAME",
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher no-match): %v", err)
+	}
+
+	if len(resp.Msg.GetSections()) != 0 {
+		t.Errorf("no-match query: got %d sections, want 0", len(resp.Msg.GetSections()))
+	}
+}
+
+// TestListOwnSections_Admin_QueryFiltersByCourseCode verifies that the admin bypass path
+// also applies the search filter on course code.
+func TestListOwnSections_Admin_QueryFiltersByCourseCode(t *testing.T) {
+	suffix := uuid.New().String()[:8]
+	uniqueCode := "ADMCODE-" + suffix
+
+	_, _, matchID, adminSID := seedTeacherWithNamedSection(
+		t, "adm-code-teacher-"+suffix+"@test.local",
+		uniqueCode, "Admin Filter Course",
+	)
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 200,
+		Query:    uniqueCode,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (admin query by code): %v", err)
+	}
+
+	gotIDs := make(map[string]bool)
+	for _, s := range resp.Msg.GetSections() {
+		gotIDs[s.GetId()] = true
+	}
+
+	if !gotIDs[matchID] {
+		t.Errorf("admin query by code: matching section %s not in results", matchID)
+	}
+}
+
+// TestListOwnSections_Admin_EmptyQuery_ReturnsAll verifies that an admin calling with empty
+// query returns all sections (admin bypass behavior unchanged).
+func TestListOwnSections_Admin_EmptyQuery_ReturnsAll(t *testing.T) {
+	_, _, sectionIDsA, adminSID, _ := seedTeacherWithSections(
+		t, "adm-empty-a-"+uuid.New().String()[:8]+"@test.local", 1,
+	)
+	_, _, sectionIDsB, _, _ := seedTeacherWithSections(
+		t, "adm-empty-b-"+uuid.New().String()[:8]+"@test.local", 1,
+	)
+
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 200,
+		Query:    "",
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (admin empty query): %v", err)
+	}
+
+	gotIDs := make(map[string]bool)
+	for _, s := range resp.Msg.GetSections() {
+		gotIDs[s.GetId()] = true
+	}
+
+	for _, id := range append(sectionIDsA, sectionIDsB...) {
+		if !gotIDs[id] {
+			t.Errorf("admin empty query: seeded section %s missing — all sections should be visible", id)
+		}
+	}
+}
+
+// TestListOwnSections_Admin_NoMatch_ReturnsEmpty verifies that an admin with a query that
+// matches no courses receives an empty page — not an error.
+func TestListOwnSections_Admin_NoMatch_ReturnsEmpty(t *testing.T) {
+	_, adminSID := seedUserWithSession(t, "adm-nomatch-"+uuid.New().String()[:8]+"@test.local", "admin")
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 200,
+		Query:    "ZZZNOCOURSEWILLHAVETHISNAME",
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("ListOwnSections (admin no-match): %v", err)
+	}
+
+	if len(resp.Msg.GetSections()) != 0 {
+		t.Errorf("admin no-match query: got %d sections, want 0", len(resp.Msg.GetSections()))
+	}
+}

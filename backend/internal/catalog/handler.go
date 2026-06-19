@@ -730,7 +730,7 @@ func (h *Handler) ListOwnSections(
 	ctx context.Context,
 	req *connect.Request[catalogv1.ListOwnSectionsRequest],
 ) (*connect.Response[catalogv1.ListOwnSectionsResponse], error) {
-	result, err := h.svc.ListOwnSections(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken())
+	result, err := h.svc.ListOwnSections(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken(), req.Msg.GetQuery())
 	if err != nil {
 		return nil, MapError(err)
 	}

@@ -566,12 +566,14 @@ JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
 JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
 WHERE s.deleted_at IS NULL
   AND ($1::uuid IS NULL OR s.id < $1::uuid)
+  AND ($2::text IS NULL OR c.code ILIKE '%' || $2 || '%' OR c.name ILIKE '%' || $2 || '%')
 ORDER BY s.id DESC
-LIMIT $2::int
+LIMIT $3::int
 `
 
 type ListAllSectionsPagedParams struct {
 	PageToken pgtype.UUID
+	Query     pgtype.Text
 	RowLimit  int32
 }
 
@@ -590,7 +592,7 @@ type ListAllSectionsPagedRow struct {
 // year/term — no section_teachers JOIN so admins see every section regardless of assignment.
 // Keyset pagination on s.id DESC mirrors the contract of ListOwnSectionsPaged.
 func (q *Queries) ListAllSectionsPaged(ctx context.Context, arg ListAllSectionsPagedParams) ([]ListAllSectionsPagedRow, error) {
-	rows, err := q.db.Query(ctx, listAllSectionsPaged, arg.PageToken, arg.RowLimit)
+	rows, err := q.db.Query(ctx, listAllSectionsPaged, arg.PageToken, arg.Query, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -682,13 +684,15 @@ JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
 JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
 WHERE s.deleted_at IS NULL
   AND ($2::uuid IS NULL OR s.id < $2::uuid)
+  AND ($3::text IS NULL OR c.code ILIKE '%' || $3 || '%' OR c.name ILIKE '%' || $3 || '%')
 ORDER BY s.id DESC
-LIMIT $3::int
+LIMIT $4::int
 `
 
 type ListOwnSectionsPagedParams struct {
 	TeacherID pgtype.UUID
 	PageToken pgtype.UUID
+	Query     pgtype.Text
 	RowLimit  int32
 }
 
@@ -707,7 +711,12 @@ type ListOwnSectionsPagedRow struct {
 // enriched with course and academic period labels. Keyset pagination on s.id DESC.
 // teacher_id is the caller's user ID derived from the session context.
 func (q *Queries) ListOwnSectionsPaged(ctx context.Context, arg ListOwnSectionsPagedParams) ([]ListOwnSectionsPagedRow, error) {
-	rows, err := q.db.Query(ctx, listOwnSectionsPaged, arg.TeacherID, arg.PageToken, arg.RowLimit)
+	rows, err := q.db.Query(ctx, listOwnSectionsPaged,
+		arg.TeacherID,
+		arg.PageToken,
+		arg.Query,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
