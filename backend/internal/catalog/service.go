@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog/catalogdb"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/platform/pagination"
 )
@@ -485,13 +486,16 @@ func (s *Service) ListSectionTeachers(ctx context.Context, sectionID uuid.UUID) 
 
 // ListOwnSections returns the paginated list of sections where the authenticated caller is a
 // teacher, enriched with course and academic period labels.
+// When the caller holds catalog.manage, all sections are returned (admin bypass) without
+// filtering by section_teachers membership — the entry gate (section.view_teaching) is
+// UNCHANGED and must not be modified here or in the handler policy map.
 // The caller's identity is derived exclusively from the session context (auth.UserIDFromContext).
 // No teacher_id parameter is accepted to avoid IDOR vectors.
 // pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
 // A teacher with zero section_teachers rows returns an empty page (not an error).
 // Returns ErrInvalidInput when the page_token cannot be parsed as a UUID.
 func (s *Service) ListOwnSections(ctx context.Context, pageSize int32, pageToken string) (ListOwnSectionsResult, error) {
-	callerID, ok := auth.UserIDFromContext(ctx)
+	_, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		// Defensive guard — unreachable behind the auth interceptor in normal operation.
 		return ListOwnSectionsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
@@ -506,6 +510,16 @@ func (s *Service) ListOwnSections(ctx context.Context, pageSize int32, pageToken
 			return ListOwnSectionsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
 		}
 		tokenUUID = &id
+	}
+
+	if callerIsCatalogAdmin(ctx) {
+		return s.listAllSections(ctx, tokenUUID, clamped)
+	}
+
+	// Teacher-scoped path: requires the caller's user ID.
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return ListOwnSectionsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
 	}
 
 	rows, err := s.repo.ListOwnSectionsPaged(ctx, ListOwnSectionsPagedRepoParams{
@@ -528,6 +542,43 @@ func (s *Service) ListOwnSections(ctx context.Context, pageSize int32, pageToken
 	}, nil
 }
 
+// listAllSections executes the admin bypass path for ListOwnSections. It queries all live
+// sections via ListAllSectionsPaged and converts the rows to the common result type.
+func (s *Service) listAllSections(ctx context.Context, tokenUUID *uuid.UUID, clamped int) (ListOwnSectionsResult, error) {
+	rows, err := s.repo.ListAllSectionsPaged(ctx, ListAllSectionsPagedRepoParams{
+		PageToken: tokenUUID,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListOwnSectionsResult{}, err
+	}
+
+	// Convert to the shared row type (identical field layout).
+	converted := make([]catalogdb.ListOwnSectionsPagedRow, len(rows))
+	for i, r := range rows {
+		converted[i] = catalogdb.ListOwnSectionsPagedRow{
+			ID:               r.ID,
+			CourseID:         r.CourseID,
+			AcademicPeriodID: r.AcademicPeriodID,
+			SeatCapacity:     r.SeatCapacity,
+			CourseCode:       r.CourseCode,
+			CourseName:       r.CourseName,
+			PeriodYear:       r.PeriodYear,
+			PeriodTerm:       r.PeriodTerm,
+		}
+	}
+
+	page := pagination.Paginate(converted, clamped)
+	nextToken := pagination.TokenOf(page, func(r catalogdb.ListOwnSectionsPagedRow) uuid.UUID {
+		return uuid.UUID(r.ID.Bytes)
+	})
+
+	return ListOwnSectionsResult{
+		Sections:      page.Items,
+		NextPageToken: nextToken,
+	}, nil
+}
+
 // --- Helpers ---
 
 // actorFromContext extracts the authenticated user_id from context and returns a pointer.
@@ -538,6 +589,18 @@ func actorFromContext(ctx context.Context) *uuid.UUID {
 		return nil
 	}
 	return &id
+}
+
+// callerIsCatalogAdmin returns true when the authenticated caller holds catalog.manage,
+// which identifies admin-level access for the catalog domain. This is the INTERNAL
+// discriminator for the ListOwnSections dual-path — the entry gate (section.view_teaching)
+// is NEVER changed here; only the internal read scope is widened for admins.
+func callerIsCatalogAdmin(ctx context.Context) bool {
+	perms, ok := authz.PermissionsFromContext(ctx)
+	if !ok {
+		return false
+	}
+	return perms.Has(authz.PermCatalogManage)
 }
 
 // validateAcademicPeriod enforces all academic period business rules.

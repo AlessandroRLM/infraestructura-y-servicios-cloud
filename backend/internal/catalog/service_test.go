@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/auth"
+	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/authz"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog"
 	"github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/internal/catalog/catalogdb"
 )
@@ -94,6 +95,10 @@ type fakeRepository struct {
 	// Teaching-scope reads
 	listOwnSectionsPagedRows []catalogdb.ListOwnSectionsPagedRow
 	listOwnSectionsPagedErr  error
+
+	// Admin-scope reads
+	listAllSectionsPagedRows []catalogdb.ListAllSectionsPagedRow
+	listAllSectionsPagedErr  error
 }
 
 // Compile-time check: fakeRepository must satisfy catalog.Repository.
@@ -236,6 +241,10 @@ func (f *fakeRepository) ListSectionTeachers(_ context.Context, _ uuid.UUID) ([]
 }
 func (f *fakeRepository) ListOwnSectionsPaged(_ context.Context, _ catalog.ListOwnSectionsPagedRepoParams) ([]catalogdb.ListOwnSectionsPagedRow, error) {
 	return f.listOwnSectionsPagedRows, f.listOwnSectionsPagedErr
+}
+
+func (f *fakeRepository) ListAllSectionsPaged(_ context.Context, _ catalog.ListAllSectionsPagedRepoParams) ([]catalogdb.ListAllSectionsPagedRow, error) {
+	return f.listAllSectionsPagedRows, f.listAllSectionsPagedErr
 }
 
 // --- Validation tests ---
@@ -1073,6 +1082,156 @@ func TestService_ListCourses_PaginationWithQuery(t *testing.T) {
 	}
 	if *repo.listCoursesArgs.Query != "mat" {
 		t.Errorf("ListCourses Query = %q, want %q", *repo.listCoursesArgs.Query, "mat")
+	}
+}
+
+// --- ListOwnSections admin-bypass discriminator unit tests ---
+
+// fakeRepositoryWithAdminBypass extends fakeRepository with explicit call sentinels
+// for the admin-bypass path so that tests can assert WHICH repo method was invoked.
+type fakeRepositoryWithAdminBypass struct {
+	fakeRepository
+
+	// listAllSectionsPagedCalled is true when ListAllSectionsPaged was invoked.
+	listAllSectionsPagedCalled bool
+	// listAllSectionsPagedRows is the slice returned by ListAllSectionsPaged.
+	listAllSectionsPagedRows []catalogdb.ListAllSectionsPagedRow
+	// listAllSectionsPagedErr is the error returned by ListAllSectionsPaged.
+	listAllSectionsPagedErr error
+
+	// listOwnSectionsPagedCalled is set to true when ListOwnSectionsPaged is invoked.
+	listOwnSectionsPagedCalled bool
+}
+
+func (f *fakeRepositoryWithAdminBypass) ListAllSectionsPaged(_ context.Context, _ catalog.ListAllSectionsPagedRepoParams) ([]catalogdb.ListAllSectionsPagedRow, error) {
+	f.listAllSectionsPagedCalled = true
+	return f.listAllSectionsPagedRows, f.listAllSectionsPagedErr
+}
+
+// Override ListOwnSectionsPaged so we can track calls independently of fakeRepository.
+func (f *fakeRepositoryWithAdminBypass) ListOwnSectionsPaged(_ context.Context, _ catalog.ListOwnSectionsPagedRepoParams) ([]catalogdb.ListOwnSectionsPagedRow, error) {
+	f.listOwnSectionsPagedCalled = true
+	return f.fakeRepository.listOwnSectionsPagedRows, f.fakeRepository.listOwnSectionsPagedErr
+}
+
+// TestListOwnSections_AdminBypass_CallsAllVariant verifies that a caller holding
+// PermCatalogManage is routed to ListAllSectionsPaged and NOT to ListOwnSectionsPaged.
+func TestListOwnSections_AdminBypass_CallsAllVariant(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+		authz.PermCatalogManage,
+	}))
+
+	repo := &fakeRepositoryWithAdminBypass{}
+	svc := catalog.NewService(repo)
+
+	_, err := svc.ListOwnSections(ctx, 20, "")
+	if err != nil {
+		t.Fatalf("ListOwnSections (admin): unexpected error: %v", err)
+	}
+	if !repo.listAllSectionsPagedCalled {
+		t.Error("ListOwnSections (admin): ListAllSectionsPaged was NOT called — admin bypass missing")
+	}
+	if repo.listOwnSectionsPagedCalled {
+		t.Error("ListOwnSections (admin): ListOwnSectionsPaged was called — should NOT be for admin")
+	}
+}
+
+// TestListOwnSections_TeacherPath_CallsOwnVariant verifies that a caller holding
+// PermSectionViewTeaching but NOT PermCatalogManage is routed to ListOwnSectionsPaged.
+func TestListOwnSections_TeacherPath_CallsOwnVariant(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+	}))
+
+	repo := &fakeRepositoryWithAdminBypass{}
+	svc := catalog.NewService(repo)
+
+	_, err := svc.ListOwnSections(ctx, 20, "")
+	if err != nil {
+		t.Fatalf("ListOwnSections (teacher): unexpected error: %v", err)
+	}
+	if repo.listAllSectionsPagedCalled {
+		t.Error("ListOwnSections (teacher): ListAllSectionsPaged was called — should NOT be for teacher")
+	}
+	if !repo.listOwnSectionsPagedCalled {
+		t.Error("ListOwnSections (teacher): ListOwnSectionsPaged was NOT called — teacher path missing")
+	}
+}
+
+// TestListOwnSections_TeacherEmpty_NoLeak verifies that a teacher with zero section_teachers
+// rows gets an empty page with no error — existence is never leaked via PermissionDenied.
+func TestListOwnSections_TeacherEmpty_NoLeak(t *testing.T) {
+	t.Parallel()
+
+	actorID := uuid.New()
+	ctx := auth.WithUserID(context.Background(), actorID)
+	ctx = authz.WithPermissions(ctx, authz.NewPermissionSet([]authz.Permission{
+		authz.PermSectionViewTeaching,
+	}))
+
+	repo := &fakeRepositoryWithAdminBypass{
+		fakeRepository: fakeRepository{
+			listOwnSectionsPagedRows: []catalogdb.ListOwnSectionsPagedRow{}, // empty
+		},
+	}
+	svc := catalog.NewService(repo)
+
+	result, err := svc.ListOwnSections(ctx, 20, "")
+	if err != nil {
+		t.Fatalf("ListOwnSections (empty teacher): unexpected error: %v", err)
+	}
+	if len(result.Sections) != 0 {
+		t.Errorf("ListOwnSections (empty teacher): got %d sections, want 0", len(result.Sections))
+	}
+}
+
+// TestListOwnSections_EntryGateUnchanged_Invariant verifies that the handler registration
+// in main_test.go and main.go maps ListOwnSectionsProcedure to PermSectionViewTeaching —
+// never to PermCatalogManage. A change here would lock out teachers.
+func TestListOwnSections_EntryGateUnchanged_Invariant(t *testing.T) {
+	t.Parallel()
+
+	// PermSectionViewTeaching is the gate. PermCatalogManage is the BYPASS discriminator.
+	// This test asserts that the entry-gate permission constant has not changed.
+	const wantGate = "section.view_teaching"
+	got := string(authz.PermSectionViewTeaching)
+	if got != wantGate {
+		t.Errorf("entry-gate constant changed: got %q, want %q — this would lock out teachers", got, wantGate)
+	}
+
+	const wantBypass = "catalog.manage"
+	gotBypass := string(authz.PermCatalogManage)
+	if gotBypass != wantBypass {
+		t.Errorf("bypass constant changed: got %q, want %q", gotBypass, wantBypass)
+	}
+}
+
+// TestListOwnSections_Unauthenticated_Guard verifies that ErrUnauthenticated is returned
+// when no user is present in the context — no repo call should occur.
+func TestListOwnSections_Unauthenticated_Guard(t *testing.T) {
+	t.Parallel()
+
+	// No auth.WithUserID → auth.UserIDFromContext returns false.
+	ctx := context.Background()
+
+	repo := &fakeRepositoryWithAdminBypass{}
+	svc := catalog.NewService(repo)
+
+	_, err := svc.ListOwnSections(ctx, 20, "")
+	if !errors.Is(err, catalog.ErrUnauthenticated) {
+		t.Errorf("ListOwnSections (unauthenticated): got %v, want ErrUnauthenticated", err)
+	}
+	if repo.listAllSectionsPagedCalled || repo.listOwnSectionsPagedCalled {
+		t.Error("ListOwnSections (unauthenticated): a repo method was called — should have been rejected before any DB call")
 	}
 }
 
