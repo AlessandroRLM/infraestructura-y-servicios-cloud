@@ -764,3 +764,157 @@ func TestListOwnSections_Admin_NoMatch_ReturnsEmpty(t *testing.T) {
 		t.Errorf("admin no-match query: got %d sections, want 0", len(resp.Msg.GetSections()))
 	}
 }
+
+// --- ESCAPE metacharacter tests ---
+//
+// These tests prove that % and _ in the query string are treated as LITERALS,
+// not as SQL LIKE wildcards. They require the ESCAPE '\' clause on both ILIKE
+// predicates (ListOwnSectionsPaged and ListAllSectionsPaged).
+//
+// Seed strategy:
+//   - Course A: code "MAT100" — contains a literal '0', no underscore.
+//   - Course B: code "MAT1X0" — contains a literal 'X', no underscore.
+// A query of "MAT1_0" must match NEITHER course (no course has a literal '_').
+// A query of "MAT%" must match NEITHER course (no course code starts with "MAT%").
+
+// seedTeacherWithEscapeSection creates a teacher and one section whose course has the given code.
+func seedTeacherWithEscapeSection(t *testing.T, email, courseCode string) (teacherSID, sectionID, adminSID string) {
+	t.Helper()
+	_, tSID, sid, aSID := seedTeacherWithNamedSection(t, email, courseCode, "Escape Test Course "+courseCode)
+	return tSID, sid, aSID
+}
+
+// TestListOwnSections_Teacher_UnderscoreQueryIsLiteral proves that a query containing '_'
+// does NOT act as a wildcard on the teacher path. Searching "MAT1_0" must NOT match "MAT100"
+// or "MAT1X0" because neither has a literal underscore between '1' and '0'.
+func TestListOwnSections_Teacher_UnderscoreQueryIsLiteral(t *testing.T) {
+	suffix := uuid.New().String()[:8]
+
+	teacherSIDA, sectionIDA, _ := seedTeacherWithEscapeSection(
+		t, "esc-underscore-a-"+suffix+"@test.local", "MAT100-"+suffix,
+	)
+	teacherSIDB, sectionIDB, _ := seedTeacherWithEscapeSection(
+		t, "esc-underscore-b-"+suffix+"@test.local", "MAT1X0-"+suffix,
+	)
+
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	// Teacher A: query "MAT1_0-<suffix>" — underscore should be literal, not wildcard.
+	query := "MAT1_0-" + suffix
+	respA, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 50,
+		Query:    query,
+	}), teacherSIDA))
+	if err != nil {
+		t.Fatalf("teacher A underscore query: %v", err)
+	}
+	for _, s := range respA.Msg.GetSections() {
+		if s.GetId() == sectionIDA {
+			t.Errorf("teacher path: query %q matched MAT100 section %s — underscore must not be a wildcard", query, sectionIDA)
+		}
+	}
+
+	// Teacher B: same query — must not match MAT1X0 either.
+	respB, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 50,
+		Query:    query,
+	}), teacherSIDB))
+	if err != nil {
+		t.Fatalf("teacher B underscore query: %v", err)
+	}
+	for _, s := range respB.Msg.GetSections() {
+		if s.GetId() == sectionIDB {
+			t.Errorf("teacher path: query %q matched MAT1X0 section %s — underscore must not be a wildcard", query, sectionIDB)
+		}
+	}
+}
+
+// TestListOwnSections_Admin_UnderscoreQueryIsLiteral proves the same property on the admin
+// bypass path (ListAllSectionsPaged). Searching "MAT1_0" must not match "MAT100" or "MAT1X0".
+func TestListOwnSections_Admin_UnderscoreQueryIsLiteral(t *testing.T) {
+	suffix := uuid.New().String()[:8]
+
+	_, sectionIDA, adminSID := seedTeacherWithEscapeSection(
+		t, "esc-adm-under-a-"+suffix+"@test.local", "ADM100-"+suffix,
+	)
+	_, sectionIDB, _ := seedTeacherWithEscapeSection(
+		t, "esc-adm-under-b-"+suffix+"@test.local", "ADM1X0-"+suffix,
+	)
+
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	query := "ADM1_0-" + suffix
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 200,
+		Query:    query,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("admin underscore query: %v", err)
+	}
+
+	for _, s := range resp.Msg.GetSections() {
+		if s.GetId() == sectionIDA {
+			t.Errorf("admin path: query %q matched ADM100 section %s — underscore must not be a wildcard", query, sectionIDA)
+		}
+		if s.GetId() == sectionIDB {
+			t.Errorf("admin path: query %q matched ADM1X0 section %s — underscore must not be a wildcard", query, sectionIDB)
+		}
+	}
+}
+
+// TestListOwnSections_Teacher_PercentQueryIsLiteral proves that '%' in the query is treated
+// as a literal character on the teacher path. Searching "MAT%" must match no section whose
+// course code does not contain a literal '%'.
+func TestListOwnSections_Teacher_PercentQueryIsLiteral(t *testing.T) {
+	suffix := uuid.New().String()[:8]
+	teacherSID, sectionID, _ := seedTeacherWithEscapeSection(
+		t, "esc-pct-teacher-"+suffix+"@test.local", "PCTCRS-"+suffix,
+	)
+
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	// Query with '%' as a literal — must not wildcard-match "PCTCRS-<suffix>".
+	query := "PCT%"
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 50,
+		Query:    query,
+	}), teacherSID))
+	if err != nil {
+		t.Fatalf("teacher percent query: %v", err)
+	}
+	for _, s := range resp.Msg.GetSections() {
+		if s.GetId() == sectionID {
+			t.Errorf("teacher path: query %q matched section %s — %% must not be a wildcard", query, sectionID)
+		}
+	}
+}
+
+// TestListOwnSections_Admin_PercentQueryIsLiteral proves that '%' in the query is treated
+// as a literal character on the admin bypass path. Searching "ADMPC%" must not match any
+// section whose course code does not contain a literal '%'.
+func TestListOwnSections_Admin_PercentQueryIsLiteral(t *testing.T) {
+	suffix := uuid.New().String()[:8]
+	_, sectionID, adminSID := seedTeacherWithEscapeSection(
+		t, "esc-pct-adm-"+suffix+"@test.local", "ADMPC-"+suffix,
+	)
+
+	ctx := context.Background()
+	client := newCatalogClient(nil)
+
+	query := "ADMPC%"
+	resp, err := client.ListOwnSections(ctx, withSID(connect.NewRequest(&catalogv1.ListOwnSectionsRequest{
+		PageSize: 200,
+		Query:    query,
+	}), adminSID))
+	if err != nil {
+		t.Fatalf("admin percent query: %v", err)
+	}
+	for _, s := range resp.Msg.GetSections() {
+		if s.GetId() == sectionID {
+			t.Errorf("admin path: query %q matched section %s — %% must not be a wildcard", query, sectionID)
+		}
+	}
+}

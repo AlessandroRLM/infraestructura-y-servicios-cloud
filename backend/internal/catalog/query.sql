@@ -242,7 +242,9 @@ JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
 JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
 WHERE s.deleted_at IS NULL
   AND (sqlc.narg('page_token')::uuid IS NULL OR s.id < sqlc.narg('page_token')::uuid)
-  AND (sqlc.narg('query')::text IS NULL OR c.code ILIKE '%' || sqlc.narg('query') || '%' OR c.name ILIKE '%' || sqlc.narg('query') || '%')
+  AND (sqlc.narg('query')::text IS NULL
+       OR c.code ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\'
+       OR c.name ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\')
 ORDER BY s.id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
@@ -265,7 +267,9 @@ JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
 JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
 WHERE s.deleted_at IS NULL
   AND (sqlc.narg('page_token')::uuid IS NULL OR s.id < sqlc.narg('page_token')::uuid)
-  AND (sqlc.narg('query')::text IS NULL OR c.code ILIKE '%' || sqlc.narg('query') || '%' OR c.name ILIKE '%' || sqlc.narg('query') || '%')
+  AND (sqlc.narg('query')::text IS NULL
+       OR c.code ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\'
+       OR c.name ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\')
 ORDER BY s.id DESC
 LIMIT sqlc.arg('row_limit')::int;
 

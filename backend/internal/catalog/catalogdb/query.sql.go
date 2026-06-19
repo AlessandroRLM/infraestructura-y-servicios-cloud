@@ -566,7 +566,9 @@ JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
 JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
 WHERE s.deleted_at IS NULL
   AND ($1::uuid IS NULL OR s.id < $1::uuid)
-  AND ($2::text IS NULL OR c.code ILIKE '%' || $2 || '%' OR c.name ILIKE '%' || $2 || '%')
+  AND ($2::text IS NULL
+       OR c.code ILIKE '%' || $2 || '%' ESCAPE '\'
+       OR c.name ILIKE '%' || $2 || '%' ESCAPE '\')
 ORDER BY s.id DESC
 LIMIT $3::int
 `
@@ -684,7 +686,9 @@ JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
 JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
 WHERE s.deleted_at IS NULL
   AND ($2::uuid IS NULL OR s.id < $2::uuid)
-  AND ($3::text IS NULL OR c.code ILIKE '%' || $3 || '%' OR c.name ILIKE '%' || $3 || '%')
+  AND ($3::text IS NULL
+       OR c.code ILIKE '%' || $3 || '%' ESCAPE '\'
+       OR c.name ILIKE '%' || $3 || '%' ESCAPE '\')
 ORDER BY s.id DESC
 LIMIT $4::int
 `
