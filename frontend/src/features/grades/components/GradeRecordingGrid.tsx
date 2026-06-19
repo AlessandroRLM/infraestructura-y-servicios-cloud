@@ -1,5 +1,5 @@
 import { RefreshCw } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -48,21 +48,21 @@ export function GradeRecordingGrid({
   const { record } = useRecordGrade();
   const { override } = useOverrideGrade();
 
-  // Local mutable cells state (seeded from the VM, updated on save without full refetch)
+  // Local mutable cells state (seeded from rows, re-initialized when section or loaded rows change).
   const [localCells, setLocalCells] = useState<
     Map<string, Map<string, CellVM>>
   >(new Map());
 
-  // Initialize localCells once data loads
-  const [initialized, setInitialized] = useState(false);
-  if (!isLoading && !isError && rows.length > 0 && !initialized) {
+  // Re-seed localCells whenever the loaded rows change (which happens on section switch too,
+  // since each section has its own query key and returns a distinct rows identity).
+  useEffect(() => {
+    if (isLoading || isError || rows.length === 0) return;
     const m = new Map<string, Map<string, CellVM>>();
     for (const row of rows) {
       m.set(row.sectionEnrollmentId, new Map(row.cells));
     }
     setLocalCells(m);
-    setInitialized(true);
-  }
+  }, [rows, isLoading, isError]);
 
   const handleSaveCell = useCallback(
     async (params: {
