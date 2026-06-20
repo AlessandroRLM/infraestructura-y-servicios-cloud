@@ -74,7 +74,7 @@ export function GradeRow({
     new Map(),
   );
 
-  // Per-cell save status — "conflict" removed: conflicts reset cells to idle immediately
+  // Per-cell save status. Conflicts reset the cell to idle — there is no "conflict" status variant.
   const [cellStatuses, setCellStatuses] = useState<Map<string, CellSaveStatus>>(
     new Map(),
   );
@@ -123,6 +123,8 @@ export function GradeRow({
       next.delete(evaluationId);
       return next;
     });
+    // Clear the row conflict banner as soon as the user starts correcting a cell.
+    setConflictMessage(null);
   };
 
   /**

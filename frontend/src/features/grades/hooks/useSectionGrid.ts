@@ -49,6 +49,12 @@ export interface SectionGridVM {
    * the query subscription — no imperative fetch or local state merge needed.
    */
   refetchGrades: () => Promise<void>;
+  /**
+   * Invalidates all section queries (roster + grades + display names).
+   * Used for section-scoped error recovery — refetches only this section's
+   * data without reloading the page.
+   */
+  refetch: () => Promise<void>;
 }
 
 const ROSTER_PAGE_SIZE = 200;
@@ -179,11 +185,40 @@ export function useSectionGrid(
       }),
     });
 
+  // Invalidates all three section queries (roster + grades + display names)
+  // for section-scoped error recovery. Mirrors what happens on a full reload
+  // but scoped to this section — does not touch unrelated cache entries.
+  const refetch = (): Promise<void> =>
+    Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: createConnectQueryKey({
+          schema: SectionEnrollmentService.method.listSectionRosterForTeacher,
+          input: { sectionId, pageSize: ROSTER_PAGE_SIZE, pageToken: "" },
+          cardinality: "finite",
+        }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: createConnectQueryKey({
+          schema: GradesService.method.listGradesForSection,
+          input: { sectionId, pageSize: GRADES_PAGE_SIZE, pageToken: "" },
+          cardinality: "finite",
+        }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: createConnectQueryKey({
+          schema: ProfileService.method.listDisplayNamesByIDs,
+          input: { userIds: studentIds },
+          cardinality: "finite",
+        }),
+      }),
+    ]).then(() => undefined);
+
   return {
     evaluations,
     rows,
     isLoading,
     isError,
     refetchGrades,
+    refetch,
   };
 }

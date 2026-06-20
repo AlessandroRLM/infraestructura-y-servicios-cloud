@@ -430,12 +430,6 @@ describe("GradeRecordingGrid — conflict shows fresh server value", () => {
     // First call: no grades (simulates initial state).
     // Second call (after conflict invalidation): grade with value "6.0" from another user.
     let listCallCount = 0;
-    const transport = makeGridTransport({
-      recordGradeImpl: async () => {
-        throw new ConnectError("stale version", Code.Aborted);
-      },
-      gradesReturn: [],
-    });
 
     // Override listGradesForSection to return a grade on the second call
     const transportWithFreshGrade = makeStubTransport(
@@ -505,8 +499,6 @@ describe("GradeRecordingGrid — conflict shows fresh server value", () => {
         },
       ],
     );
-    void transport; // suppress unused warning — we use transportWithFreshGrade below
-
     renderWithProviders({
       route: "/admin/grades/sec-1",
       session: session(["grades.write"]),
@@ -686,8 +678,8 @@ describe("GradeRecordingGrid — re-save after conflict succeeds", () => {
 // G-10: Conflict clears only the conflicted row; other saved overrides survive
 // ──────────────────────────────────────────────
 
-describe("GradeRecordingGrid — conflict does not wipe other saved overrides", () => {
-  it("G-10: a conflict on eval-1 clears its override but the saved override for eval-2 in the same row survives refetch", async () => {
+describe("GradeRecordingGrid — conflict clears the whole row override; cache is authoritative after refetch", () => {
+  it("G-10: a conflict on eval-1 clears the entire row override; eval-2 shows the authoritative cache value after refetch", async () => {
     const user = userEvent.setup();
 
     // eval-2 is saved first (succeeds); then eval-1 conflicts.
