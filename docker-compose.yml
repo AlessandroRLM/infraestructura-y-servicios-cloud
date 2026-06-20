@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: academico
+    volumes:
+      # Postgres 18+ stores data under a major-version subdir; mount at /var/lib/postgresql.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d academico"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    # Mirrors the k8s app-config ConfigMap + app-secrets (.env.dev). COOKIE_SECURE=false
+    # because local dev is plain HTTP.
+    environment:
+      DATABASE_URL: postgres://app:app@postgres:5432/academico?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      SESSION_TTL: 24h
+      RESET_TOKEN_TTL: 1h
+      REPORTS_CACHE_TTL: 5m
+      DB_MAX_CONNS: "10"
+      LOG_LEVEL: DEBUG
+      COOKIE_SECURE: "false"
+      APP_ENV: dev
+      HTTP_ADDR: ":8080"
+      METRICS_AUTH_TOKEN: dev-metrics-token
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./backend:/app
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: development
+    environment:
+      VITE_API_PROXY_TARGET: http://api:8080
+      # Uncomment if HMR doesn't fire (e.g. Docker Desktop on macOS/Windows):
+      # VITE_USE_POLLING: "1"
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend:/app/frontend
+      - /app/frontend/node_modules
+      - ./backend/proto:/app/backend/proto:ro
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:
+  redis-data:
+  go-mod-cache:
+  go-build-cache:

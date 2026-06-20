@@ -4,6 +4,11 @@ import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 import { defineConfig } from "vite";
 
+// NOTE: server.* options apply to the Vite dev server ONLY — they are not part of
+// `vite build`, so none of this reaches the production image.
+const apiProxyTarget =
+  process.env.VITE_API_PROXY_TARGET ?? "http://localhost:8080";
+
 export default defineConfig({
   plugins: [
     tanstackRouter({
@@ -16,5 +21,28 @@ export default defineConfig({
   ],
   resolve: {
     alias: { "@": resolve(__dirname, "./src") },
+  },
+  server: {
+    host: true,
+    port: 5173,
+    strictPort: true,
+    watch:
+      process.env.VITE_USE_POLLING === "1"
+        ? {
+            usePolling: true,
+            ignored: [
+              "**/vite.config.ts",
+              "**/vite.config.ts.timestamp-*.mjs",
+              "**/node_modules/**",
+              "**/.git/**",
+            ],
+          }
+        : undefined,
+    proxy: {
+      "^/[a-zA-Z0-9_]+\\.v1\\.": {
+        target: apiProxyTarget,
+        changeOrigin: true,
+      },
+    },
   },
 });
