@@ -33,8 +33,9 @@ type Repository interface {
 	GetEnrollment(ctx context.Context, id uuid.UUID) (enrollmentdb.Enrollment, error)
 
 	// ListEnrollments returns a page of live enrollments matching the optional filter.
+	// Each row carries student_name and program_name derived from LEFT JOINs.
 	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
-	ListEnrollments(ctx context.Context, p ListEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error)
+	ListEnrollments(ctx context.Context, p ListEnrollmentsRepoParams) ([]enrollmentdb.ListEnrollmentsRow, error)
 
 	// ListOwnEnrollments returns a page of live enrollments for the given student,
 	// each row enriched with the program display name via an INNER JOIN on programs.
@@ -62,6 +63,9 @@ type ListEnrollmentsRepoParams struct {
 	Year *int32
 	// Status optionally filters by status string; nil = all statuses.
 	Status *string
+	// Query optionally filters by ILIKE over student email/name and program code/name.
+	// nil = no filter; non-nil value must already be escaped via pagination.SearchPattern.
+	Query *string
 	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
 	RowLimit int32
 }
@@ -238,8 +242,9 @@ func (r *postgresRepository) GetEnrollment(ctx context.Context, id uuid.UUID) (e
 }
 
 // ListEnrollments returns a page of live enrollments matching the optional filter.
+// Each row carries student_name and program_name derived from LEFT JOINs.
 // The keyset cursor (PageToken) is translated to a pgtype.UUID for the sqlc query.
-func (r *postgresRepository) ListEnrollments(ctx context.Context, p ListEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error) {
+func (r *postgresRepository) ListEnrollments(ctx context.Context, p ListEnrollmentsRepoParams) ([]enrollmentdb.ListEnrollmentsRow, error) {
 	params := enrollmentdb.ListEnrollmentsParams{
 		RowLimit: p.RowLimit,
 	}
@@ -257,6 +262,9 @@ func (r *postgresRepository) ListEnrollments(ctx context.Context, p ListEnrollme
 	}
 	if p.Status != nil {
 		params.Status = pgtype.Text{String: *p.Status, Valid: true}
+	}
+	if p.Query != nil {
+		params.Query = pgtype.Text{String: *p.Query, Valid: true}
 	}
 	rows, err := r.q.ListEnrollments(ctx, params)
 	if err != nil {

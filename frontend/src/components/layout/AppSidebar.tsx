@@ -7,6 +7,7 @@ import {
   ListChecks,
   PenLine,
   Users,
+  Wallet,
 } from "lucide-react";
 import {
   hasPermission,
@@ -34,7 +35,10 @@ export const ADMIN_NAV = [
   {
     label: "Inscripciones",
     icon: ClipboardList,
-    options: linkOptions({ to: "/admin/enrollments" }),
+    options: linkOptions({
+      to: "/admin/enrollments",
+      search: { q: "", pageSize: 20 },
+    }),
   },
   {
     label: "Secciones",
@@ -79,6 +83,14 @@ export const PARTICIPANT_NAV = [
     options: linkOptions({
       to: "/app/grades",
       search: { period: "", program: "", pageSize: 20 },
+    }),
+  },
+  {
+    label: "Mis matrículas",
+    icon: Wallet,
+    options: linkOptions({
+      to: "/app/enrollments",
+      search: { pageSize: 20 },
     }),
   },
   {

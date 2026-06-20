@@ -29,7 +29,8 @@ type fakeRepository struct {
 	getEnrollmentErr    error
 
 	listCalled bool
-	listResult []enrollmentdb.Enrollment
+	listArgs   ListEnrollmentsRepoParams
+	listResult []enrollmentdb.ListEnrollmentsRow
 	listErr    error
 
 	listOwnCalled bool
@@ -57,8 +58,9 @@ func (f *fakeRepository) GetEnrollment(_ context.Context, _ uuid.UUID) (enrollme
 	return f.getEnrollmentResult, f.getEnrollmentErr
 }
 
-func (f *fakeRepository) ListEnrollments(_ context.Context, _ ListEnrollmentsRepoParams) ([]enrollmentdb.Enrollment, error) {
+func (f *fakeRepository) ListEnrollments(_ context.Context, p ListEnrollmentsRepoParams) ([]enrollmentdb.ListEnrollmentsRow, error) {
 	f.listCalled = true
+	f.listArgs = p
 	return f.listResult, f.listErr
 }
 
@@ -257,7 +259,7 @@ func TestGetOwnEnrollment_NoCtxUser(t *testing.T) {
 
 // TestListEnrollments_ClampMin verifies page_size=0 is clamped to 20 (min).
 func TestListEnrollments_ClampMin(t *testing.T) {
-	repo := &fakeRepository{listResult: []enrollmentdb.Enrollment{}}
+	repo := &fakeRepository{listResult: []enrollmentdb.ListEnrollmentsRow{}}
 	svc := NewService(repo)
 
 	_, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 0, "")
@@ -271,7 +273,7 @@ func TestListEnrollments_ClampMin(t *testing.T) {
 
 // TestListEnrollments_ClampMax verifies page_size=999 is clamped to 200 (max).
 func TestListEnrollments_ClampMax(t *testing.T) {
-	repo := &fakeRepository{listResult: []enrollmentdb.Enrollment{}}
+	repo := &fakeRepository{listResult: []enrollmentdb.ListEnrollmentsRow{}}
 	svc := NewService(repo)
 
 	_, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 999, "")
@@ -284,7 +286,7 @@ func TestListEnrollments_ClampMax(t *testing.T) {
 // passed to the repository without error.
 func TestListEnrollments_ValidToken(t *testing.T) {
 	token := uuid.New().String()
-	repo := &fakeRepository{listResult: []enrollmentdb.Enrollment{}}
+	repo := &fakeRepository{listResult: []enrollmentdb.ListEnrollmentsRow{}}
 	svc := NewService(repo)
 
 	_, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 20, token)
@@ -311,9 +313,9 @@ func TestListEnrollments_InvalidToken(t *testing.T) {
 // clampedSize+1 rows (HasNext=true), a non-empty next_page_token is produced.
 func TestListEnrollments_NextTokenSetWhenHasNext(t *testing.T) {
 	// Build 21 fake rows (clamp=20, so 21 > clamped → HasNext=true).
-	rows := make([]enrollmentdb.Enrollment, 21)
+	rows := make([]enrollmentdb.ListEnrollmentsRow, 21)
 	for i := range rows {
-		rows[i] = enrollmentdb.Enrollment{ID: pgUUID(uuid.New())}
+		rows[i] = enrollmentdb.ListEnrollmentsRow{ID: pgUUID(uuid.New())}
 	}
 	repo := &fakeRepository{listResult: rows}
 	svc := NewService(repo)
@@ -333,9 +335,9 @@ func TestListEnrollments_NextTokenSetWhenHasNext(t *testing.T) {
 // TestListEnrollments_EmptyTokenOnLastPage verifies that when the repository returns
 // ≤ clampedSize rows (HasNext=false), next_page_token is empty.
 func TestListEnrollments_EmptyTokenOnLastPage(t *testing.T) {
-	rows := make([]enrollmentdb.Enrollment, 5)
+	rows := make([]enrollmentdb.ListEnrollmentsRow, 5)
 	for i := range rows {
-		rows[i] = enrollmentdb.Enrollment{ID: pgUUID(uuid.New())}
+		rows[i] = enrollmentdb.ListEnrollmentsRow{ID: pgUUID(uuid.New())}
 	}
 	repo := &fakeRepository{listResult: rows}
 	svc := NewService(repo)
@@ -430,5 +432,131 @@ func TestListOwnEnrollments_NextTokenSetWhenHasNext(t *testing.T) {
 	}
 	if len(result.Enrollments) != 20 {
 		t.Errorf("got %d enrollments, want 20 (clamped)", len(result.Enrollments))
+	}
+}
+
+// ---- ListEnrollments search + names-on-wire service tests (TDD) ----
+
+// TestService_ListEnrollments_BlankQueryIsNoFilter verifies that an empty query
+// string results in a nil Query being passed to the repository (no ILIKE filter applied).
+func TestService_ListEnrollments_BlankQueryIsNoFilter(t *testing.T) {
+	repo := &fakeRepository{listResult: []enrollmentdb.ListEnrollmentsRow{}}
+	svc := NewService(repo)
+
+	_, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{Query: ""}, 20, "")
+	if err != nil {
+		t.Fatalf("ListEnrollments(blank query): %v", err)
+	}
+	if !repo.listCalled {
+		t.Error("repo.ListEnrollments was not called")
+	}
+	if repo.listArgs.Query != nil {
+		t.Errorf("blank query: expected nil Query in repo params, got %q", *repo.listArgs.Query)
+	}
+}
+
+// TestService_ListEnrollments_WhitespaceQueryIsNoFilter verifies that a whitespace-only
+// query is treated the same as blank — nil Query to the repository.
+func TestService_ListEnrollments_WhitespaceQueryIsNoFilter(t *testing.T) {
+	repo := &fakeRepository{listResult: []enrollmentdb.ListEnrollmentsRow{}}
+	svc := NewService(repo)
+
+	_, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{Query: "   "}, 20, "")
+	if err != nil {
+		t.Fatalf("ListEnrollments(whitespace query): %v", err)
+	}
+	if repo.listArgs.Query != nil {
+		t.Errorf("whitespace query: expected nil Query in repo params, got %q", *repo.listArgs.Query)
+	}
+}
+
+// TestService_ListEnrollments_EscapesQueryWildcards verifies that ILIKE metacharacters
+// in the search term are escaped literally before passing to the repository.
+// Mirrors TestService_ListUsers_EscapesQueryWildcards from iam/service_test.go.
+func TestService_ListEnrollments_EscapesQueryWildcards(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		query string
+		want  string
+	}{
+		{"percent escaped", "50%", `50\%`},
+		{"underscore escaped", "a_b", `a\_b`},
+		{"backslash escaped", `a\b`, `a\\b`},
+		{"plain unchanged", "ada", "ada"},
+		{"combined", `1_0%\`, `1\_0\%\\`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			repo := &fakeRepository{listResult: []enrollmentdb.ListEnrollmentsRow{}}
+			svc := NewService(repo)
+
+			if _, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{Query: tc.query}, 20, ""); err != nil {
+				t.Fatalf("ListEnrollments: unexpected error: %v", err)
+			}
+			if repo.listArgs.Query == nil {
+				t.Fatal("ListEnrollments: expected a non-nil query param")
+			}
+			if got := *repo.listArgs.Query; got != tc.want {
+				t.Errorf("escaped query = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestService_ListEnrollments_ReturnsStudentNameAndProgramName verifies that when the
+// repository returns a row with student_name and program_name set, the service passes
+// them through to the result.
+func TestService_ListEnrollments_ReturnsStudentNameAndProgramName(t *testing.T) {
+	row := enrollmentdb.ListEnrollmentsRow{
+		ID:          pgUUID(uuid.New()),
+		StudentName: "Alice García",
+		ProgramName: "Ingeniería Civil",
+		Status:      "pending",
+	}
+	repo := &fakeRepository{listResult: []enrollmentdb.ListEnrollmentsRow{row}}
+	svc := NewService(repo)
+
+	result, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 20, "")
+	if err != nil {
+		t.Fatalf("ListEnrollments: %v", err)
+	}
+	if len(result.Enrollments) != 1 {
+		t.Fatalf("expected 1 enrollment, got %d", len(result.Enrollments))
+	}
+	if result.Enrollments[0].StudentName == "" {
+		t.Error("StudentName must be non-empty")
+	}
+	if result.Enrollments[0].ProgramName == "" {
+		t.Error("ProgramName must be non-empty")
+	}
+}
+
+// TestService_ListEnrollments_SoftDeletedProgramStillVisible verifies that when the
+// repository returns a row with empty program columns (simulating a LEFT JOIN miss
+// because the program was soft-deleted), the enrollment still appears in the result
+// and ProgramName is empty string.
+func TestService_ListEnrollments_SoftDeletedProgramStillVisible(t *testing.T) {
+	row := enrollmentdb.ListEnrollmentsRow{
+		ID:          pgUUID(uuid.New()),
+		StudentName: "Bob Smith",
+		ProgramName: "", // soft-deleted program — LEFT JOIN miss
+		Status:      "pending",
+	}
+	repo := &fakeRepository{listResult: []enrollmentdb.ListEnrollmentsRow{row}}
+	svc := NewService(repo)
+
+	result, err := svc.ListEnrollments(context.Background(), ListEnrollmentsFilter{}, 20, "")
+	if err != nil {
+		t.Fatalf("ListEnrollments: %v", err)
+	}
+	if len(result.Enrollments) != 1 {
+		t.Fatalf("expected 1 enrollment (soft-deleted program still visible), got %d", len(result.Enrollments))
+	}
+	if result.Enrollments[0].ProgramName != "" {
+		t.Errorf("ProgramName must be empty string for soft-deleted program, got %q", result.Enrollments[0].ProgramName)
 	}
 }

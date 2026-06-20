@@ -40,14 +40,27 @@ WHERE id = $1 AND status IN ('pending', 'paid') AND deleted_at IS NULL;
 SELECT * FROM enrollments WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: ListEnrollments :many
-SELECT * FROM enrollments
-WHERE deleted_at IS NULL
-  AND (sqlc.narg('page_token')::uuid IS NULL OR id < sqlc.narg('page_token')::uuid)
-  AND (sqlc.narg('student_id')::uuid IS NULL OR student_id = sqlc.narg('student_id')::uuid)
-  AND (sqlc.narg('program_id')::uuid IS NULL OR program_id = sqlc.narg('program_id')::uuid)
-  AND (sqlc.narg('year')::int IS NULL OR year = sqlc.narg('year')::int)
-  AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status')::text)
-ORDER BY id DESC
+SELECT
+  e.id, e.student_id, e.program_id, e.year, e.status, e.paid_at,
+  e.created_at, e.updated_at, e.deleted_at, e.created_by, e.updated_by,
+  COALESCE(NULLIF(TRIM(COALESCE(p.given_names,'')||' '||COALESCE(p.last_name_paternal,'')), ''), u.email, '') AS student_name,
+  COALESCE(pr.name, '') AS program_name
+FROM enrollments e
+LEFT JOIN users u ON u.id = e.student_id AND u.deleted_at IS NULL
+LEFT JOIN user_profiles p ON p.user_id = e.student_id AND p.deleted_at IS NULL
+LEFT JOIN programs pr ON pr.id = e.program_id AND pr.deleted_at IS NULL
+WHERE e.deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR e.id < sqlc.narg('page_token')::uuid)
+  AND (sqlc.narg('student_id')::uuid IS NULL OR e.student_id = sqlc.narg('student_id')::uuid)
+  AND (sqlc.narg('program_id')::uuid IS NULL OR e.program_id = sqlc.narg('program_id')::uuid)
+  AND (sqlc.narg('year')::int IS NULL OR e.year = sqlc.narg('year')::int)
+  AND (sqlc.narg('status')::text IS NULL OR e.status = sqlc.narg('status')::text)
+  AND (sqlc.narg('query')::text IS NULL
+       OR u.email ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\'
+       OR (COALESCE(p.given_names,'')||' '||COALESCE(p.last_name_paternal,'')) ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\'
+       OR pr.code ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\'
+       OR pr.name ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\')
+ORDER BY e.id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
 -- name: ListOwnEnrollments :many

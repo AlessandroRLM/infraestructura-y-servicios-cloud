@@ -70,6 +70,25 @@ describe("requireRoutePermission", () => {
     ).not.toThrow();
   });
 
+  it("/app/enrollments requires enrollment.view_own (WU5)", () => {
+    expect(() =>
+      requireRoutePermission(
+        session(["enrollment.view_own"]),
+        "/app/enrollments",
+      ),
+    ).not.toThrow();
+  });
+
+  it("/app/enrollments rejects a session without enrollment.view_own (WU5)", () => {
+    let thrown: unknown;
+    try {
+      requireRoutePermission(session(["grades.view_own"]), "/app/enrollments");
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ options: { to: "/forbidden" } });
+  });
+
   it("/admin/grades and /app/grades require distinct permission sets", () => {
     // grades.view_own is NOT sufficient for the admin grades route
     let thrown: unknown;

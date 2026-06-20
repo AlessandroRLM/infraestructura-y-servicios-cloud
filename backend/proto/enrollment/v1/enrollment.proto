@@ -34,8 +34,12 @@ message Enrollment {
   optional string created_by = 10;
   optional string updated_by = 11;
   // program_name is the display name of the program (carrera) for this enrollment.
-  // Populated only by ListOwnEnrollments; empty for other RPCs.
+  // Populated by ListEnrollments and ListOwnEnrollments; empty for management single-get RPCs.
   string program_name = 12;
+  // student_name is the display name of the enrolling student, derived from user_profiles
+  // (given_names || ' ' || last_name_paternal), falling back to the student's email when
+  // no user_profile row exists. Populated by ListEnrollments only; empty for other RPCs.
+  string student_name = 13;
 }
 
 message CreateEnrollmentRequest {
@@ -74,6 +78,9 @@ message ListEnrollmentsRequest {
   // Opaque cursor returned by a previous ListEnrollments or ListOwnEnrollments call.
   // Empty string returns the first page.
   string page_token = 6;
+  // query is an optional search string. Filters by student email/name or program code/name (ILIKE).
+  // Empty string means unfiltered.
+  string query = 7;
 }
 
 message ListEnrollmentsResponse {
