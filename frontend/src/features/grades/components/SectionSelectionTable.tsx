@@ -1,5 +1,4 @@
 import { Loader2, RefreshCw } from "lucide-react";
-import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,13 +10,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { SearchInput } from "@/core/components";
+import { PageSizeSelector, SearchInput } from "@/core/components";
 import type { TeachingSection } from "@/gen/catalog/v1/catalog_pb";
 import { useOwnSections } from "../hooks/useOwnSections";
 
 const SECTIONS_SEARCH_DEBOUNCE_MS = 300;
 
 interface SectionSelectionTableProps {
+  /** Current search query; drives the SearchInput value and the RPC query param. */
+  q: string;
+  /** Current page size; drives the PageSizeSelector and the RPC pageSize param. */
+  pageSize: number;
+  /** Called with the debounced query value after the user types. */
+  onQueryChange: (v: string) => void;
+  /** Called when the user picks a different page size. */
+  onPageSizeChange: (n: number) => void;
   /** Called when the user clicks a section row. */
   onSelectSection: (section: TeachingSection) => void;
 }
@@ -30,19 +37,18 @@ interface SectionSelectionTableProps {
  * Columns are intentionally limited to the spec:
  * - Asignatura, Sección, Período — no cupo/enrolled column.
  *
+ * q and pageSize are owned by the caller (URL-synced via the route); this
+ * component is purely presentational with respect to list-state.
+ *
  * Uses the infinite-query pattern from ProgramsTable for "Cargar más".
  */
 export function SectionSelectionTable({
+  q,
+  pageSize,
+  onQueryChange,
+  onPageSizeChange,
   onSelectSection,
 }: SectionSelectionTableProps) {
-  /**
-   * Committed (debounced) query value.
-   * SearchInput owns the raw keystroke state internally; this state holds the
-   * last value emitted by SearchInput.onChange (after the debounce window).
-   * Passing it back as `value` keeps SearchInput in sync after external resets.
-   */
-  const [query, setQuery] = useState("");
-
   const {
     sections,
     isLoading,
@@ -51,17 +57,20 @@ export function SectionSelectionTable({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useOwnSections({ query });
+  } = useOwnSections({ query: q, pageSize });
 
   return (
     <div className="flex flex-col gap-4">
-      <SearchInput
-        value={query}
-        onChange={setQuery}
-        debounceMs={SECTIONS_SEARCH_DEBOUNCE_MS}
-        placeholder="Buscar asignatura…"
-        className="max-w-sm"
-      />
+      <div className="flex items-center gap-2">
+        <SearchInput
+          value={q}
+          onChange={onQueryChange}
+          debounceMs={SECTIONS_SEARCH_DEBOUNCE_MS}
+          placeholder="Buscar asignatura…"
+          className="max-w-sm"
+        />
+        <PageSizeSelector value={pageSize} onChange={onPageSizeChange} />
+      </div>
       {isLoading && (
         <div
           role="status"
@@ -98,7 +107,7 @@ export function SectionSelectionTable({
       {!isLoading && !isError && sections.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-4 rounded-md border border-dashed p-12 text-center">
           <p className="text-muted-foreground text-sm">
-            {query !== ""
+            {q !== ""
               ? "No se encontraron secciones para la búsqueda."
               : "No hay secciones asignadas."}
           </p>
