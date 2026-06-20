@@ -1,17 +1,33 @@
 import { create } from "@bufbuild/protobuf";
-import { Info } from "lucide-react";
+import { Link, linkOptions } from "@tanstack/react-router";
+import { ArrowLeft, Info } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { UserProfile } from "@/gen/profiles/v1/profiles_pb";
+import {
+  eligibleAreas,
+  readPreferredArea,
+  useSession,
+} from "@/features/auth";
+import type { Area } from "@/features/auth";
 import { UpsertOwnProfileRequestSchema } from "@/gen/profiles/v1/profiles_pb";
+import type { UserProfile } from "@/gen/profiles/v1/profiles_pb";
 import { useOwnProfile } from "../hooks/useOwnProfile";
 import { useUpsertOwnProfile } from "../hooks/useUpsertOwnProfile";
 import type { ProfileFormValues } from "../schemas/profile";
 import { mapProfileMutationError } from "./errorMapping";
 import { ProfileForm, type ProfileFormHelpers } from "./ProfileForm";
 import { ProfileIdentityCard } from "./ProfileIdentityCard";
+
+/** Resolves the home path for the active area to use as the back-nav target. */
+function resolveAreaHome(areas: Area[], preferred: Area | null): "/admin" | "/app" {
+  const active =
+    preferred !== null && areas.includes(preferred)
+      ? preferred
+      : (areas[0] ?? "participant");
+  return active === "admin" ? "/admin" : "/app";
+}
 
 function buildDefaultValues(profile: UserProfile): Partial<ProfileFormValues> {
   return {
@@ -28,7 +44,34 @@ function buildDefaultValues(profile: UserProfile): Partial<ProfileFormValues> {
   };
 }
 
+/** Back navigation link + page heading — rendered in all states for consistent chrome. */
+function ProfileHeader({ areaHome }: { areaHome: "/admin" | "/app" }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Link
+        {...linkOptions({ to: areaHome })}
+        className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground w-fit"
+      >
+        <ArrowLeft className="size-4" aria-hidden />
+        Volver
+      </Link>
+      <div className="mt-3">
+        <h1 className="font-semibold text-2xl tracking-tight">Mi perfil</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Administra tu información de contacto y datos de emergencia.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function ProfilePage() {
+  const session = useSession();
+  const isAuth = session.status === "authenticated";
+  const areas = isAuth ? eligibleAreas(session) : [];
+  const preferred = readPreferredArea();
+  const areaHome = resolveAreaHome(areas, preferred);
+
   const { profile, isLoading, isError, isNotFound, refetch } = useOwnProfile();
   const mutation = useUpsertOwnProfile();
 
@@ -62,8 +105,8 @@ export function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-6">
-        <Skeleton className="h-8 w-48" />
+      <div className="max-w-3xl mx-auto flex flex-col gap-6">
+        <ProfileHeader areaHome={areaHome} />
         <Skeleton className="h-64 w-full" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -72,8 +115,8 @@ export function ProfilePage() {
 
   if (isNotFound) {
     return (
-      <div className="flex flex-col gap-6">
-        <h1 className="font-semibold text-2xl tracking-tight">Mi perfil</h1>
+      <div className="max-w-3xl mx-auto flex flex-col gap-6">
+        <ProfileHeader areaHome={areaHome} />
         <Alert>
           <Info className="size-4" />
           <AlertTitle>Completa tu perfil</AlertTitle>
@@ -88,8 +131,8 @@ export function ProfilePage() {
 
   if (isError) {
     return (
-      <div className="flex flex-col gap-6">
-        <h1 className="font-semibold text-2xl tracking-tight">Mi perfil</h1>
+      <div className="max-w-3xl mx-auto flex flex-col gap-6">
+        <ProfileHeader areaHome={areaHome} />
         <p className="text-muted-foreground text-sm">
           No se pudo cargar el perfil.
         </p>
@@ -101,8 +144,8 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="font-semibold text-2xl tracking-tight">Mi perfil</h1>
+    <div className="max-w-3xl mx-auto flex flex-col gap-6">
+      <ProfileHeader areaHome={areaHome} />
       {profile && <ProfileIdentityCard profile={profile} />}
       <ProfileForm
         defaultValues={profile ? buildDefaultValues(profile) : undefined}
