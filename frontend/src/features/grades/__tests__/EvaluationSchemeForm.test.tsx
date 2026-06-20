@@ -184,7 +184,9 @@ describe("EvaluationSchemeForm — error display", () => {
       submitError: "precondition",
     });
     expect(
-      screen.getByText(/este curso ya tiene notas registradas/i),
+      screen.getByText(
+        /otra sección de esta asignatura ya tiene notas registradas/i,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -202,7 +204,9 @@ describe("EvaluationSchemeForm — error display", () => {
       submitError: null,
     });
     expect(
-      screen.queryByText(/este curso ya tiene notas registradas/i),
+      screen.queryByText(
+        /otra sección de esta asignatura ya tiene notas registradas/i,
+      ),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/el esquema ya existe/i)).not.toBeInTheDocument();
   });

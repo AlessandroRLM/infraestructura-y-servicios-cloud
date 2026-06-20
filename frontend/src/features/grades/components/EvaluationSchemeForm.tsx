@@ -69,7 +69,7 @@ interface EvaluationSchemeFormProps {
 }
 
 const PRECONDITION_MESSAGE =
-  "Este curso ya tiene notas registradas. No es posible reemplazar el esquema.";
+  "Otra sección de esta asignatura ya tiene notas registradas con este esquema, por lo que no es posible reemplazarlo.";
 const ALREADY_EXISTS_MESSAGE =
   "El esquema ya existe. Recarga la página e intenta de nuevo.";
 

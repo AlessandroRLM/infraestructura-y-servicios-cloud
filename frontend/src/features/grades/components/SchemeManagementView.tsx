@@ -145,12 +145,18 @@ export function SchemeManagementView({
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium">Asignatura</span>
           {isCourseLocked ? (
-            <p
-              className="text-sm text-muted-foreground"
-              aria-label="Asignatura seleccionada"
-            >
-              {initialCourseLabel ?? initialCourseId}
-            </p>
+            <>
+              <p
+                className="text-sm text-muted-foreground"
+                aria-label="Asignatura seleccionada"
+              >
+                {initialCourseLabel ?? initialCourseId}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                El esquema de evaluación es de la asignatura y se aplica a todas
+                sus secciones.
+              </p>
+            </>
           ) : (
             <CourseSchemePicker
               value={courseId}

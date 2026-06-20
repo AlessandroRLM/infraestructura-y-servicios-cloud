@@ -386,7 +386,9 @@ describe("SchemeManagementView — S-09: FailedPrecondition", () => {
     await user.click(screen.getByRole("button", { name: /^recrear$/i }));
 
     // Inline precondition error appears.
-    await screen.findByText(/este curso ya tiene notas registradas/i);
+    await screen.findByText(
+      /otra sección de esta asignatura ya tiene notas registradas/i,
+    );
 
     // Form stays open (spinbuttons are visible).
     expect(screen.getAllByRole("spinbutton").length).toBeGreaterThan(0);
@@ -455,7 +457,9 @@ describe("SchemeManagementView — S-09: FailedPrecondition", () => {
       await user.click(submitBtn);
       await screen.findByRole("alertdialog");
       await user.click(screen.getByRole("button", { name: /^recrear$/i }));
-      await screen.findByText(/este curso ya tiene notas registradas/i);
+      await screen.findByText(
+        /otra sección de esta asignatura ya tiene notas registradas/i,
+      );
 
       // Change course: open the picker (now labelled "MAT101 — Matemáticas" after selection).
       const picker = screen.getByRole("combobox", {
@@ -472,7 +476,9 @@ describe("SchemeManagementView — S-09: FailedPrecondition", () => {
 
       // The error message should no longer be visible.
       expect(
-        screen.queryByText(/este curso ya tiene notas registradas/i),
+        screen.queryByText(
+          /otra sección de esta asignatura ya tiene notas registradas/i,
+        ),
       ).not.toBeInTheDocument();
     });
   });
@@ -618,6 +624,37 @@ describe("SchemeManagementView — locked course label (Change 1 UX fix)", () =>
     expect(
       screen.getByRole("combobox", { name: /seleccionar asignatura/i }),
     ).toBeInTheDocument();
+  });
+
+  it("shows course-wide scope note when initialCourseId is set", () => {
+    renderView(
+      {
+        listEvaluations: async () =>
+          create(ListEvaluationsResponseSchema, { evaluations: [] }),
+      },
+      defaultCatalogImpl,
+      "course-1",
+      "MAT101 — Cálculo I",
+    );
+
+    expect(
+      screen.getByText(
+        /el esquema de evaluación es de la asignatura y se aplica a todas sus secciones/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does NOT show course-wide scope note when initialCourseId is empty", () => {
+    renderView({
+      listEvaluations: async () =>
+        create(ListEvaluationsResponseSchema, { evaluations: [] }),
+    });
+
+    expect(
+      screen.queryByText(
+        /el esquema de evaluación es de la asignatura y se aplica a todas sus secciones/i,
+      ),
+    ).not.toBeInTheDocument();
   });
 });
 
