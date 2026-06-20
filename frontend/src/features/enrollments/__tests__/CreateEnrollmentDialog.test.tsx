@@ -260,6 +260,47 @@ describe("CreateEnrollmentDialog — domain error (AlreadyExists)", () => {
   });
 });
 
+describe("CreateEnrollmentDialog — quota precondition (FailedPrecondition)", () => {
+  it("shows the missing-quota inline message, no toast, dialog stays open", async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    const createEnrollment = vi.fn(async () => {
+      throw new ConnectError(
+        "enrollment: quota not found",
+        Code.FailedPrecondition,
+      );
+    });
+
+    renderComponent(
+      <CreateEnrollmentDialog open onOpenChange={onOpenChange} />,
+      { transport: makeDefaultTransport({ createEnrollment }) },
+    );
+
+    await selectStudent(user);
+    await selectProgram(user);
+    await fillYear(user, "2026");
+
+    const submitBtn = await waitFor(() => {
+      const btn = screen.getByRole("button", { name: /crear matrícula/i });
+      expect(btn).not.toBeDisabled();
+      return btn;
+    });
+    await user.click(submitBtn);
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/no hay cupo de matrícula definido/i),
+      ).toBeInTheDocument(),
+    );
+
+    // No raw code, no duplicate-enrollment message, no toast, dialog stays open
+    expect(screen.queryByText(/FailedPrecondition/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ya existe una matrícula/i)).not.toBeInTheDocument();
+    expect(toastError).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+});
+
 describe("CreateEnrollmentDialog — transport error", () => {
   it("shows toast.error, dialog stays open, no raw code", async () => {
     const user = userEvent.setup();

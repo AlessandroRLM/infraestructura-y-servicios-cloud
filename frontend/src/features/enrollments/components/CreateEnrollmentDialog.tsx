@@ -95,13 +95,9 @@ export function CreateEnrollmentDialog({
       handleOpenChange(false);
       toast.success("Matrícula creada");
     } catch (err) {
-      const result = mapCreateEnrollmentError(err, undefined);
-      if (result === "handled-inline") {
-        // mapCreateEnrollmentError sets the inline message via setError — but since
-        // we do not use react-hook-form here, we manually set the inline error.
-        setInlineError(
-          "Ya existe una matrícula para este estudiante, programa y año.",
-        );
+      const message = mapCreateEnrollmentError(err);
+      if (message) {
+        setInlineError(message);
       } else {
         toast.error("No se pudo crear la matrícula. Inténtalo de nuevo.");
       }

@@ -1,27 +1,29 @@
 import { Code, ConnectError } from "@connectrpc/connect";
-import type { UseFormSetError, FieldValues } from "react-hook-form";
 
 /**
- * Maps a CreateEnrollment mutation error to either an inline field error or a
- * toast signal. Never surfaces raw error text, codes, or service names to the UI.
+ * Maps a CreateEnrollment mutation error to a Spanish inline message to show in
+ * the dialog, or null when the caller should fall back to a generic toast.
+ * Never surfaces raw error text, codes, or service names to the UI.
  *
- * AlreadyExists / InvalidArgument → inline domain message set on "root".
- * Everything else → "toast" signal (caller shows a toast).
+ * - AlreadyExists / InvalidArgument → duplicate-enrollment message.
+ * - FailedPrecondition → quota message ("cupo lleno" vs "sin cupo definido").
+ *   On the create path, FailedPrecondition is always a quota precondition.
+ * - Everything else → null (transport; caller shows a toast).
  */
-export function mapCreateEnrollmentError(
-  err: unknown,
-  setError?: UseFormSetError<FieldValues>,
-): "handled-inline" | "toast" {
+export function mapCreateEnrollmentError(err: unknown): string | null {
   if (err instanceof ConnectError) {
     if (err.code === Code.AlreadyExists || err.code === Code.InvalidArgument) {
-      setError?.("root", {
-        message:
-          "Ya existe una matrícula para este estudiante, programa y año.",
-      });
-      return "handled-inline";
+      return "Ya existe una matrícula para este estudiante, programa y año.";
+    }
+    if (err.code === Code.FailedPrecondition) {
+      // The backend distinguishes a full quota from a missing one; both arrive
+      // as FailedPrecondition, so disambiguate on the (stable) domain message.
+      return /full/i.test(err.rawMessage)
+        ? "El cupo de matrícula para este programa y año está completo."
+        : "No hay cupo de matrícula definido para este programa y año.";
     }
   }
-  return "toast";
+  return null;
 }
 
 /**

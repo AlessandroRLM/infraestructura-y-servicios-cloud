@@ -1,63 +1,60 @@
 import { Code, ConnectError } from "@connectrpc/connect";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   mapCreateEnrollmentError,
   mapLifecycleError,
 } from "../hooks/errorMapping";
 
 describe("mapCreateEnrollmentError", () => {
-  it("AlreadyExists with setError returns handled-inline and sets field message", () => {
-    const setError = vi.fn();
+  it("AlreadyExists returns the duplicate-enrollment inline message", () => {
     const err = new ConnectError("already exists", Code.AlreadyExists);
-    const result = mapCreateEnrollmentError(err, setError);
-    expect(result).toBe("handled-inline");
-    expect(setError).toHaveBeenCalledWith(
-      "root",
-      expect.objectContaining({
-        message: "Ya existe una matrícula para este estudiante, programa y año.",
-      }),
+    expect(mapCreateEnrollmentError(err)).toBe(
+      "Ya existe una matrícula para este estudiante, programa y año.",
     );
   });
 
-  it("InvalidArgument with setError returns handled-inline and sets field message", () => {
-    const setError = vi.fn();
+  it("InvalidArgument returns the duplicate-enrollment inline message", () => {
     const err = new ConnectError("invalid argument", Code.InvalidArgument);
-    const result = mapCreateEnrollmentError(err, setError);
-    expect(result).toBe("handled-inline");
-    expect(setError).toHaveBeenCalledWith(
-      "root",
-      expect.objectContaining({
-        message: "Ya existe una matrícula para este estudiante, programa y año.",
-      }),
+    expect(mapCreateEnrollmentError(err)).toBe(
+      "Ya existe una matrícula para este estudiante, programa y año.",
     );
   });
 
-  it("transport error returns toast", () => {
-    const setError = vi.fn();
+  it("FailedPrecondition 'quota not found' returns the missing-quota message", () => {
+    const err = new ConnectError(
+      "enrollment: quota not found",
+      Code.FailedPrecondition,
+    );
+    expect(mapCreateEnrollmentError(err)).toBe(
+      "No hay cupo de matrícula definido para este programa y año.",
+    );
+  });
+
+  it("FailedPrecondition 'quota full' returns the quota-full message", () => {
+    const err = new ConnectError(
+      "enrollment: quota full",
+      Code.FailedPrecondition,
+    );
+    expect(mapCreateEnrollmentError(err)).toBe(
+      "El cupo de matrícula para este programa y año está completo.",
+    );
+  });
+
+  it("transport error returns null (caller shows a toast)", () => {
     const err = new ConnectError("unavailable", Code.Unavailable);
-    const result = mapCreateEnrollmentError(err, setError);
-    expect(result).toBe("toast");
-    expect(setError).not.toHaveBeenCalled();
+    expect(mapCreateEnrollmentError(err)).toBeNull();
   });
 
-  it("non-ConnectError returns toast without calling setError", () => {
-    const setError = vi.fn();
-    const result = mapCreateEnrollmentError(new Error("network"), setError);
-    expect(result).toBe("toast");
-    expect(setError).not.toHaveBeenCalled();
+  it("non-ConnectError returns null", () => {
+    expect(mapCreateEnrollmentError(new Error("network"))).toBeNull();
   });
 
-  it("AlreadyExists without setError returns handled-inline", () => {
-    const err = new ConnectError("already exists", Code.AlreadyExists);
-    const result = mapCreateEnrollmentError(err);
-    expect(result).toBe("handled-inline");
-  });
-
-  it("no raw codes leak — returned string is not a numeric code", () => {
-    const err = new ConnectError("already exists", Code.AlreadyExists);
-    const result = mapCreateEnrollmentError(err);
-    expect(typeof result).toBe("string");
+  it("no raw codes leak — returned message is human Spanish, never a code", () => {
+    const result = mapCreateEnrollmentError(
+      new ConnectError("already exists", Code.AlreadyExists),
+    );
     expect(result).not.toMatch(/^\d+$/);
+    expect(result).not.toMatch(/failed_precondition|already_exists|\[\d/i);
   });
 });
 
