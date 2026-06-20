@@ -56,6 +56,11 @@ type Repository interface {
 	// not a teacher of the section — anti-leak: no error, no disclosure of existence.
 	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
 	ListSectionRosterForTeacher(ctx context.Context, p ListSectionRosterForTeacherRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error)
+
+	// ListSectionRosterForTeacherAll returns the full roster for a section without any
+	// section_teachers membership scope guard. Used by the admin bypass path.
+	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
+	ListSectionRosterForTeacherAll(ctx context.Context, p ListSectionRosterForTeacherAllRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error)
 }
 
 // EnrollSectionParams holds the validated inputs for EnrollSectionTx.
@@ -110,6 +115,17 @@ type ListSectionRosterForTeacherRepoParams struct {
 	SectionID uuid.UUID
 	// TeacherID is the session-derived caller (required). Used in the EXISTS guard.
 	TeacherID uuid.UUID
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
+}
+
+// ListSectionRosterForTeacherAllRepoParams holds keyset pagination parameters for the
+// admin-bypass variant of ListSectionRosterForTeacher (no membership scope guard).
+type ListSectionRosterForTeacherAllRepoParams struct {
+	// SectionID is the target section (required).
+	SectionID uuid.UUID
 	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
 	PageToken *uuid.UUID
 	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
@@ -429,6 +445,39 @@ func (r *postgresRepository) ListSectionRosterForTeacher(ctx context.Context, p 
 		return nil, TranslatePgError(err)
 	}
 	return rows, nil
+}
+
+// ListSectionRosterForTeacherAll returns the full roster for a section without the
+// section_teachers EXISTS guard. Used by callers holding enrollment.manage (admin bypass).
+func (r *postgresRepository) ListSectionRosterForTeacherAll(ctx context.Context, p ListSectionRosterForTeacherAllRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error) {
+	params := sectionenrollmentdb.ListSectionRosterForTeacherAllParams{
+		SectionID: pgtype.UUID{Bytes: p.SectionID, Valid: true},
+		RowLimit:  p.RowLimit,
+	}
+	if p.PageToken != nil {
+		params.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListSectionRosterForTeacherAll(ctx, params)
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	// Convert generated type to the shared row type (identical field layout).
+	result := make([]sectionenrollmentdb.ListSectionRosterForTeacherRow, len(rows))
+	for i, row := range rows {
+		result[i] = sectionenrollmentdb.ListSectionRosterForTeacherRow{
+			ID:           row.ID,
+			EnrollmentID: row.EnrollmentID,
+			SectionID:    row.SectionID,
+			Status:       row.Status,
+			RegisteredAt: row.RegisteredAt,
+			CreatedAt:    row.CreatedAt,
+			UpdatedAt:    row.UpdatedAt,
+			DeletedAt:    row.DeletedAt,
+			FinalGrade:   row.FinalGrade,
+			StudentID:    row.StudentID,
+		}
+	}
+	return result, nil
 }
 
 // SetSectionEnrollmentOutcomeTx transitions a section_enrollment to passed or failed within

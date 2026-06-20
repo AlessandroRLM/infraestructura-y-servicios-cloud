@@ -385,6 +385,75 @@ func (q *Queries) ListSectionRosterForTeacher(ctx context.Context, arg ListSecti
 	return items, nil
 }
 
+const listSectionRosterForTeacherAll = `-- name: ListSectionRosterForTeacherAll :many
+SELECT se.id, se.enrollment_id, se.section_id, se.status, se.registered_at,
+       se.created_at, se.updated_at, se.deleted_at, se.final_grade,
+       e.student_id
+FROM section_enrollments se
+JOIN enrollments e ON e.id = se.enrollment_id
+WHERE se.section_id = $1::uuid
+  AND se.deleted_at IS NULL
+  AND ($2::uuid IS NULL OR se.id < $2::uuid)
+ORDER BY se.id DESC
+LIMIT $3::int
+`
+
+type ListSectionRosterForTeacherAllParams struct {
+	SectionID pgtype.UUID
+	PageToken pgtype.UUID
+	RowLimit  int32
+}
+
+type ListSectionRosterForTeacherAllRow struct {
+	ID           pgtype.UUID
+	EnrollmentID pgtype.UUID
+	SectionID    pgtype.UUID
+	Status       string
+	RegisteredAt pgtype.Timestamptz
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+	DeletedAt    pgtype.Timestamptz
+	FinalGrade   pgtype.Numeric
+	StudentID    pgtype.UUID
+}
+
+// Returns live section_enrollment rows for a section WITHOUT the section_teachers EXISTS
+// guard. Used by the admin bypass so callers holding enrollment.manage can see the full
+// roster regardless of whether they are assigned as a teacher.
+// Includes withdrawn enrollments (status distinguishes them from active ones).
+// Keyset pagination on se.id DESC; page_token is the exclusive upper bound.
+// Cross-domain read: reads enrollments table — same intra-DB coupling as the teacher variant.
+func (q *Queries) ListSectionRosterForTeacherAll(ctx context.Context, arg ListSectionRosterForTeacherAllParams) ([]ListSectionRosterForTeacherAllRow, error) {
+	rows, err := q.db.Query(ctx, listSectionRosterForTeacherAll, arg.SectionID, arg.PageToken, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSectionRosterForTeacherAllRow
+	for rows.Next() {
+		var i ListSectionRosterForTeacherAllRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EnrollmentID,
+			&i.SectionID,
+			&i.Status,
+			&i.RegisteredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.FinalGrade,
+			&i.StudentID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const resolveEnrollmentByID = `-- name: ResolveEnrollmentByID :one
 SELECT e.id, e.student_id, e.program_id, e.year, e.status, e.deleted_at
 FROM enrollments e

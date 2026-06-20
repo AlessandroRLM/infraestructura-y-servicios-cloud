@@ -1,34 +1,78 @@
+import { useNavigate } from "@tanstack/react-router";
 import { hasPermission, useSession } from "@/features/auth";
-import { SchemeManagementView } from "./SchemeManagementView";
+import type { TeachingSection } from "@/gen/catalog/v1/catalog_pb";
+import { SectionSelectionTable } from "./SectionSelectionTable";
 
-/**
- * Placeholder rendered at /admin/grades for sessions that lack grades.override.
- * Kept as a named component so the gate below reads clearly.
- */
-function SchemePlaceholder() {
-  return (
-    <div className="space-y-1">
-      <h1 className="font-semibold text-2xl tracking-tight">Notas</h1>
-      <p className="text-muted-foreground">Registro de notas — próximamente.</p>
-    </div>
-  );
+interface GradesPageProps {
+  /** Current search query (URL-synced). */
+  q: string;
+  /** Current page size (URL-synced). */
+  pageSize: number;
+  /** Called with the debounced query value; updates the URL search param. */
+  onQueryChange: (v: string) => void;
+  /** Called when the user picks a different page size; updates the URL search param. */
+  onPageSizeChange: (n: number) => void;
 }
 
 /**
- * Entry point for the admin grades area at /admin/grades.
+ * Section-selection view rendered at /admin/grades.
  *
- * Gates on `grades.override`:
- * - Granted  → renders SchemeManagementView (evaluation-scheme admin UI).
- * - Absent   → renders the SchemePlaceholder ("próximamente").
+ * Permission switch:
+ * - grades.write (teacher) or grades.override (admin) → selection table; clicking a row
+ *   navigates to /admin/grades/$sectionId (deep-linkable, refresh-stable).
+ * - Neither permission → placeholder.
  *
- * No server call is made before the permission check resolves.
+ * The selected section is NOT held in local state; the sub-route owns it.
+ * q and pageSize are owned by the route and passed in as props so this
+ * component stays purely presentational with respect to URL state.
  */
-export function GradesPage() {
+export function GradesPage({
+  q,
+  pageSize,
+  onQueryChange,
+  onPageSizeChange,
+}: GradesPageProps) {
   const session = useSession();
+  const canWrite = hasPermission(session, "grades.write");
+  const canOverride = hasPermission(session, "grades.override");
+  const navigate = useNavigate();
 
-  if (hasPermission(session, "grades.override")) {
-    return <SchemeManagementView />;
+  if (!canWrite && !canOverride) {
+    return (
+      <div className="flex flex-col gap-1">
+        <h1 className="font-semibold text-2xl tracking-tight">Notas</h1>
+        <p className="text-muted-foreground">
+          No tienes permisos para acceder a esta sección.
+        </p>
+      </div>
+    );
   }
 
-  return <SchemePlaceholder />;
+  const handleSelectSection = (section: TeachingSection) => {
+    // Spread into a plain record so the history state stays serializable.
+    // GradesSectionPage re-narrows the state back to TeachingSection.
+    navigate({
+      to: "/admin/grades/$sectionId",
+      params: { sectionId: section.id },
+      state: { section: { ...section } },
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="font-semibold text-2xl tracking-tight">Notas</h1>
+        <p className="text-muted-foreground text-sm">
+          Selecciona una sección para registrar notas.
+        </p>
+      </div>
+      <SectionSelectionTable
+        q={q}
+        pageSize={pageSize}
+        onQueryChange={onQueryChange}
+        onPageSizeChange={onPageSizeChange}
+        onSelectSection={handleSelectSection}
+      />
+    </div>
+  );
 }

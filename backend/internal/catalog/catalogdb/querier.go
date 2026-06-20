@@ -41,6 +41,10 @@ type Querier interface {
 	// Section teachers (M:N append-only)
 	InsertSectionTeacher(ctx context.Context, arg InsertSectionTeacherParams) (SectionTeacher, error)
 	ListAcademicPeriods(ctx context.Context) ([]AcademicPeriod, error)
+	// ListAllSectionsPaged returns ALL live sections enriched with course code/name and period
+	// year/term — no section_teachers JOIN so admins see every section regardless of assignment.
+	// Keyset pagination on s.id DESC mirrors the contract of ListOwnSectionsPaged.
+	ListAllSectionsPaged(ctx context.Context, arg ListAllSectionsPagedParams) ([]ListAllSectionsPagedRow, error)
 	ListCourses(ctx context.Context, arg ListCoursesParams) ([]Course, error)
 	// ListOwnSectionsPaged returns the paginated list of sections where the caller is a teacher,
 	// enriched with course and academic period labels. Keyset pagination on s.id DESC.

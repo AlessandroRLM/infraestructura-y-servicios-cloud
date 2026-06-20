@@ -10,6 +10,32 @@ import { Code, ConnectError } from "@connectrpc/connect";
 export type SchemeErrorKind = "precondition" | "already-exists" | "generic";
 
 /**
+ * Discriminated return type for grade write errors (RecordGrade / OverrideGrade).
+ * - "conflict": CodeAborted — stale expected_version; triggers row-scoped refetch + merge.
+ * - "generic": any other error; caller shows per-cell inline error.
+ */
+export type GradeWriteErrorKind = "conflict" | "generic";
+
+/**
+ * Maps a RecordGrade or OverrideGrade error to a GradeWriteErrorKind.
+ * Never surfaces raw gRPC codes, stack traces, or service names to the UI.
+ *
+ * - CodeAborted (stale expected_version) → "conflict"
+ *   Caller triggers row-scoped refetch and surfaces:
+ *   "Otro usuario modificó esta nota. Recarga para ver el valor actualizado."
+ * - Anything else → "generic"
+ *   Caller shows per-cell inline error.
+ *
+ * @param err - The error thrown by a useMutation call, or any unknown value.
+ */
+export function mapGradeWriteError(err: unknown): GradeWriteErrorKind {
+  if (err instanceof ConnectError && err.code === Code.Aborted) {
+    return "conflict";
+  }
+  return "generic";
+}
+
+/**
  * Maps a scheme mutation error to a SchemeErrorKind.
  * Never surfaces raw gRPC codes, stack traces, or service names to the UI.
  *

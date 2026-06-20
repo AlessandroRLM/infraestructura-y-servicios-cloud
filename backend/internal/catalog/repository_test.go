@@ -99,6 +99,9 @@ type fakeQuerier struct {
 
 	listOwnSectionsPagedRows []catalogdb.ListOwnSectionsPagedRow
 	listOwnSectionsPagedErr  error
+
+	listAllSectionsPagedRows []catalogdb.ListAllSectionsPagedRow
+	listAllSectionsPagedErr  error
 }
 
 // Compile-time check: fakeQuerier must implement catalogdb.Querier.
@@ -229,6 +232,10 @@ func (f *fakeQuerier) ListSectionTeachers(_ context.Context, _ pgtype.UUID) ([]c
 }
 func (f *fakeQuerier) ListOwnSectionsPaged(_ context.Context, _ catalogdb.ListOwnSectionsPagedParams) ([]catalogdb.ListOwnSectionsPagedRow, error) {
 	return f.listOwnSectionsPagedRows, f.listOwnSectionsPagedErr
+}
+
+func (f *fakeQuerier) ListAllSectionsPaged(_ context.Context, _ catalogdb.ListAllSectionsPagedParams) ([]catalogdb.ListAllSectionsPagedRow, error) {
+	return f.listAllSectionsPagedRows, f.listAllSectionsPagedErr
 }
 
 // --- Repository unit tests ---

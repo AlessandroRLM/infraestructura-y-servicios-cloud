@@ -158,6 +158,24 @@ WHERE se.section_id = sqlc.arg('section_id')::uuid
 ORDER BY se.id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
+-- name: ListSectionRosterForTeacherAll :many
+-- Returns live section_enrollment rows for a section WITHOUT the section_teachers EXISTS
+-- guard. Used by the admin bypass so callers holding enrollment.manage can see the full
+-- roster regardless of whether they are assigned as a teacher.
+-- Includes withdrawn enrollments (status distinguishes them from active ones).
+-- Keyset pagination on se.id DESC; page_token is the exclusive upper bound.
+-- Cross-domain read: reads enrollments table — same intra-DB coupling as the teacher variant.
+SELECT se.id, se.enrollment_id, se.section_id, se.status, se.registered_at,
+       se.created_at, se.updated_at, se.deleted_at, se.final_grade,
+       e.student_id
+FROM section_enrollments se
+JOIN enrollments e ON e.id = se.enrollment_id
+WHERE se.section_id = sqlc.arg('section_id')::uuid
+  AND se.deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR se.id < sqlc.narg('page_token')::uuid)
+ORDER BY se.id DESC
+LIMIT sqlc.arg('row_limit')::int;
+
 -- name: SetSectionEnrollmentOutcome :one
 -- Transitions a section_enrollment status to passed or failed and writes the
 -- computed final grade, within a caller-owned transaction.

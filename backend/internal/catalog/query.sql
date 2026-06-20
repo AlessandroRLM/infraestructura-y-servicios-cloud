@@ -242,6 +242,34 @@ JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
 JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
 WHERE s.deleted_at IS NULL
   AND (sqlc.narg('page_token')::uuid IS NULL OR s.id < sqlc.narg('page_token')::uuid)
+  AND (sqlc.narg('query')::text IS NULL
+       OR c.code ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\'
+       OR c.name ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\')
+ORDER BY s.id DESC
+LIMIT sqlc.arg('row_limit')::int;
+
+-- ListAllSectionsPaged returns ALL live sections enriched with course code/name and period
+-- year/term — no section_teachers JOIN so admins see every section regardless of assignment.
+-- Keyset pagination on s.id DESC mirrors the contract of ListOwnSectionsPaged.
+
+-- name: ListAllSectionsPaged :many
+SELECT
+    s.id,
+    s.course_id,
+    s.academic_period_id,
+    s.capacity   AS seat_capacity,
+    c.code       AS course_code,
+    c.name       AS course_name,
+    ap.year      AS period_year,
+    ap.term      AS period_term
+FROM sections s
+JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
+JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
+WHERE s.deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR s.id < sqlc.narg('page_token')::uuid)
+  AND (sqlc.narg('query')::text IS NULL
+       OR c.code ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\'
+       OR c.name ILIKE '%' || sqlc.narg('query') || '%' ESCAPE '\')
 ORDER BY s.id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
