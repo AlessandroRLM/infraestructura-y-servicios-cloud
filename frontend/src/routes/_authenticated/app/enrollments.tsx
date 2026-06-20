@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireRoutePermission } from "@/features/auth";
 import { OwnEnrollmentsList } from "@/features/enrollments/components/OwnEnrollmentsList";
-import { ownEnrollmentsSearchSchema } from "@/features/enrollments";
+import { ownEnrollmentsSearchSchema } from "@/features/enrollments/schemas/search";
 
 /**
  * Route-owned wrapper that reads search params and passes them down as props.
