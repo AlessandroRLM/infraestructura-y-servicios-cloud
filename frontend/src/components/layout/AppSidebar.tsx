@@ -33,7 +33,7 @@ export const ADMIN_NAV = [
     }),
   },
   {
-    label: "Inscripciones",
+    label: "Matrículas",
     icon: ClipboardList,
     options: linkOptions({
       to: "/admin/enrollments",
