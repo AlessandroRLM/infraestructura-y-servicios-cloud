@@ -359,6 +359,39 @@ func (q *Queries) MarkEnrollmentPaid(ctx context.Context, arg MarkEnrollmentPaid
 	return i, err
 }
 
+const markOwnEnrollmentPaid = `-- name: MarkOwnEnrollmentPaid :one
+UPDATE enrollments
+SET status = 'paid', paid_at = now(), updated_at = now(), updated_by = $3
+WHERE id = $1 AND student_id = $2 AND status = 'pending' AND deleted_at IS NULL
+RETURNING id, student_id, program_id, year, status, paid_at, created_at, updated_at, deleted_at, created_by, updated_by
+`
+
+type MarkOwnEnrollmentPaidParams struct {
+	ID        pgtype.UUID
+	StudentID pgtype.UUID
+	UpdatedBy pgtype.UUID
+}
+
+// Transitions pending → paid only when id AND student_id match, preventing cross-student writes.
+func (q *Queries) MarkOwnEnrollmentPaid(ctx context.Context, arg MarkOwnEnrollmentPaidParams) (Enrollment, error) {
+	row := q.db.QueryRow(ctx, markOwnEnrollmentPaid, arg.ID, arg.StudentID, arg.UpdatedBy)
+	var i Enrollment
+	err := row.Scan(
+		&i.ID,
+		&i.StudentID,
+		&i.ProgramID,
+		&i.Year,
+		&i.Status,
+		&i.PaidAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
 const reviveEnrollment = `-- name: ReviveEnrollment :one
 UPDATE enrollments
 SET status = 'pending', paid_at = NULL, deleted_at = NULL,

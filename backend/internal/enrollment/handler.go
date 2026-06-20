@@ -194,6 +194,21 @@ func (h *Handler) GetOwnEnrollment(
 	return connect.NewResponse(enrollmentToProto(row)), nil
 }
 
+// MarkOwnEnrollmentPaid transitions the caller's own pending enrollment to paid.
+// The student identity is derived from the session — the caller may only pay an
+// enrollment whose student_id equals their own. Ownership mismatch and genuine
+// absence both return CodeNotFound — existence is never disclosed.
+func (h *Handler) MarkOwnEnrollmentPaid(
+	ctx context.Context,
+	req *connect.Request[enrollmentv1.MarkOwnEnrollmentPaidRequest],
+) (*connect.Response[enrollmentv1.Enrollment], error) {
+	row, err := h.svc.MarkOwnEnrollmentPaid(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, MapError(err)
+	}
+	return connect.NewResponse(enrollmentToProto(row)), nil
+}
+
 // --- Proto converter ---
 
 // enrollmentToProto converts a database enrollment row to its proto representation.

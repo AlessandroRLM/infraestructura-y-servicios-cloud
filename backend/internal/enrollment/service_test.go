@@ -36,6 +36,10 @@ type fakeRepository struct {
 	listOwnCalled bool
 	listOwnResult []enrollmentdb.ListOwnEnrollmentsRow
 	listOwnErr    error
+
+	markOwnPaidCalled bool
+	markOwnPaidResult enrollmentdb.Enrollment
+	markOwnPaidErr    error
 }
 
 func (f *fakeRepository) CreateEnrollmentTx(_ context.Context, _ CreateEnrollmentParams, _ *uuid.UUID) (enrollmentdb.Enrollment, error) {
@@ -67,6 +71,11 @@ func (f *fakeRepository) ListEnrollments(_ context.Context, p ListEnrollmentsRep
 func (f *fakeRepository) ListOwnEnrollments(_ context.Context, _ ListOwnEnrollmentsRepoParams) ([]enrollmentdb.ListOwnEnrollmentsRow, error) {
 	f.listOwnCalled = true
 	return f.listOwnResult, f.listOwnErr
+}
+
+func (f *fakeRepository) MarkOwnEnrollmentPaid(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ *uuid.UUID) (enrollmentdb.Enrollment, error) {
+	f.markOwnPaidCalled = true
+	return f.markOwnPaidResult, f.markOwnPaidErr
 }
 
 // ctxWithUser returns a context carrying a user ID, mirroring how the auth
@@ -351,6 +360,114 @@ func TestListEnrollments_EmptyTokenOnLastPage(t *testing.T) {
 	}
 	if len(result.Enrollments) != 5 {
 		t.Errorf("got %d enrollments, want 5", len(result.Enrollments))
+	}
+}
+
+// ---- MarkOwnEnrollmentPaid service tests ----
+
+// TestMarkOwnEnrollmentPaid_HappyPath verifies that a student successfully pays
+// their own pending enrollment using their context identity.
+func TestMarkOwnEnrollmentPaid_HappyPath(t *testing.T) {
+	userID := uuid.New()
+	enrollID := uuid.New()
+	want := enrollmentdb.Enrollment{
+		ID:        pgUUID(enrollID),
+		StudentID: pgUUID(userID),
+		Status:    "paid",
+	}
+	repo := &fakeRepository{markOwnPaidResult: want}
+	svc := NewService(repo)
+	ctx := ctxWithUser(userID)
+
+	got, err := svc.MarkOwnEnrollmentPaid(ctx, enrollID.String())
+	if err != nil {
+		t.Fatalf("MarkOwnEnrollmentPaid happy path: %v", err)
+	}
+	if got.Status != "paid" {
+		t.Errorf("MarkOwnEnrollmentPaid: got status %q, want %q", got.Status, "paid")
+	}
+	if !repo.markOwnPaidCalled {
+		t.Error("MarkOwnEnrollmentPaid: repo.MarkOwnEnrollmentPaid was not called")
+	}
+}
+
+// SECURITY: TestMarkOwnEnrollmentPaid_Security_WrongOwner verifies that attempting
+// to pay another student's enrollment returns ErrNotFound and does NOT modify the row.
+// This is the mandatory security test.
+func TestMarkOwnEnrollmentPaid_Security_WrongOwner(t *testing.T) {
+	userID := uuid.New()
+	enrollID := uuid.New()
+
+	// Repo returns ErrNotFound (own-scoped UPDATE matched no row because student_id differs).
+	repo := &fakeRepository{markOwnPaidErr: ErrNotFound}
+	svc := NewService(repo)
+	ctx := ctxWithUser(userID)
+
+	_, err := svc.MarkOwnEnrollmentPaid(ctx, enrollID.String())
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("security/wrong owner: want ErrNotFound (no existence leak), got %v", err)
+	}
+	// markOwnPaidCalled is true (repo was called), but the repo returned ErrNotFound.
+	if !repo.markOwnPaidCalled {
+		t.Error("security/wrong owner: repo.MarkOwnEnrollmentPaid must be called with own-scoped query")
+	}
+}
+
+// TestMarkOwnEnrollmentPaid_AlreadyPaid verifies that paying an already-paid enrollment
+// returns ErrInvalidTransition.
+func TestMarkOwnEnrollmentPaid_AlreadyPaid(t *testing.T) {
+	userID := uuid.New()
+	repo := &fakeRepository{markOwnPaidErr: ErrInvalidTransition}
+	svc := NewService(repo)
+	ctx := ctxWithUser(userID)
+
+	_, err := svc.MarkOwnEnrollmentPaid(ctx, uuid.New().String())
+	if !errors.Is(err, ErrInvalidTransition) {
+		t.Errorf("already paid: want ErrInvalidTransition, got %v", err)
+	}
+}
+
+// TestMarkOwnEnrollmentPaid_Nonexistent verifies that a non-existent id returns ErrNotFound.
+func TestMarkOwnEnrollmentPaid_Nonexistent(t *testing.T) {
+	userID := uuid.New()
+	repo := &fakeRepository{markOwnPaidErr: ErrNotFound}
+	svc := NewService(repo)
+	ctx := ctxWithUser(userID)
+
+	_, err := svc.MarkOwnEnrollmentPaid(ctx, uuid.New().String())
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("nonexistent: want ErrNotFound, got %v", err)
+	}
+}
+
+// TestMarkOwnEnrollmentPaid_InvalidID verifies that a malformed id string returns ErrInvalidInput
+// before any repository call.
+func TestMarkOwnEnrollmentPaid_InvalidID(t *testing.T) {
+	userID := uuid.New()
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+	ctx := ctxWithUser(userID)
+
+	_, err := svc.MarkOwnEnrollmentPaid(ctx, "not-a-uuid")
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("invalid id: want ErrInvalidInput, got %v", err)
+	}
+	if repo.markOwnPaidCalled {
+		t.Error("invalid id: repo.MarkOwnEnrollmentPaid must not be called")
+	}
+}
+
+// TestMarkOwnEnrollmentPaid_NoCtxUser verifies that an absent context user returns ErrNotFound.
+func TestMarkOwnEnrollmentPaid_NoCtxUser(t *testing.T) {
+	repo := &fakeRepository{}
+	svc := NewService(repo)
+
+	_, err := svc.MarkOwnEnrollmentPaid(context.Background(), uuid.New().String())
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("no ctx user: want ErrNotFound, got %v", err)
+	}
+	if repo.markOwnPaidCalled {
+		t.Error("no ctx user: repo must not be called")
 	}
 }
 

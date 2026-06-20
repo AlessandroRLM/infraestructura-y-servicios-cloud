@@ -90,6 +90,25 @@ func (s *Service) MarkEnrollmentPaid(ctx context.Context, idStr string) (enrollm
 	return s.repo.MarkEnrollmentPaid(ctx, id, actorFromContext(ctx))
 }
 
+// MarkOwnEnrollmentPaid derives the caller's student id from context and transitions
+// their pending enrollment to paid. The caller may only pay an enrollment whose
+// student_id equals their own. Returns ErrNotFound for any id that doesn't belong to
+// the caller (ownership is never disclosed), ErrInvalidTransition when the enrollment
+// exists and is owned but not pending, and ErrNotFound when no user is in context.
+func (s *Service) MarkOwnEnrollmentPaid(ctx context.Context, idStr string) (enrollmentdb.Enrollment, error) {
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return enrollmentdb.Enrollment{}, fmt.Errorf("%w: no authenticated user in context", ErrNotFound)
+	}
+
+	id, err := parseServiceUUID(idStr)
+	if err != nil {
+		return enrollmentdb.Enrollment{}, err
+	}
+
+	return s.repo.MarkOwnEnrollmentPaid(ctx, id, userID, actorFromContext(ctx))
+}
+
 // CancelEnrollment validates the id and delegates the pending|paid→cancelled transition.
 func (s *Service) CancelEnrollment(ctx context.Context, idStr string) error {
 	id, err := parseServiceUUID(idStr)

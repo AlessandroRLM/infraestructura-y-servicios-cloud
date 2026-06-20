@@ -54,6 +54,10 @@ type fakeQuerier struct {
 
 	listOwnResult []enrollmentdb.ListOwnEnrollmentsRow
 	listOwnErr    error
+
+	markOwnPaidCalled bool
+	markOwnPaidErr    error
+	markOwnPaidResult enrollmentdb.Enrollment
 }
 
 func (f *fakeQuerier) LockProgramQuotaForYear(_ context.Context, _ enrollmentdb.LockProgramQuotaForYearParams) (int32, error) {
@@ -104,6 +108,11 @@ func (f *fakeQuerier) ListEnrollments(_ context.Context, arg enrollmentdb.ListEn
 
 func (f *fakeQuerier) ListOwnEnrollments(_ context.Context, _ enrollmentdb.ListOwnEnrollmentsParams) ([]enrollmentdb.ListOwnEnrollmentsRow, error) {
 	return f.listOwnResult, f.listOwnErr
+}
+
+func (f *fakeQuerier) MarkOwnEnrollmentPaid(_ context.Context, _ enrollmentdb.MarkOwnEnrollmentPaidParams) (enrollmentdb.Enrollment, error) {
+	f.markOwnPaidCalled = true
+	return f.markOwnPaidResult, f.markOwnPaidErr
 }
 
 // pgUUID converts a uuid.UUID to pgtype.UUID for test fixtures.
@@ -361,6 +370,121 @@ func TestListOwnEnrollments_TokenTranslation(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("ListOwnEnrollments with token: %v", err)
+	}
+}
+
+// ---- MarkOwnEnrollmentPaid repository unit tests ----
+
+// TestRepo_MarkOwnEnrollmentPaid_HappyPath verifies that when the querier's own-scoped
+// update matches exactly one row, the updated Enrollment is returned without error.
+func TestRepo_MarkOwnEnrollmentPaid_HappyPath(t *testing.T) {
+	id := uuid.New()
+	studentID := uuid.New()
+	actor := uuid.New()
+	want := enrollmentdb.Enrollment{ID: pgUUID(id), StudentID: pgUUID(studentID), Status: "paid"}
+
+	q := &fakeQuerier{markOwnPaidResult: want}
+	repo := &postgresRepository{q: q}
+	got, err := repo.MarkOwnEnrollmentPaid(context.Background(), id, studentID, &actor)
+	if err != nil {
+		t.Fatalf("MarkOwnEnrollmentPaid happy path: unexpected error %v", err)
+	}
+	if got.Status != "paid" {
+		t.Errorf("MarkOwnEnrollmentPaid: got status %q, want %q", got.Status, "paid")
+	}
+	if !q.markOwnPaidCalled {
+		t.Error("MarkOwnEnrollmentPaid: querier.MarkOwnEnrollmentPaid was not called")
+	}
+}
+
+// SECURITY: TestRepo_MarkOwnEnrollmentPaid_WrongOwner verifies that when the querier
+// returns ErrNoRows (because student_id != caller) and the pre-fetch finds the row
+// belonging to a different student, the repository returns ErrNotFound — never
+// leaking existence of another student's enrollment.
+func TestRepo_MarkOwnEnrollmentPaid_WrongOwner(t *testing.T) {
+	id := uuid.New()
+	studentID := uuid.New()   // the caller's student id
+	otherID := uuid.New()     // the actual owner of the enrollment
+	actor := uuid.New()
+
+	q := &fakeQuerier{
+		// The own-scoped UPDATE finds no row because student_id != caller.
+		markOwnPaidErr: pgx.ErrNoRows,
+		// Pre-fetch returns the row — it exists, but belongs to otherID, not studentID.
+		getEnrollmentResult: enrollmentdb.Enrollment{
+			ID:        pgUUID(id),
+			StudentID: pgUUID(otherID),
+			Status:    "pending",
+		},
+	}
+	repo := &postgresRepository{q: q}
+	got, err := repo.MarkOwnEnrollmentPaid(context.Background(), id, studentID, &actor)
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("wrong owner: want ErrNotFound (no existence leak), got %v", err)
+	}
+	if got.ID.Valid {
+		t.Error("wrong owner: result row must be zero-value, got a non-zero ID")
+	}
+}
+
+// TestRepo_MarkOwnEnrollmentPaid_AlreadyPaid verifies that when the querier returns
+// ErrNoRows but the row exists with status 'paid', ErrInvalidTransition is returned.
+func TestRepo_MarkOwnEnrollmentPaid_AlreadyPaid(t *testing.T) {
+	id := uuid.New()
+	studentID := uuid.New()
+	actor := uuid.New()
+
+	q := &fakeQuerier{
+		markOwnPaidErr: pgx.ErrNoRows,
+		// Pre-fetch returns the row with status 'paid'.
+		getEnrollmentResult: enrollmentdb.Enrollment{
+			ID:        pgUUID(id),
+			StudentID: pgUUID(studentID),
+			Status:    "paid",
+		},
+	}
+	repo := &postgresRepository{q: q}
+	_, err := repo.MarkOwnEnrollmentPaid(context.Background(), id, studentID, &actor)
+	if !errors.Is(err, ErrInvalidTransition) {
+		t.Errorf("already paid: want ErrInvalidTransition, got %v", err)
+	}
+}
+
+// TestRepo_MarkOwnEnrollmentPaid_Cancelled verifies that a cancelled enrollment returns ErrInvalidTransition.
+func TestRepo_MarkOwnEnrollmentPaid_Cancelled(t *testing.T) {
+	id := uuid.New()
+	studentID := uuid.New()
+	actor := uuid.New()
+
+	q := &fakeQuerier{
+		markOwnPaidErr: pgx.ErrNoRows,
+		getEnrollmentResult: enrollmentdb.Enrollment{
+			ID:        pgUUID(id),
+			StudentID: pgUUID(studentID),
+			Status:    "cancelled",
+		},
+	}
+	repo := &postgresRepository{q: q}
+	_, err := repo.MarkOwnEnrollmentPaid(context.Background(), id, studentID, &actor)
+	if !errors.Is(err, ErrInvalidTransition) {
+		t.Errorf("cancelled: want ErrInvalidTransition, got %v", err)
+	}
+}
+
+// TestRepo_MarkOwnEnrollmentPaid_RowAbsent verifies that a completely absent row returns ErrNotFound.
+func TestRepo_MarkOwnEnrollmentPaid_RowAbsent(t *testing.T) {
+	id := uuid.New()
+	studentID := uuid.New()
+	actor := uuid.New()
+
+	q := &fakeQuerier{
+		markOwnPaidErr:   pgx.ErrNoRows,
+		getEnrollmentErr: pgx.ErrNoRows,
+	}
+	repo := &postgresRepository{q: q}
+	_, err := repo.MarkOwnEnrollmentPaid(context.Background(), id, studentID, &actor)
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("absent row: want ErrNotFound, got %v", err)
 	}
 }
 

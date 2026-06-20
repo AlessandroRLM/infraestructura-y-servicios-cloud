@@ -54,6 +54,9 @@ const (
 	// EnrollmentServiceGetOwnEnrollmentProcedure is the fully-qualified name of the EnrollmentService's
 	// GetOwnEnrollment RPC.
 	EnrollmentServiceGetOwnEnrollmentProcedure = "/enrollment.v1.EnrollmentService/GetOwnEnrollment"
+	// EnrollmentServiceMarkOwnEnrollmentPaidProcedure is the fully-qualified name of the
+	// EnrollmentService's MarkOwnEnrollmentPaid RPC.
+	EnrollmentServiceMarkOwnEnrollmentPaidProcedure = "/enrollment.v1.EnrollmentService/MarkOwnEnrollmentPaid"
 )
 
 // EnrollmentServiceClient is a client for the enrollment.v1.EnrollmentService service.
@@ -68,6 +71,11 @@ type EnrollmentServiceClient interface {
 	// Student identity is derived from the authenticated session, never from request fields.
 	ListOwnEnrollments(context.Context, *connect.Request[v1.ListOwnEnrollmentsRequest]) (*connect.Response[v1.ListEnrollmentsResponse], error)
 	GetOwnEnrollment(context.Context, *connect.Request[v1.GetOwnEnrollmentRequest]) (*connect.Response[v1.Enrollment], error)
+	// MarkOwnEnrollmentPaid transitions the caller's own pending enrollment to paid.
+	// Identity is derived from the session — the caller may only pay an enrollment
+	// whose student_id equals their own. Returns NOT_FOUND for any id not owned by
+	// the caller (existence is never disclosed).
+	MarkOwnEnrollmentPaid(context.Context, *connect.Request[v1.MarkOwnEnrollmentPaidRequest]) (*connect.Response[v1.Enrollment], error)
 }
 
 // NewEnrollmentServiceClient constructs a client for the enrollment.v1.EnrollmentService service.
@@ -123,18 +131,25 @@ func NewEnrollmentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(enrollmentServiceMethods.ByName("GetOwnEnrollment")),
 			connect.WithClientOptions(opts...),
 		),
+		markOwnEnrollmentPaid: connect.NewClient[v1.MarkOwnEnrollmentPaidRequest, v1.Enrollment](
+			httpClient,
+			baseURL+EnrollmentServiceMarkOwnEnrollmentPaidProcedure,
+			connect.WithSchema(enrollmentServiceMethods.ByName("MarkOwnEnrollmentPaid")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // enrollmentServiceClient implements EnrollmentServiceClient.
 type enrollmentServiceClient struct {
-	createEnrollment   *connect.Client[v1.CreateEnrollmentRequest, v1.Enrollment]
-	markEnrollmentPaid *connect.Client[v1.MarkEnrollmentPaidRequest, v1.Enrollment]
-	cancelEnrollment   *connect.Client[v1.CancelEnrollmentRequest, v1.CancelEnrollmentResponse]
-	getEnrollment      *connect.Client[v1.GetEnrollmentRequest, v1.Enrollment]
-	listEnrollments    *connect.Client[v1.ListEnrollmentsRequest, v1.ListEnrollmentsResponse]
-	listOwnEnrollments *connect.Client[v1.ListOwnEnrollmentsRequest, v1.ListEnrollmentsResponse]
-	getOwnEnrollment   *connect.Client[v1.GetOwnEnrollmentRequest, v1.Enrollment]
+	createEnrollment      *connect.Client[v1.CreateEnrollmentRequest, v1.Enrollment]
+	markEnrollmentPaid    *connect.Client[v1.MarkEnrollmentPaidRequest, v1.Enrollment]
+	cancelEnrollment      *connect.Client[v1.CancelEnrollmentRequest, v1.CancelEnrollmentResponse]
+	getEnrollment         *connect.Client[v1.GetEnrollmentRequest, v1.Enrollment]
+	listEnrollments       *connect.Client[v1.ListEnrollmentsRequest, v1.ListEnrollmentsResponse]
+	listOwnEnrollments    *connect.Client[v1.ListOwnEnrollmentsRequest, v1.ListEnrollmentsResponse]
+	getOwnEnrollment      *connect.Client[v1.GetOwnEnrollmentRequest, v1.Enrollment]
+	markOwnEnrollmentPaid *connect.Client[v1.MarkOwnEnrollmentPaidRequest, v1.Enrollment]
 }
 
 // CreateEnrollment calls enrollment.v1.EnrollmentService.CreateEnrollment.
@@ -172,6 +187,11 @@ func (c *enrollmentServiceClient) GetOwnEnrollment(ctx context.Context, req *con
 	return c.getOwnEnrollment.CallUnary(ctx, req)
 }
 
+// MarkOwnEnrollmentPaid calls enrollment.v1.EnrollmentService.MarkOwnEnrollmentPaid.
+func (c *enrollmentServiceClient) MarkOwnEnrollmentPaid(ctx context.Context, req *connect.Request[v1.MarkOwnEnrollmentPaidRequest]) (*connect.Response[v1.Enrollment], error) {
+	return c.markOwnEnrollmentPaid.CallUnary(ctx, req)
+}
+
 // EnrollmentServiceHandler is an implementation of the enrollment.v1.EnrollmentService service.
 type EnrollmentServiceHandler interface {
 	// Management procedures — require enrollment.manage permission.
@@ -184,6 +204,11 @@ type EnrollmentServiceHandler interface {
 	// Student identity is derived from the authenticated session, never from request fields.
 	ListOwnEnrollments(context.Context, *connect.Request[v1.ListOwnEnrollmentsRequest]) (*connect.Response[v1.ListEnrollmentsResponse], error)
 	GetOwnEnrollment(context.Context, *connect.Request[v1.GetOwnEnrollmentRequest]) (*connect.Response[v1.Enrollment], error)
+	// MarkOwnEnrollmentPaid transitions the caller's own pending enrollment to paid.
+	// Identity is derived from the session — the caller may only pay an enrollment
+	// whose student_id equals their own. Returns NOT_FOUND for any id not owned by
+	// the caller (existence is never disclosed).
+	MarkOwnEnrollmentPaid(context.Context, *connect.Request[v1.MarkOwnEnrollmentPaidRequest]) (*connect.Response[v1.Enrollment], error)
 }
 
 // NewEnrollmentServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -235,6 +260,12 @@ func NewEnrollmentServiceHandler(svc EnrollmentServiceHandler, opts ...connect.H
 		connect.WithSchema(enrollmentServiceMethods.ByName("GetOwnEnrollment")),
 		connect.WithHandlerOptions(opts...),
 	)
+	enrollmentServiceMarkOwnEnrollmentPaidHandler := connect.NewUnaryHandler(
+		EnrollmentServiceMarkOwnEnrollmentPaidProcedure,
+		svc.MarkOwnEnrollmentPaid,
+		connect.WithSchema(enrollmentServiceMethods.ByName("MarkOwnEnrollmentPaid")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/enrollment.v1.EnrollmentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case EnrollmentServiceCreateEnrollmentProcedure:
@@ -251,6 +282,8 @@ func NewEnrollmentServiceHandler(svc EnrollmentServiceHandler, opts ...connect.H
 			enrollmentServiceListOwnEnrollmentsHandler.ServeHTTP(w, r)
 		case EnrollmentServiceGetOwnEnrollmentProcedure:
 			enrollmentServiceGetOwnEnrollmentHandler.ServeHTTP(w, r)
+		case EnrollmentServiceMarkOwnEnrollmentPaidProcedure:
+			enrollmentServiceMarkOwnEnrollmentPaidHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -286,4 +319,8 @@ func (UnimplementedEnrollmentServiceHandler) ListOwnEnrollments(context.Context,
 
 func (UnimplementedEnrollmentServiceHandler) GetOwnEnrollment(context.Context, *connect.Request[v1.GetOwnEnrollmentRequest]) (*connect.Response[v1.Enrollment], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("enrollment.v1.EnrollmentService.GetOwnEnrollment is not implemented"))
+}
+
+func (UnimplementedEnrollmentServiceHandler) MarkOwnEnrollmentPaid(context.Context, *connect.Request[v1.MarkOwnEnrollmentPaidRequest]) (*connect.Response[v1.Enrollment], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("enrollment.v1.EnrollmentService.MarkOwnEnrollmentPaid is not implemented"))
 }

@@ -41,6 +41,12 @@ type Repository interface {
 	// each row enriched with the program display name via an INNER JOIN on programs.
 	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
 	ListOwnEnrollments(ctx context.Context, p ListOwnEnrollmentsRepoParams) ([]enrollmentdb.ListOwnEnrollmentsRow, error)
+
+	// MarkOwnEnrollmentPaid transitions status pending → paid for an enrollment that
+	// belongs to the given studentID. If the id doesn't match studentID (wrong owner or
+	// not found), ErrNotFound is returned — existence is never disclosed. If the row
+	// exists and is owned but not pending, ErrInvalidTransition is returned.
+	MarkOwnEnrollmentPaid(ctx context.Context, id uuid.UUID, studentID uuid.UUID, actor *uuid.UUID) (enrollmentdb.Enrollment, error)
 }
 
 // CreateEnrollmentParams holds the validated inputs for a new enrollment.
@@ -271,6 +277,42 @@ func (r *postgresRepository) ListEnrollments(ctx context.Context, p ListEnrollme
 		return nil, TranslatePgError(err)
 	}
 	return rows, nil
+}
+
+// MarkOwnEnrollmentPaid transitions status pending → paid for an enrollment owned by
+// studentID. The UPDATE is own-scoped (WHERE id = $1 AND student_id = $2 AND status =
+// 'pending'). When 0 rows are returned the pre-fetch strategy determines the error:
+//   - Row absent or belongs to a different student → ErrNotFound (no existence leak).
+//   - Row exists and is owned but not pending → ErrInvalidTransition.
+func (r *postgresRepository) MarkOwnEnrollmentPaid(ctx context.Context, id uuid.UUID, studentID uuid.UUID, actor *uuid.UUID) (enrollmentdb.Enrollment, error) {
+	pgID := pgtype.UUID{Bytes: id, Valid: true}
+	pgStudentID := pgtype.UUID{Bytes: studentID, Valid: true}
+
+	row, err := r.q.MarkOwnEnrollmentPaid(ctx, enrollmentdb.MarkOwnEnrollmentPaidParams{
+		ID:        pgID,
+		StudentID: pgStudentID,
+		UpdatedBy: optionalUUID(actor),
+	})
+	if err == nil {
+		return row, nil
+	}
+
+	// 0-row update: distinguish absent/wrong-owner from wrong-state via pre-fetch.
+	if errors.Is(err, pgx.ErrNoRows) {
+		existing, fetchErr := r.q.GetEnrollment(ctx, pgID)
+		if fetchErr != nil {
+			// Row is absent (or fetch failed for any reason) → not found.
+			return enrollmentdb.Enrollment{}, TranslatePgError(fetchErr)
+		}
+		// Row exists: check ownership before revealing state.
+		// If student_id doesn't match, return ErrNotFound — never leak existence.
+		if existing.StudentID.Bytes != studentID {
+			return enrollmentdb.Enrollment{}, fmt.Errorf("%w", ErrNotFound)
+		}
+		// Owned but not pending → invalid transition.
+		return enrollmentdb.Enrollment{}, fmt.Errorf("%w: current status is %q", ErrInvalidTransition, existing.Status)
+	}
+	return enrollmentdb.Enrollment{}, TranslatePgError(err)
 }
 
 // ListOwnEnrollments returns a page of live enrollments for the given student,

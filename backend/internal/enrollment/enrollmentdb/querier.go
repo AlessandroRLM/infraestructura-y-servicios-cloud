@@ -20,6 +20,8 @@ type Querier interface {
 	ListOwnEnrollments(ctx context.Context, arg ListOwnEnrollmentsParams) ([]ListOwnEnrollmentsRow, error)
 	LockProgramQuotaForYear(ctx context.Context, arg LockProgramQuotaForYearParams) (int32, error)
 	MarkEnrollmentPaid(ctx context.Context, arg MarkEnrollmentPaidParams) (Enrollment, error)
+	// Transitions pending → paid only when id AND student_id match, preventing cross-student writes.
+	MarkOwnEnrollmentPaid(ctx context.Context, arg MarkOwnEnrollmentPaidParams) (Enrollment, error)
 	ReviveEnrollment(ctx context.Context, arg ReviveEnrollmentParams) (Enrollment, error)
 }
 
