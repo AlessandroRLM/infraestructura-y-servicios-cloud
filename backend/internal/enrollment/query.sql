@@ -31,6 +31,13 @@ SET status = 'paid', paid_at = now(), updated_at = now(), updated_by = $2
 WHERE id = $1 AND status = 'pending' AND deleted_at IS NULL
 RETURNING *;
 
+-- name: MarkOwnEnrollmentPaid :one
+-- Transitions pending → paid only when id AND student_id match, preventing cross-student writes.
+UPDATE enrollments
+SET status = 'paid', paid_at = now(), updated_at = now(), updated_by = $3
+WHERE id = $1 AND student_id = $2 AND status = 'pending' AND deleted_at IS NULL
+RETURNING *;
+
 -- name: CancelEnrollment :execrows
 UPDATE enrollments
 SET status = 'cancelled', updated_at = now(), updated_by = $2

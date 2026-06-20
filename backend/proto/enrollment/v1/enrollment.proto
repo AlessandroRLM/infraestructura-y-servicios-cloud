@@ -16,6 +16,11 @@ service EnrollmentService {
   // Student identity is derived from the authenticated session, never from request fields.
   rpc ListOwnEnrollments(ListOwnEnrollmentsRequest) returns (ListEnrollmentsResponse);
   rpc GetOwnEnrollment(GetOwnEnrollmentRequest) returns (Enrollment);
+  // MarkOwnEnrollmentPaid transitions the caller's own pending enrollment to paid.
+  // Identity is derived from the session — the caller may only pay an enrollment
+  // whose student_id equals their own. Returns NOT_FOUND for any id not owned by
+  // the caller (existence is never disclosed).
+  rpc MarkOwnEnrollmentPaid(MarkOwnEnrollmentPaidRequest) returns (Enrollment);
 }
 
 // Enrollment represents a single annual program enrollment record.
@@ -100,5 +105,11 @@ message ListOwnEnrollmentsRequest {
 }
 
 message GetOwnEnrollmentRequest {
+  string id = 1;
+}
+
+// MarkOwnEnrollmentPaidRequest carries only the enrollment id. The student identity
+// is injected from the authenticated session — never passed as a request field.
+message MarkOwnEnrollmentPaidRequest {
   string id = 1;
 }

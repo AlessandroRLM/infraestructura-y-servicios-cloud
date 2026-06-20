@@ -172,8 +172,9 @@ func main() {
 		enrollmentv1connect.EnrollmentServiceGetEnrollmentProcedure:      authz.RequirePermission(authz.PermEnrollmentManage),
 		enrollmentv1connect.EnrollmentServiceListEnrollmentsProcedure:    authz.RequirePermission(authz.PermEnrollmentManage),
 		// Enrollment self-view procedures — require enrollment.view_own.
-		enrollmentv1connect.EnrollmentServiceListOwnEnrollmentsProcedure: authz.RequirePermission(authz.PermEnrollmentViewOwn),
-		enrollmentv1connect.EnrollmentServiceGetOwnEnrollmentProcedure:   authz.RequirePermission(authz.PermEnrollmentViewOwn),
+		enrollmentv1connect.EnrollmentServiceListOwnEnrollmentsProcedure:      authz.RequirePermission(authz.PermEnrollmentViewOwn),
+		enrollmentv1connect.EnrollmentServiceGetOwnEnrollmentProcedure:        authz.RequirePermission(authz.PermEnrollmentViewOwn),
+		enrollmentv1connect.EnrollmentServiceMarkOwnEnrollmentPaidProcedure:   authz.RequirePermission(authz.PermEnrollmentViewOwn),
 
 		// Section enrollment self-service procedures.
 		section_enrollmentv1connect.SectionEnrollmentServiceEnrollOwnSectionProcedure:          authz.RequirePermission(authz.PermSectionsEnroll),

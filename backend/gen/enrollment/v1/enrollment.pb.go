@@ -654,6 +654,52 @@ func (x *GetOwnEnrollmentRequest) GetId() string {
 	return ""
 }
 
+// MarkOwnEnrollmentPaidRequest carries only the enrollment id. The student identity
+// is injected from the authenticated session — never passed as a request field.
+type MarkOwnEnrollmentPaidRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarkOwnEnrollmentPaidRequest) Reset() {
+	*x = MarkOwnEnrollmentPaidRequest{}
+	mi := &file_enrollment_v1_enrollment_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkOwnEnrollmentPaidRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkOwnEnrollmentPaidRequest) ProtoMessage() {}
+
+func (x *MarkOwnEnrollmentPaidRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_enrollment_v1_enrollment_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkOwnEnrollmentPaidRequest.ProtoReflect.Descriptor instead.
+func (*MarkOwnEnrollmentPaidRequest) Descriptor() ([]byte, []int) {
+	return file_enrollment_v1_enrollment_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *MarkOwnEnrollmentPaidRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 var File_enrollment_v1_enrollment_proto protoreflect.FileDescriptor
 
 const file_enrollment_v1_enrollment_proto_rawDesc = "" +
@@ -719,7 +765,9 @@ const file_enrollment_v1_enrollment_proto_rawDesc = "" +
 	"\n" +
 	"page_token\x18\x02 \x01(\tR\tpageToken\")\n" +
 	"\x17GetOwnEnrollmentRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id2\x9c\x05\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\".\n" +
+	"\x1cMarkOwnEnrollmentPaidRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id2\xfd\x05\n" +
 	"\x11EnrollmentService\x12U\n" +
 	"\x10CreateEnrollment\x12&.enrollment.v1.CreateEnrollmentRequest\x1a\x19.enrollment.v1.Enrollment\x12Y\n" +
 	"\x12MarkEnrollmentPaid\x12(.enrollment.v1.MarkEnrollmentPaidRequest\x1a\x19.enrollment.v1.Enrollment\x12c\n" +
@@ -727,7 +775,8 @@ const file_enrollment_v1_enrollment_proto_rawDesc = "" +
 	"\rGetEnrollment\x12#.enrollment.v1.GetEnrollmentRequest\x1a\x19.enrollment.v1.Enrollment\x12`\n" +
 	"\x0fListEnrollments\x12%.enrollment.v1.ListEnrollmentsRequest\x1a&.enrollment.v1.ListEnrollmentsResponse\x12f\n" +
 	"\x12ListOwnEnrollments\x12(.enrollment.v1.ListOwnEnrollmentsRequest\x1a&.enrollment.v1.ListEnrollmentsResponse\x12U\n" +
-	"\x10GetOwnEnrollment\x12&.enrollment.v1.GetOwnEnrollmentRequest\x1a\x19.enrollment.v1.EnrollmentBcZagithub.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1;enrollmentv1b\x06proto3"
+	"\x10GetOwnEnrollment\x12&.enrollment.v1.GetOwnEnrollmentRequest\x1a\x19.enrollment.v1.Enrollment\x12_\n" +
+	"\x15MarkOwnEnrollmentPaid\x12+.enrollment.v1.MarkOwnEnrollmentPaidRequest\x1a\x19.enrollment.v1.EnrollmentBcZagithub.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/enrollment/v1;enrollmentv1b\x06proto3"
 
 var (
 	file_enrollment_v1_enrollment_proto_rawDescOnce sync.Once
@@ -741,40 +790,43 @@ func file_enrollment_v1_enrollment_proto_rawDescGZIP() []byte {
 	return file_enrollment_v1_enrollment_proto_rawDescData
 }
 
-var file_enrollment_v1_enrollment_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_enrollment_v1_enrollment_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_enrollment_v1_enrollment_proto_goTypes = []any{
-	(*Enrollment)(nil),                // 0: enrollment.v1.Enrollment
-	(*CreateEnrollmentRequest)(nil),   // 1: enrollment.v1.CreateEnrollmentRequest
-	(*MarkEnrollmentPaidRequest)(nil), // 2: enrollment.v1.MarkEnrollmentPaidRequest
-	(*CancelEnrollmentRequest)(nil),   // 3: enrollment.v1.CancelEnrollmentRequest
-	(*CancelEnrollmentResponse)(nil),  // 4: enrollment.v1.CancelEnrollmentResponse
-	(*GetEnrollmentRequest)(nil),      // 5: enrollment.v1.GetEnrollmentRequest
-	(*ListEnrollmentsRequest)(nil),    // 6: enrollment.v1.ListEnrollmentsRequest
-	(*ListEnrollmentsResponse)(nil),   // 7: enrollment.v1.ListEnrollmentsResponse
-	(*ListOwnEnrollmentsRequest)(nil), // 8: enrollment.v1.ListOwnEnrollmentsRequest
-	(*GetOwnEnrollmentRequest)(nil),   // 9: enrollment.v1.GetOwnEnrollmentRequest
+	(*Enrollment)(nil),                   // 0: enrollment.v1.Enrollment
+	(*CreateEnrollmentRequest)(nil),      // 1: enrollment.v1.CreateEnrollmentRequest
+	(*MarkEnrollmentPaidRequest)(nil),    // 2: enrollment.v1.MarkEnrollmentPaidRequest
+	(*CancelEnrollmentRequest)(nil),      // 3: enrollment.v1.CancelEnrollmentRequest
+	(*CancelEnrollmentResponse)(nil),     // 4: enrollment.v1.CancelEnrollmentResponse
+	(*GetEnrollmentRequest)(nil),         // 5: enrollment.v1.GetEnrollmentRequest
+	(*ListEnrollmentsRequest)(nil),       // 6: enrollment.v1.ListEnrollmentsRequest
+	(*ListEnrollmentsResponse)(nil),      // 7: enrollment.v1.ListEnrollmentsResponse
+	(*ListOwnEnrollmentsRequest)(nil),    // 8: enrollment.v1.ListOwnEnrollmentsRequest
+	(*GetOwnEnrollmentRequest)(nil),      // 9: enrollment.v1.GetOwnEnrollmentRequest
+	(*MarkOwnEnrollmentPaidRequest)(nil), // 10: enrollment.v1.MarkOwnEnrollmentPaidRequest
 }
 var file_enrollment_v1_enrollment_proto_depIdxs = []int32{
-	0, // 0: enrollment.v1.ListEnrollmentsResponse.enrollments:type_name -> enrollment.v1.Enrollment
-	1, // 1: enrollment.v1.EnrollmentService.CreateEnrollment:input_type -> enrollment.v1.CreateEnrollmentRequest
-	2, // 2: enrollment.v1.EnrollmentService.MarkEnrollmentPaid:input_type -> enrollment.v1.MarkEnrollmentPaidRequest
-	3, // 3: enrollment.v1.EnrollmentService.CancelEnrollment:input_type -> enrollment.v1.CancelEnrollmentRequest
-	5, // 4: enrollment.v1.EnrollmentService.GetEnrollment:input_type -> enrollment.v1.GetEnrollmentRequest
-	6, // 5: enrollment.v1.EnrollmentService.ListEnrollments:input_type -> enrollment.v1.ListEnrollmentsRequest
-	8, // 6: enrollment.v1.EnrollmentService.ListOwnEnrollments:input_type -> enrollment.v1.ListOwnEnrollmentsRequest
-	9, // 7: enrollment.v1.EnrollmentService.GetOwnEnrollment:input_type -> enrollment.v1.GetOwnEnrollmentRequest
-	0, // 8: enrollment.v1.EnrollmentService.CreateEnrollment:output_type -> enrollment.v1.Enrollment
-	0, // 9: enrollment.v1.EnrollmentService.MarkEnrollmentPaid:output_type -> enrollment.v1.Enrollment
-	4, // 10: enrollment.v1.EnrollmentService.CancelEnrollment:output_type -> enrollment.v1.CancelEnrollmentResponse
-	0, // 11: enrollment.v1.EnrollmentService.GetEnrollment:output_type -> enrollment.v1.Enrollment
-	7, // 12: enrollment.v1.EnrollmentService.ListEnrollments:output_type -> enrollment.v1.ListEnrollmentsResponse
-	7, // 13: enrollment.v1.EnrollmentService.ListOwnEnrollments:output_type -> enrollment.v1.ListEnrollmentsResponse
-	0, // 14: enrollment.v1.EnrollmentService.GetOwnEnrollment:output_type -> enrollment.v1.Enrollment
-	8, // [8:15] is the sub-list for method output_type
-	1, // [1:8] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0,  // 0: enrollment.v1.ListEnrollmentsResponse.enrollments:type_name -> enrollment.v1.Enrollment
+	1,  // 1: enrollment.v1.EnrollmentService.CreateEnrollment:input_type -> enrollment.v1.CreateEnrollmentRequest
+	2,  // 2: enrollment.v1.EnrollmentService.MarkEnrollmentPaid:input_type -> enrollment.v1.MarkEnrollmentPaidRequest
+	3,  // 3: enrollment.v1.EnrollmentService.CancelEnrollment:input_type -> enrollment.v1.CancelEnrollmentRequest
+	5,  // 4: enrollment.v1.EnrollmentService.GetEnrollment:input_type -> enrollment.v1.GetEnrollmentRequest
+	6,  // 5: enrollment.v1.EnrollmentService.ListEnrollments:input_type -> enrollment.v1.ListEnrollmentsRequest
+	8,  // 6: enrollment.v1.EnrollmentService.ListOwnEnrollments:input_type -> enrollment.v1.ListOwnEnrollmentsRequest
+	9,  // 7: enrollment.v1.EnrollmentService.GetOwnEnrollment:input_type -> enrollment.v1.GetOwnEnrollmentRequest
+	10, // 8: enrollment.v1.EnrollmentService.MarkOwnEnrollmentPaid:input_type -> enrollment.v1.MarkOwnEnrollmentPaidRequest
+	0,  // 9: enrollment.v1.EnrollmentService.CreateEnrollment:output_type -> enrollment.v1.Enrollment
+	0,  // 10: enrollment.v1.EnrollmentService.MarkEnrollmentPaid:output_type -> enrollment.v1.Enrollment
+	4,  // 11: enrollment.v1.EnrollmentService.CancelEnrollment:output_type -> enrollment.v1.CancelEnrollmentResponse
+	0,  // 12: enrollment.v1.EnrollmentService.GetEnrollment:output_type -> enrollment.v1.Enrollment
+	7,  // 13: enrollment.v1.EnrollmentService.ListEnrollments:output_type -> enrollment.v1.ListEnrollmentsResponse
+	7,  // 14: enrollment.v1.EnrollmentService.ListOwnEnrollments:output_type -> enrollment.v1.ListEnrollmentsResponse
+	0,  // 15: enrollment.v1.EnrollmentService.GetOwnEnrollment:output_type -> enrollment.v1.Enrollment
+	0,  // 16: enrollment.v1.EnrollmentService.MarkOwnEnrollmentPaid:output_type -> enrollment.v1.Enrollment
+	9,  // [9:17] is the sub-list for method output_type
+	1,  // [1:9] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_enrollment_v1_enrollment_proto_init() }
@@ -789,7 +841,7 @@ func file_enrollment_v1_enrollment_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_enrollment_v1_enrollment_proto_rawDesc), len(file_enrollment_v1_enrollment_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
