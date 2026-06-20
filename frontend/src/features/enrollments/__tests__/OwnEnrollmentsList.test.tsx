@@ -6,7 +6,8 @@
  *
  * Covers:
  *  - Renders programName from wire + year + EnrollmentStatusBadge.
- *  - NO actions column.
+ *  - "Pagar" button visible for pending rows; NOT for paid/cancelled rows.
+ *  - Clicking "Pagar" opens the PayOwnEnrollmentDialog.
  *  - Loading skeleton (role=status, aria-busy).
  *  - Empty state message.
  *  - Initial error state + Reintentar button.
@@ -124,22 +125,67 @@ describe("OwnEnrollmentsList — data display", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("does NOT render an actions column", async () => {
+  it("shows a Pagar button for pending rows", async () => {
     renderOwnEnrollments({
       listOwnEnrollments: async () =>
         create(ListEnrollmentsResponseSchema, {
-          enrollments: [makeEnrollment()],
+          enrollments: [makeEnrollment({ status: "pending" })],
           nextPageToken: "",
         }),
     });
 
     await screen.findByText("Ingeniería Civil");
     expect(
-      screen.queryByRole("button", { name: /marcar/i }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: /pagar/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("does NOT show a Pagar button for paid rows", async () => {
+    renderOwnEnrollments({
+      listOwnEnrollments: async () =>
+        create(ListEnrollmentsResponseSchema, {
+          enrollments: [makeEnrollment({ status: "paid" })],
+          nextPageToken: "",
+        }),
+    });
+
+    await screen.findByText("Ingeniería Civil");
     expect(
-      screen.queryByRole("button", { name: /cancelar/i }),
+      screen.queryByRole("button", { name: /pagar/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("does NOT show a Pagar button for cancelled rows", async () => {
+    renderOwnEnrollments({
+      listOwnEnrollments: async () =>
+        create(ListEnrollmentsResponseSchema, {
+          enrollments: [makeEnrollment({ status: "cancelled" })],
+          nextPageToken: "",
+        }),
+    });
+
+    await screen.findByText("Ingeniería Civil");
+    expect(
+      screen.queryByRole("button", { name: /pagar/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("clicking Pagar opens the PayOwnEnrollmentDialog", async () => {
+    const user = userEvent.setup();
+    renderOwnEnrollments({
+      listOwnEnrollments: async () =>
+        create(ListEnrollmentsResponseSchema, {
+          enrollments: [makeEnrollment({ status: "pending" })],
+          nextPageToken: "",
+        }),
+      markOwnEnrollmentPaid: async () => makeEnrollment({ status: "paid" }),
+    });
+
+    await user.click(await screen.findByRole("button", { name: /pagar/i }));
+
+    // AlertDialog title should appear
+    await screen.findByRole("alertdialog");
+    await screen.findByText(/confirmar pago/i);
   });
 });
 

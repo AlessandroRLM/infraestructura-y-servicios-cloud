@@ -11,11 +11,13 @@ export { ProgramPicker } from "./components/ProgramPicker";
 export { CreateEnrollmentDialog } from "./components/CreateEnrollmentDialog";
 export { MarkPaidDialog } from "./components/MarkPaidDialog";
 export { CancelEnrollmentDialog } from "./components/CancelEnrollmentDialog";
+export { PayOwnEnrollmentDialog } from "./components/PayOwnEnrollmentDialog";
 export {
   useEnrollments,
   useOwnEnrollments,
   useCreateEnrollment,
   useMarkEnrollmentPaid,
+  useMarkOwnEnrollmentPaid,
   useCancelEnrollment,
   mapCreateEnrollmentError,
   mapLifecycleError,

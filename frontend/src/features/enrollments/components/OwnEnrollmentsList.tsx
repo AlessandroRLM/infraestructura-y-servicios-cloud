@@ -1,4 +1,5 @@
 import { Loader2, RefreshCw } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,8 +12,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageSizeSelector } from "@/core/components";
+import type { Enrollment } from "@/gen/enrollment/v1/enrollment_pb";
 import { useOwnEnrollments } from "../hooks/useOwnEnrollments";
 import { EnrollmentStatusBadge } from "./EnrollmentStatusBadge";
+import { PayOwnEnrollmentDialog } from "./PayOwnEnrollmentDialog";
 
 interface OwnEnrollmentsListProps {
   pageSize: number;
@@ -20,10 +23,9 @@ interface OwnEnrollmentsListProps {
 }
 
 /**
- * Presentational read-only list of the authenticated student's own enrollments.
- *
- * ADR-8: No filters, no actions column — students see all their enrollments
- * ordered as returned by the backend (year descending).
+ * Presentational list of the authenticated student's own enrollments.
+ * Pending rows expose a "Pagar" action that opens PayOwnEnrollmentDialog.
+ * Paid and cancelled rows are read-only.
  *
  * Route-owned wrapper (app/enrollments.tsx) reads search params and passes
  * pageSize + onPageSizeChange as props, keeping this component free of any
@@ -42,6 +44,8 @@ export function OwnEnrollmentsList({
     hasNextPage,
     isFetchingNextPage,
   } = useOwnEnrollments(pageSize);
+
+  const [payTarget, setPayTarget] = useState<Enrollment | null>(null);
 
   return (
     <div className="space-y-6">
@@ -103,6 +107,7 @@ export function OwnEnrollmentsList({
                   <TableHead>Estado</TableHead>
                   <TableHead>Creado</TableHead>
                   <TableHead>Pagado</TableHead>
+                  <TableHead className="w-[100px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -126,6 +131,17 @@ export function OwnEnrollmentsList({
                             "es-CL",
                           )
                         : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {enrollment.status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setPayTarget(enrollment)}
+                        >
+                          Pagar
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -160,6 +176,16 @@ export function OwnEnrollmentsList({
           </div>
         )}
       </div>
+
+      {payTarget && (
+        <PayOwnEnrollmentDialog
+          open={payTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setPayTarget(null);
+          }}
+          enrollment={payTarget}
+        />
+      )}
     </div>
   );
 }
