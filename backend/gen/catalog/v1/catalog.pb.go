@@ -2891,9 +2891,12 @@ func (x *ListProgramCoursesResponse) GetProgramCourses() []*ProgramCourse {
 // ListOwnSectionsRequest is the request for ListOwnSections.
 // No teacher_id field: the caller's identity is derived from the session context.
 type ListOwnSectionsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PageSize      int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	PageToken     string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	PageSize  int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// query is an optional case-insensitive search string matched against course code and name.
+	// Empty string means no filter.
+	Query         string `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2938,6 +2941,13 @@ func (x *ListOwnSectionsRequest) GetPageSize() int32 {
 func (x *ListOwnSectionsRequest) GetPageToken() string {
 	if x != nil {
 		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListOwnSectionsRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
 	}
 	return ""
 }
@@ -3337,11 +3347,12 @@ const file_catalog_v1_catalog_proto_rawDesc = "" +
 	"\n" +
 	"program_id\x18\x01 \x01(\tR\tprogramId\"`\n" +
 	"\x1aListProgramCoursesResponse\x12B\n" +
-	"\x0fprogram_courses\x18\x01 \x03(\v2\x19.catalog.v1.ProgramCourseR\x0eprogramCourses\"T\n" +
+	"\x0fprogram_courses\x18\x01 \x03(\v2\x19.catalog.v1.ProgramCourseR\x0eprogramCourses\"j\n" +
 	"\x16ListOwnSectionsRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x02 \x01(\tR\tpageToken\"\x95\x02\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\x12\x14\n" +
+	"\x05query\x18\x03 \x01(\tR\x05query\"\x95\x02\n" +
 	"\x0fTeachingSection\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tcourse_id\x18\x02 \x01(\tR\bcourseId\x12,\n" +

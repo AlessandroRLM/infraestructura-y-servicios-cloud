@@ -1,25 +1,40 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { makeStubTransport } from "@/core/test";
 import type { Permission, SessionState } from "@/features/auth";
 import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
 import { GradesService } from "@/gen/grades/v1/grades_pb";
-import { renderComponent } from "@/test";
-import { GradesPage } from "../components/GradesPage";
+import { ProfileService } from "@/gen/profiles/v1/profiles_pb";
+import { SectionEnrollmentService } from "@/gen/section_enrollment/v1/section_enrollment_pb";
+import { renderWithProviders } from "@/test";
 
 /**
- * Minimal transport stub covering every service queried at mount time.
- * CatalogService.listCourses: satisfies useCourses inside SchemeManagementView.
- * GradesService.listEvaluations: keeps the stub resilient if SchemeManagementView
- * ever pre-selects a course at mount; absent it, an evaluation query would surface
- * as an unhandled transport error instead of the intended assertion failure.
+ * Full transport stub covering all services queried at mount time:
+ * - CatalogService.listOwnSections: used by SectionSelectionTable via useOwnSections.
+ * - CatalogService.listCourses: used by SchemeManagementView if admin clicks "Administrar Notas".
+ * - GradesService.listEvaluations: used by useSectionGrid if a section is selected.
+ * - SectionEnrollmentService.listSectionRosterForTeacher: used by useSectionGrid.
+ * - ProfileService.listDisplayNamesByIDs: used by useSectionGrid for display names.
  */
 const minimalTransport = makeStubTransport(
   [
     CatalogService,
-    { listCourses: async () => ({ courses: [], nextPageToken: "" }) },
+    {
+      listOwnSections: async () => ({ sections: [], nextPageToken: "" }),
+      listCourses: async () => ({ courses: [], nextPageToken: "" }),
+    },
   ],
   [GradesService, { listEvaluations: async () => ({ evaluations: [] }) }],
+  [
+    SectionEnrollmentService,
+    {
+      listSectionRosterForTeacher: async () => ({
+        sectionEnrollments: [],
+        nextPageToken: "",
+      }),
+    },
+  ],
+  [ProfileService, { listDisplayNamesByIDs: async () => ({ names: [] }) }],
 );
 
 function session(permissions: Permission[]): SessionState {
@@ -32,80 +47,91 @@ function session(permissions: Permission[]): SessionState {
   };
 }
 
-describe("GradesPage — grades.override gate (T-13)", () => {
-  it("S-01a: grades.override → renders SchemeManagementView", async () => {
-    renderComponent(<GradesPage />, {
-      session: session(["grades.override"]),
+// GradesPage now uses useNavigate, so it must run inside a RouterProvider.
+// renderWithProviders starts at a specific route and renders the full routeTree.
+// Note: the admin sidebar also renders a "Notas" nav link — use heading role to
+// disambiguate from the sidebar link.
+describe("GradesPage — rewired recording flow (T20)", () => {
+  it("S-01a: grades.write → renders SectionSelectionTable heading", async () => {
+    renderWithProviders({
+      route: "/admin/grades",
+      session: session(["grades.write"]),
       transport: minimalTransport,
     });
 
-    // SchemeManagementView renders this subtitle immediately on mount.
+    // Find the page heading (h1), not the sidebar link
+    expect(
+      await screen.findByRole("heading", { name: "Notas" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Selecciona una sección para registrar notas."),
+    ).toBeInTheDocument();
+  });
+
+  it("S-01b: grades.override → renders SectionSelectionTable heading (recording flow)", async () => {
+    renderWithProviders({
+      route: "/admin/grades",
+      session: session(["grades.override", "grades.read"]),
+      transport: minimalTransport,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notas" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Selecciona una sección para registrar notas."),
+    ).toBeInTheDocument();
+  });
+
+  it("S-01c: no relevant permission → renders access denied message (grades.read only)", async () => {
+    // grades.read alone passes the route guard (grades.read is in ROUTE_PERMISSIONS[/admin/grades])
+    // but GradesPage itself checks grades.write OR grades.override — neither satisfied.
+    renderWithProviders({
+      route: "/admin/grades",
+      session: session(["grades.read"]),
+      transport: minimalTransport,
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Notas" }),
+    ).toBeInTheDocument();
     expect(
       await screen.findByText(
-        "Administra los esquemas de evaluación por asignatura.",
+        "No tienes permisos para acceder a esta sección.",
       ),
     ).toBeInTheDocument();
-
-    // Placeholder text must NOT appear.
-    expect(
-      screen.queryByText("Registro de notas — próximamente."),
-    ).not.toBeInTheDocument();
   });
 
-  it("S-01b: grades.write (no grades.override) → renders placeholder", () => {
-    renderComponent(<GradesPage />, {
-      session: session(["grades.write"]),
-    });
-
-    expect(
-      screen.getByText("Registro de notas — próximamente."),
-    ).toBeInTheDocument();
-
-    // SchemeManagementView subtitle must NOT appear.
-    expect(
-      screen.queryByText(
-        "Administra los esquemas de evaluación por asignatura.",
-      ),
-    ).not.toBeInTheDocument();
-  });
-
-  it("S-01c: grades.read (no grades.override) → renders placeholder", () => {
-    renderComponent(<GradesPage />, {
-      session: session(["grades.read"]),
-    });
-
-    expect(
-      screen.getByText("Registro de notas — próximamente."),
-    ).toBeInTheDocument();
-  });
-
-  it("loading session → renders placeholder", () => {
-    renderComponent(<GradesPage />, {
+  it("loading session → redirects away from /admin/grades (no area eligibility)", async () => {
+    // Loading session → no permissions → area guard redirects from /admin
+    const { router } = renderWithProviders({
+      route: "/admin/grades",
       session: { status: "loading" },
     });
 
-    // hasPermission returns false during loading → placeholder, never SchemeManagementView.
-    expect(
-      screen.getByText("Registro de notas — próximamente."),
-    ).toBeInTheDocument();
-
-    // SchemeManagementView subtitle absent → view was never mounted.
-    expect(
-      screen.queryByText(
-        "Administra los esquemas de evaluación por asignatura.",
-      ),
-    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(router.state.location.pathname).not.toBe("/admin/grades"),
+    );
   });
 
-  it("unauthenticated session → renders placeholder", () => {
-    renderComponent(<GradesPage />, {
+  it("unauthenticated session → redirects to /login", async () => {
+    const { router } = renderWithProviders({
+      route: "/admin/grades",
       session: { status: "unauthenticated" },
     });
 
-    expect(
-      screen.getByText("Registro de notas — próximamente."),
-    ).toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+  });
 
+  it("S-01d: grades.write → SchemeManagementView subtitle NOT in DOM (recording flow, no scheme admin)", async () => {
+    renderWithProviders({
+      route: "/admin/grades",
+      session: session(["grades.write"]),
+      transport: minimalTransport,
+    });
+
+    await screen.findByRole("heading", { name: "Notas" });
+    // SchemeManagementView should NOT be rendered directly
     expect(
       screen.queryByText(
         "Administra los esquemas de evaluación por asignatura.",

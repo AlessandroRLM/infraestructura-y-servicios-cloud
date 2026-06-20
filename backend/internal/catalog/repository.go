@@ -82,6 +82,12 @@ type Repository interface {
 	// ListOwnSectionsPaged returns enriched sections where teacherID is in section_teachers.
 	// pageToken is the exclusive upper-bound UUID cursor; nil = first page.
 	ListOwnSectionsPaged(ctx context.Context, params ListOwnSectionsPagedRepoParams) ([]catalogdb.ListOwnSectionsPagedRow, error)
+
+	// Admin-scope reads
+	// ListAllSectionsPaged returns ALL live sections enriched with course and period labels
+	// without filtering by section_teachers. Used by the admin bypass in ListOwnSections.
+	// pageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	ListAllSectionsPaged(ctx context.Context, params ListAllSectionsPagedRepoParams) ([]catalogdb.ListAllSectionsPagedRow, error)
 }
 
 // Parameter types for repository operations.
@@ -193,6 +199,20 @@ type ListOwnSectionsPagedRepoParams struct {
 	TeacherID uuid.UUID
 	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
 	PageToken *uuid.UUID
+	// Query is an optional case-insensitive search string matched against course code and name.
+	// nil means no filter. The service trims whitespace and sets this to nil for empty strings.
+	Query *string
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
+}
+
+// ListAllSectionsPagedRepoParams holds pagination parameters for ListAllSectionsPaged.
+type ListAllSectionsPagedRepoParams struct {
+	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// Query is an optional case-insensitive search string matched against course code and name.
+	// nil means no filter. The service trims whitespace and sets this to nil for empty strings.
+	Query *string
 	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
 	RowLimit int32
 }
@@ -772,7 +792,27 @@ func (r *postgresRepository) ListOwnSectionsPaged(ctx context.Context, params Li
 	if params.PageToken != nil {
 		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
 	}
+	if params.Query != nil {
+		p.Query = pgtype.Text{String: *params.Query, Valid: true}
+	}
 	rows, err := r.q.ListOwnSectionsPaged(ctx, p)
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
+}
+
+func (r *postgresRepository) ListAllSectionsPaged(ctx context.Context, params ListAllSectionsPagedRepoParams) ([]catalogdb.ListAllSectionsPagedRow, error) {
+	p := catalogdb.ListAllSectionsPagedParams{
+		RowLimit: params.RowLimit,
+	}
+	if params.PageToken != nil {
+		p.PageToken = pgtype.UUID{Bytes: *params.PageToken, Valid: true}
+	}
+	if params.Query != nil {
+		p.Query = pgtype.Text{String: *params.Query, Valid: true}
+	}
+	rows, err := r.q.ListAllSectionsPaged(ctx, p)
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}

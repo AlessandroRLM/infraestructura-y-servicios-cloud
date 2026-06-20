@@ -96,6 +96,11 @@ type fakeQuerier struct {
 	listRosterCalled bool
 	listRosterRows   []sectionenrollmentdb.ListSectionRosterForTeacherRow
 	listRosterErr    error
+
+	// ListSectionRosterForTeacherAll
+	listRosterAllCalled bool
+	listRosterAllRows   []sectionenrollmentdb.ListSectionRosterForTeacherAllRow
+	listRosterAllErr    error
 }
 
 func (f *fakeQuerier) GetSectionCapacity(_ context.Context, _ pgtype.UUID) (sectionenrollmentdb.GetSectionCapacityRow, error) {
@@ -173,6 +178,11 @@ func (f *fakeQuerier) SetSectionEnrollmentOutcome(_ context.Context, arg section
 func (f *fakeQuerier) ListSectionRosterForTeacher(_ context.Context, _ sectionenrollmentdb.ListSectionRosterForTeacherParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error) {
 	f.listRosterCalled = true
 	return f.listRosterRows, f.listRosterErr
+}
+
+func (f *fakeQuerier) ListSectionRosterForTeacherAll(_ context.Context, _ sectionenrollmentdb.ListSectionRosterForTeacherAllParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherAllRow, error) {
+	f.listRosterAllCalled = true
+	return f.listRosterAllRows, f.listRosterAllErr
 }
 
 // makePgUUID creates a valid pgtype.UUID from a uuid.UUID.

@@ -52,6 +52,13 @@ type Querier interface {
 	// Cross-domain read: reads section_teachers (catalog schema) and enrollments.
 	// This is the same intra-DB coupling already established in this context (see file header).
 	ListSectionRosterForTeacher(ctx context.Context, arg ListSectionRosterForTeacherParams) ([]ListSectionRosterForTeacherRow, error)
+	// Returns live section_enrollment rows for a section WITHOUT the section_teachers EXISTS
+	// guard. Used by the admin bypass so callers holding enrollment.manage can see the full
+	// roster regardless of whether they are assigned as a teacher.
+	// Includes withdrawn enrollments (status distinguishes them from active ones).
+	// Keyset pagination on se.id DESC; page_token is the exclusive upper bound.
+	// Cross-domain read: reads enrollments table — same intra-DB coupling as the teacher variant.
+	ListSectionRosterForTeacherAll(ctx context.Context, arg ListSectionRosterForTeacherAllParams) ([]ListSectionRosterForTeacherAllRow, error)
 	// Resolves an enrollment by id without filtering on status.
 	// Returns year, status, and deleted_at so the caller can distinguish:
 	//   not found / soft-deleted → ErrNotFound

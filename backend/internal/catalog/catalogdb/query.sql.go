@@ -550,6 +550,78 @@ func (q *Queries) ListAcademicPeriods(ctx context.Context) ([]AcademicPeriod, er
 	return items, nil
 }
 
+const listAllSectionsPaged = `-- name: ListAllSectionsPaged :many
+
+SELECT
+    s.id,
+    s.course_id,
+    s.academic_period_id,
+    s.capacity   AS seat_capacity,
+    c.code       AS course_code,
+    c.name       AS course_name,
+    ap.year      AS period_year,
+    ap.term      AS period_term
+FROM sections s
+JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
+JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
+WHERE s.deleted_at IS NULL
+  AND ($1::uuid IS NULL OR s.id < $1::uuid)
+  AND ($2::text IS NULL
+       OR c.code ILIKE '%' || $2 || '%' ESCAPE '\'
+       OR c.name ILIKE '%' || $2 || '%' ESCAPE '\')
+ORDER BY s.id DESC
+LIMIT $3::int
+`
+
+type ListAllSectionsPagedParams struct {
+	PageToken pgtype.UUID
+	Query     pgtype.Text
+	RowLimit  int32
+}
+
+type ListAllSectionsPagedRow struct {
+	ID               pgtype.UUID
+	CourseID         pgtype.UUID
+	AcademicPeriodID pgtype.UUID
+	SeatCapacity     int32
+	CourseCode       string
+	CourseName       string
+	PeriodYear       int32
+	PeriodTerm       int32
+}
+
+// ListAllSectionsPaged returns ALL live sections enriched with course code/name and period
+// year/term — no section_teachers JOIN so admins see every section regardless of assignment.
+// Keyset pagination on s.id DESC mirrors the contract of ListOwnSectionsPaged.
+func (q *Queries) ListAllSectionsPaged(ctx context.Context, arg ListAllSectionsPagedParams) ([]ListAllSectionsPagedRow, error) {
+	rows, err := q.db.Query(ctx, listAllSectionsPaged, arg.PageToken, arg.Query, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllSectionsPagedRow
+	for rows.Next() {
+		var i ListAllSectionsPagedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CourseID,
+			&i.AcademicPeriodID,
+			&i.SeatCapacity,
+			&i.CourseCode,
+			&i.CourseName,
+			&i.PeriodYear,
+			&i.PeriodTerm,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCourses = `-- name: ListCourses :many
 SELECT id, code, name, credits, created_at, updated_at, deleted_at, created_by, updated_by FROM courses
 WHERE deleted_at IS NULL
@@ -614,13 +686,17 @@ JOIN courses c ON c.id = s.course_id AND c.deleted_at IS NULL
 JOIN academic_periods ap ON ap.id = s.academic_period_id AND ap.deleted_at IS NULL
 WHERE s.deleted_at IS NULL
   AND ($2::uuid IS NULL OR s.id < $2::uuid)
+  AND ($3::text IS NULL
+       OR c.code ILIKE '%' || $3 || '%' ESCAPE '\'
+       OR c.name ILIKE '%' || $3 || '%' ESCAPE '\')
 ORDER BY s.id DESC
-LIMIT $3::int
+LIMIT $4::int
 `
 
 type ListOwnSectionsPagedParams struct {
 	TeacherID pgtype.UUID
 	PageToken pgtype.UUID
+	Query     pgtype.Text
 	RowLimit  int32
 }
 
@@ -639,7 +715,12 @@ type ListOwnSectionsPagedRow struct {
 // enriched with course and academic period labels. Keyset pagination on s.id DESC.
 // teacher_id is the caller's user ID derived from the session context.
 func (q *Queries) ListOwnSectionsPaged(ctx context.Context, arg ListOwnSectionsPagedParams) ([]ListOwnSectionsPagedRow, error) {
-	rows, err := q.db.Query(ctx, listOwnSectionsPaged, arg.TeacherID, arg.PageToken, arg.RowLimit)
+	rows, err := q.db.Query(ctx, listOwnSectionsPaged,
+		arg.TeacherID,
+		arg.PageToken,
+		arg.Query,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

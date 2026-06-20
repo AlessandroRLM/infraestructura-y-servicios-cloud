@@ -1,0 +1,15 @@
+# air hot-reload config for local docker-compose development.
+# Source is bind-mounted at /app; air rebuilds + restarts the api on .go changes.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "CGO_ENABLED=0 go build -o ./tmp/api ./cmd/api"
+bin = "./tmp/api"
+include_ext = ["go"]
+exclude_dir = ["tmp", "test", "proto"]
+delay = 800
+stop_on_error = true
+
+[misc]
+clean_on_exit = true
