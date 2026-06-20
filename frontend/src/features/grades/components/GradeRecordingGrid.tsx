@@ -1,5 +1,5 @@
 import { RefreshCw } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -52,7 +52,7 @@ function mergeRowsWithOverrides(
  * Manages:
  * - Composing useSectionGrid (roster × evaluations × grades × display names)
  * - Session-level overrides: cells saved this session are stored in `overrides`
- *   and merged over server rows via useMemo — background refetches never clobber edits.
+ *   and merged over server rows — background refetches never clobber saved edits.
  * - Conflict path: clears the stale row override before invalidating the grades cache
  *   so the fresh server value flows through without the stale override masking it.
  * - Write dispatch: grades.override → OverrideGrade, else → RecordGrade
@@ -66,7 +66,7 @@ export function GradeRecordingGrid({
   const session = useSession();
   const isAdmin = hasPermission(session, "grades.override");
 
-  const { evaluations, rows, isLoading, isError, refetchGrades } =
+  const { evaluations, rows, isLoading, isError, refetchGrades, refetch } =
     useSectionGrid(section.id, section.courseId);
 
   const { record } = useRecordGrade();
@@ -80,63 +80,55 @@ export function GradeRecordingGrid({
   );
 
   // Merge overrides into server rows — override wins on value + version.
-  const displayRows = useMemo(
-    () => mergeRowsWithOverrides(rows, overrides),
-    [rows, overrides],
-  );
+  const displayRows = mergeRowsWithOverrides(rows, overrides);
 
-  const handleSaveCell = useCallback(
-    async (params: {
-      evaluationId: string;
-      sectionEnrollmentId: string;
-      value: string;
-      expectedVersion?: number;
-    }): Promise<{ id: string; version: number; value: string }> => {
-      const grade = isAdmin
-        ? await override({
-            evaluationId: params.evaluationId,
-            sectionEnrollmentId: params.sectionEnrollmentId,
-            value: params.value,
-            expectedVersion: params.expectedVersion,
-          })
-        : await record({
-            evaluationId: params.evaluationId,
-            sectionEnrollmentId: params.sectionEnrollmentId,
-            value: params.value,
-            expectedVersion: params.expectedVersion,
-          });
-
-      const saved = {
-        id: grade.id,
-        version: grade.version,
-        value: grade.value,
-      };
-
-      // Record the saved cell in overrides so it survives background refetches.
-      setOverrides((prev) => {
-        const next = new Map(prev);
-        const rowOverrides = new Map(
-          next.get(params.sectionEnrollmentId) ?? [],
-        );
-        rowOverrides.set(params.evaluationId, {
+  const handleSaveCell = async (params: {
+    evaluationId: string;
+    sectionEnrollmentId: string;
+    value: string;
+    expectedVersion?: number;
+  }): Promise<{ id: string; version: number; value: string }> => {
+    const grade = isAdmin
+      ? await override({
           evaluationId: params.evaluationId,
-          value: saved.value,
-          version: saved.version,
-          gradeId: saved.id,
+          sectionEnrollmentId: params.sectionEnrollmentId,
+          value: params.value,
+          expectedVersion: params.expectedVersion,
+        })
+      : await record({
+          evaluationId: params.evaluationId,
+          sectionEnrollmentId: params.sectionEnrollmentId,
+          value: params.value,
+          expectedVersion: params.expectedVersion,
         });
-        next.set(params.sectionEnrollmentId, rowOverrides);
-        return next;
-      });
 
-      return saved;
-    },
-    [isAdmin, override, record],
-  );
+    const saved = {
+      id: grade.id,
+      version: grade.version,
+      value: grade.value,
+    };
+
+    // Record the saved cell in overrides so it survives background refetches.
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      const rowOverrides = new Map(next.get(params.sectionEnrollmentId) ?? []);
+      rowOverrides.set(params.evaluationId, {
+        evaluationId: params.evaluationId,
+        value: saved.value,
+        version: saved.version,
+        gradeId: saved.id,
+      });
+      next.set(params.sectionEnrollmentId, rowOverrides);
+      return next;
+    });
+
+    return saved;
+  };
 
   // Builds the per-row conflict handler for a given sectionEnrollmentId.
   // On conflict: clears the stale row override so the fresh cache value wins,
   // then invalidates the grades query so TanStack Query re-fetches.
-  const makeConflictRefetch = useCallback(
+  const makeConflictRefetch =
     (sectionEnrollmentId: string) => (): Promise<void> => {
       // Remove the stale override for this row before invalidating — without
       // this the override map would mask the fresh server value after re-fetch.
@@ -146,9 +138,7 @@ export function GradeRecordingGrid({
         return next;
       });
       return refetchGrades();
-    },
-    [refetchGrades],
-  );
+    };
 
   return (
     <div className="flex flex-col gap-4">
@@ -201,7 +191,7 @@ export function GradeRecordingGrid({
             variant="outline"
             size="sm"
             className="mt-3 gap-2"
-            onClick={() => window.location.reload()}
+            onClick={() => void refetch()}
           >
             <RefreshCw className="size-4" aria-hidden />
             Reintentar
