@@ -56,41 +56,49 @@ flowchart LR
 
 ## 4. Estimación de costos
 
-Región `us-central1`. Estimación mensual preliminar, ejecutando 24/7. Las cifras por servicio se validan con las calculadoras oficiales: [GCP Pricing Calculator](https://cloud.google.com/products/calculator) y [AWS Pricing Calculator](https://calculator.aws).
+Región `us-central1`, precios de lista on-demand, mes de 730 horas, ejecución 24/7. Cifras derivadas de los recursos aprovisionados por Terraform y validadas con las calculadoras oficiales: [GCP Pricing Calculator](https://cloud.google.com/products/calculator) y [AWS Pricing Calculator](https://calculator.aws). El node pool autoescala de 2 a 4 nodos: se reporta el baseline (2 nodos) y, entre paréntesis, el pico sostenido (4 nodos).
 
 ### GCP (nube principal)
 
-| Servicio | 24/7 (USD/mes) |
-|----------|----------------|
-| Plano de control GKE (zonal) | 0 (primer cluster zonal sin cargo) |
-| 2× nodos `e2-medium` | ~49 |
-| VM `bastion` (`e2-micro`) | ~6 |
-| VM `ops` (`e2-small`) | ~12 |
-| Cloud Load Balancing (Ingress) | ~18 |
-| Persistent Disk (20 GB) | ~2 |
-| Cloud NAT | ~32 |
-| Cloud Storage (GCS) | ~1 |
-| Egress hacia AWS (backups) | ~2 |
-| Cloud Monitoring + Logging | 0 (dentro de cuota gratuita) |
-| **Subtotal GCP** | **~122** |
+| Servicio | Especificación | USD/mes (24/7) |
+|----------|----------------|----------------|
+| Plano de control GKE (zonal, Standard) | 1 cluster zonal; fee de $0,10/h cubierto por el crédito mensual de $74,40 por cuenta | ~0 |
+| Nodos `e2-medium` (autoscala 2→4) | 2 vCPU / 4 GB c/u | ~49 (pico: ~98) |
+| Discos de arranque de nodos | 2–4 × 50 GB pd-balanced (CMEK) | ~10 (pico: ~20) |
+| VM `bastion` (`e2-micro`) | + ~10 GB disco; elegible para free tier | ~6 |
+| VM `ops` (`e2-small`) | + ~10 GB disco | ~13 |
+| IPs externas estáticas | bastion + balanceador (2 × $0,005/h) | ~7 |
+| Cloud NAT | 1 gateway ($0,044/h) + datos procesados | ~33 |
+| Cloud Load Balancing | Ingress nginx → 1 regla de reenvío + datos | ~18 |
+| Persistent Disk — Postgres prod | 20 GB pd-balanced | ~2 |
+| PVC dev/test + snapshots diarias de VM | 2 × 1 GB + snapshots incrementales | ~1 |
+| Cloud Storage (GCS) | assets + backups (ret. 30 d) + tfstate | ~1 |
+| Artifact Registry | imágenes Docker (~5 GB, CMEK) | ~1 |
+| Cloud KMS | 3 claves CMEK (etcd, discos de nodo, storage) | ~1 |
+| Egress GCP → AWS | backups diarios cross-cloud | ~2 |
+| Cloud Monitoring + Logging | GMP; mayormente dentro de la cuota gratuita | ~0–5 |
+| **Subtotal GCP — baseline (2 nodos)** | | **~147** |
+| **Subtotal GCP — pico sostenido (4 nodos)** | | **~206** |
 
 ### AWS (nube de respaldo)
 
-| Servicio | 24/7 (USD/mes) |
-|----------|----------------|
-| S3 (backups, pocos GB + versionado) | ~1 |
-| **Subtotal AWS** | **~1** |
+| Servicio | Especificación | USD/mes (24/7) |
+|----------|----------------|----------------|
+| S3 — backups DR | Standard → Glacier a los 30 d, versionado, pocos GB | ~1 |
+| IAM `ops-backup` | usuario con permisos acotados al bucket | 0 |
+| **Subtotal AWS** | | **~1** |
 
 ### Total
 
 | | USD/mes |
 |--|--------|
-| **Total 24/7** | **~123** |
-| **Con apagado (~20 h/semana)** | **~15–30** |
+| **Total 24/7 — baseline (2 nodos)** | **~148** |
+| **Total 24/7 — pico sostenido (4 nodos)** | **~207** |
+| **Con apagado de cómputo fuera de ventanas** | **~20–35** (persisten solo discos, IPs y almacenamiento) |
 
-El mayor factor de costo no es el tamaño de los recursos, sino el **tiempo encendido**. Como la infraestructura es reproducible con Terraform, fuera de las ventanas de desarrollo y demo se destruye o se escala a cero.
+El mayor factor de costo no es el tamaño de los recursos, sino el **tiempo encendido**: cómputo (nodos + VMs) concentra cerca de dos tercios de la factura. Como la infraestructura es reproducible con Terraform, fuera de las ventanas de desarrollo y demo se destruye o se escala a cero, dejando solo el almacenamiento persistente.
 
-> **Presupuesto configurado en Terraform:** las cifras anteriores son estimaciones de referencia en USD. El presupuesto real configurado via `billingbudgets` usa la variable `monthly_budget_clp` (default 150.000 CLP), con umbrales de alerta al 50 %, 90 % y 100 % del monto mensual. Las alertas de budget que dispara GCP operan sobre ese valor en CLP, no sobre los USD de la estimación.
+> **Presupuesto configurado en Terraform:** el presupuesto real configurado vía `billingbudgets` usa la variable `monthly_budget_clp` (default 150.000 CLP ≈ 160 USD a ~940 CLP/USD), con umbrales de alerta al 50 %, 90 % y 100 % del monto mensual. El baseline de ~148 USD/mes queda dentro de ese presupuesto; el pico sostenido lo superaría, lo que justifica el techo de 4 nodos y el apagado fuera de ventanas. Las alertas de budget operan sobre el valor en CLP, no sobre los USD de la estimación.
 
 ## 5. Optimización de costos
 
