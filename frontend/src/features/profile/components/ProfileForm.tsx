@@ -79,7 +79,7 @@ export function ProfileForm({
       className="flex flex-col gap-6"
     >
       {/* Personal */}
-      <fieldset className="flex flex-col gap-4">
+      <fieldset className="space-y-4">
         <legend className="text-sm font-semibold text-foreground">
           Personal
         </legend>
@@ -129,7 +129,7 @@ export function ProfileForm({
       </fieldset>
 
       {/* Contact */}
-      <fieldset className="flex flex-col gap-4">
+      <fieldset className="space-y-4">
         <legend className="text-sm font-semibold text-foreground">
           Contacto
         </legend>
@@ -171,7 +171,7 @@ export function ProfileForm({
       </fieldset>
 
       {/* Address */}
-      <fieldset className="flex flex-col gap-4">
+      <fieldset className="space-y-4">
         <legend className="text-sm font-semibold text-foreground">
           Dirección
         </legend>
@@ -263,7 +263,7 @@ export function ProfileForm({
       </fieldset>
 
       {/* Emergency */}
-      <fieldset className="flex flex-col gap-4">
+      <fieldset className="space-y-4">
         <legend className="text-sm font-semibold text-foreground">
           Contacto de emergencia
         </legend>
