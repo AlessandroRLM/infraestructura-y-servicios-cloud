@@ -22,8 +22,9 @@ const (
 var enrollmentClamp = pagination.Clamp{Min: enrollmentPageSizeMin, Max: enrollmentPageSizeMax}
 
 // ListEnrollmentsResult holds the paginated result for ListEnrollments.
+// Each row carries student_name and program_name derived from LEFT JOINs.
 type ListEnrollmentsResult struct {
-	Enrollments   []enrollmentdb.Enrollment
+	Enrollments   []enrollmentdb.ListEnrollmentsRow
 	NextPageToken string
 }
 
@@ -41,6 +42,8 @@ type ListEnrollmentsFilter struct {
 	ProgramID *uuid.UUID
 	Year      *int32
 	Status    *string
+	// Query is the raw free-text search string (before escaping). Empty = no filter.
+	Query string
 }
 
 // Service orchestrates enrollment business logic: validation, audit-column population,
@@ -122,12 +125,15 @@ func (s *Service) ListEnrollments(ctx context.Context, f ListEnrollmentsFilter, 
 		tokenUUID = &id
 	}
 
+	queryPtr := pagination.SearchPattern(f.Query)
+
 	rows, err := s.repo.ListEnrollments(ctx, ListEnrollmentsRepoParams{
 		PageToken: tokenUUID,
 		StudentID: f.StudentID,
 		ProgramID: f.ProgramID,
 		Year:      f.Year,
 		Status:    f.Status,
+		Query:     queryPtr,
 		RowLimit:  int32(clamped + 1),
 	})
 	if err != nil {
@@ -135,7 +141,7 @@ func (s *Service) ListEnrollments(ctx context.Context, f ListEnrollmentsFilter, 
 	}
 
 	page := pagination.Paginate(rows, clamped)
-	nextToken := pagination.TokenOf(page, func(r enrollmentdb.Enrollment) uuid.UUID {
+	nextToken := pagination.TokenOf(page, func(r enrollmentdb.ListEnrollmentsRow) uuid.UUID {
 		return uuid.UUID(r.ID.Bytes)
 	})
 

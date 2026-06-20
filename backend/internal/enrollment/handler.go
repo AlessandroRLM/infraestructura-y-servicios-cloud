@@ -142,6 +142,7 @@ func (h *Handler) ListEnrollments(
 	if s := req.Msg.GetStatus(); s != "" {
 		f.Status = &s
 	}
+	f.Query = req.Msg.GetQuery()
 
 	result, err := h.svc.ListEnrollments(ctx, f, req.Msg.GetPageSize(), req.Msg.GetPageToken())
 	if err != nil {
@@ -149,7 +150,7 @@ func (h *Handler) ListEnrollments(
 	}
 	protos := make([]*enrollmentv1.Enrollment, 0, len(result.Enrollments))
 	for _, r := range result.Enrollments {
-		protos = append(protos, enrollmentToProto(r))
+		protos = append(protos, listEnrollmentRowToProto(r))
 	}
 	return connect.NewResponse(&enrollmentv1.ListEnrollmentsResponse{
 		Enrollments:   protos,
@@ -206,6 +207,40 @@ func enrollmentToProto(r enrollmentdb.Enrollment) *enrollmentv1.Enrollment {
 		Status:    r.Status,
 		CreatedAt: r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt: r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+	}
+	if r.PaidAt.Valid {
+		s := r.PaidAt.Time.Format("2006-01-02T15:04:05Z07:00")
+		e.PaidAt = &s
+	}
+	if r.DeletedAt.Valid {
+		s := r.DeletedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+		e.DeletedAt = &s
+	}
+	if r.CreatedBy.Valid {
+		s := uuidToString(r.CreatedBy)
+		e.CreatedBy = &s
+	}
+	if r.UpdatedBy.Valid {
+		s := uuidToString(r.UpdatedBy)
+		e.UpdatedBy = &s
+	}
+	return e
+}
+
+// listEnrollmentRowToProto converts a ListEnrollmentsRow (which carries the LEFT-JOINed
+// student_name and program_name) to its proto representation. Used by the admin ListEnrollments
+// handler only; single-get RPCs continue to use enrollmentToProto (names stay empty).
+func listEnrollmentRowToProto(r enrollmentdb.ListEnrollmentsRow) *enrollmentv1.Enrollment {
+	e := &enrollmentv1.Enrollment{
+		Id:          uuidToString(r.ID),
+		StudentId:   uuidToString(r.StudentID),
+		ProgramId:   uuidToString(r.ProgramID),
+		Year:        r.Year,
+		Status:      r.Status,
+		CreatedAt:   r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:   r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		StudentName: r.StudentName,
+		ProgramName: r.ProgramName,
 	}
 	if r.PaidAt.Valid {
 		s := r.PaidAt.Time.Format("2006-01-02T15:04:05Z07:00")

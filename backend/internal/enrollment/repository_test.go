@@ -47,9 +47,10 @@ type fakeQuerier struct {
 	getEnrollmentErr    error
 	getEnrollmentResult enrollmentdb.Enrollment
 
-	listCalled bool
-	listResult []enrollmentdb.Enrollment
-	listErr    error
+	listCalled    bool
+	listLastArgs  enrollmentdb.ListEnrollmentsParams
+	listResult    []enrollmentdb.ListEnrollmentsRow
+	listErr       error
 
 	listOwnResult []enrollmentdb.ListOwnEnrollmentsRow
 	listOwnErr    error
@@ -95,8 +96,9 @@ func (f *fakeQuerier) GetEnrollment(_ context.Context, _ pgtype.UUID) (enrollmen
 	return f.getEnrollmentResult, f.getEnrollmentErr
 }
 
-func (f *fakeQuerier) ListEnrollments(_ context.Context, _ enrollmentdb.ListEnrollmentsParams) ([]enrollmentdb.Enrollment, error) {
+func (f *fakeQuerier) ListEnrollments(_ context.Context, arg enrollmentdb.ListEnrollmentsParams) ([]enrollmentdb.ListEnrollmentsRow, error) {
 	f.listCalled = true
+	f.listLastArgs = arg
 	return f.listResult, f.listErr
 }
 
@@ -268,7 +270,7 @@ func TestGetEnrollment_Success(t *testing.T) {
 
 // TestListEnrollments_DelegatesWithFilter verifies that ListEnrollments calls the querier.
 func TestListEnrollments_DelegatesWithFilter(t *testing.T) {
-	want := []enrollmentdb.Enrollment{{Status: "pending"}}
+	want := []enrollmentdb.ListEnrollmentsRow{{Status: "pending"}}
 	q := &fakeQuerier{listResult: want}
 	repo := &postgresRepository{q: q}
 	got, err := repo.ListEnrollments(context.Background(), ListEnrollmentsRepoParams{RowLimit: 21})
@@ -312,7 +314,7 @@ func TestListOwnEnrollments_Delegates(t *testing.T) {
 // TestListEnrollments_RowLimitPropagated verifies that the RowLimit from the params
 // is forwarded to the querier.
 func TestListEnrollments_RowLimitPropagated(t *testing.T) {
-	want := []enrollmentdb.Enrollment{{Status: "pending"}}
+	want := []enrollmentdb.ListEnrollmentsRow{{Status: "pending"}}
 	q := &fakeQuerier{listResult: want}
 	repo := &postgresRepository{q: q}
 
@@ -329,7 +331,7 @@ func TestListEnrollments_RowLimitPropagated(t *testing.T) {
 // translated to a valid pgtype.UUID in the querier call.
 func TestListEnrollments_TokenTranslation(t *testing.T) {
 	token := uuid.New()
-	q := &fakeQuerier{listResult: []enrollmentdb.Enrollment{}}
+	q := &fakeQuerier{listResult: []enrollmentdb.ListEnrollmentsRow{}}
 	repo := &postgresRepository{q: q}
 
 	_, err := repo.ListEnrollments(context.Background(), ListEnrollmentsRepoParams{
@@ -359,5 +361,128 @@ func TestListOwnEnrollments_TokenTranslation(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("ListOwnEnrollments with token: %v", err)
+	}
+}
+
+// ---- ListEnrollments: query param + names-on-wire repository tests (T1.9) ----
+
+// TestRepo_ListEnrollments_NamesOnWire verifies that when the querier returns rows with
+// non-empty StudentName and ProgramName, the repository passes them through unchanged.
+func TestRepo_ListEnrollments_NamesOnWire(t *testing.T) {
+	want := []enrollmentdb.ListEnrollmentsRow{
+		{
+			ID:          pgUUID(uuid.New()),
+			StudentName: "Alice García",
+			ProgramName: "Ingeniería Civil",
+			Status:      "pending",
+		},
+	}
+	q := &fakeQuerier{listResult: want}
+	repo := &postgresRepository{q: q}
+
+	got, err := repo.ListEnrollments(context.Background(), ListEnrollmentsRepoParams{RowLimit: 21})
+	if err != nil {
+		t.Fatalf("ListEnrollments NamesOnWire: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d rows, want 1", len(got))
+	}
+	if got[0].StudentName != "Alice García" {
+		t.Errorf("StudentName: got %q, want %q", got[0].StudentName, "Alice García")
+	}
+	if got[0].ProgramName != "Ingeniería Civil" {
+		t.Errorf("ProgramName: got %q, want %q", got[0].ProgramName, "Ingeniería Civil")
+	}
+}
+
+// TestRepo_ListEnrollments_QueryParamPassthrough verifies that a non-nil Query in
+// ListEnrollmentsRepoParams is forwarded as a valid pgtype.Text to the querier.
+func TestRepo_ListEnrollments_QueryParamPassthrough(t *testing.T) {
+	queryVal := `alice\@`
+	q := &fakeQuerier{listResult: []enrollmentdb.ListEnrollmentsRow{}}
+	repo := &postgresRepository{q: q}
+
+	_, err := repo.ListEnrollments(context.Background(), ListEnrollmentsRepoParams{
+		Query:    &queryVal,
+		RowLimit: 21,
+	})
+	if err != nil {
+		t.Fatalf("ListEnrollments with query: %v", err)
+	}
+	if !q.listLastArgs.Query.Valid {
+		t.Error("Query pgtype.Text must be Valid when non-nil Query is provided")
+	}
+	if q.listLastArgs.Query.String != queryVal {
+		t.Errorf("Query.String: got %q, want %q", q.listLastArgs.Query.String, queryVal)
+	}
+}
+
+// TestRepo_ListEnrollments_NilQueryIsInvalid verifies that a nil Query in
+// ListEnrollmentsRepoParams results in an invalid (NULL) pgtype.Text being sent to
+// the querier, enabling the sqlc.narg IS NULL no-filter path.
+func TestRepo_ListEnrollments_NilQueryIsInvalid(t *testing.T) {
+	q := &fakeQuerier{listResult: []enrollmentdb.ListEnrollmentsRow{}}
+	repo := &postgresRepository{q: q}
+
+	_, err := repo.ListEnrollments(context.Background(), ListEnrollmentsRepoParams{RowLimit: 21})
+	if err != nil {
+		t.Fatalf("ListEnrollments nil query: %v", err)
+	}
+	if q.listLastArgs.Query.Valid {
+		t.Error("nil Query must produce an invalid pgtype.Text (NULL no-filter path)")
+	}
+}
+
+// TestRepo_ListEnrollments_EmailFallback verifies that when the querier returns a row with
+// empty given_names (no user_profile or soft-deleted) and email in StudentName
+// (COALESCE fallback), the repository passes through the email value unchanged.
+func TestRepo_ListEnrollments_EmailFallback(t *testing.T) {
+	want := []enrollmentdb.ListEnrollmentsRow{
+		{
+			ID:          pgUUID(uuid.New()),
+			StudentName: "student@example.com", // email fallback — no profile
+			ProgramName: "Sistemas",
+			Status:      "paid",
+		},
+	}
+	q := &fakeQuerier{listResult: want}
+	repo := &postgresRepository{q: q}
+
+	got, err := repo.ListEnrollments(context.Background(), ListEnrollmentsRepoParams{RowLimit: 21})
+	if err != nil {
+		t.Fatalf("ListEnrollments EmailFallback: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d rows, want 1", len(got))
+	}
+	if got[0].StudentName != "student@example.com" {
+		t.Errorf("StudentName email fallback: got %q, want %q", got[0].StudentName, "student@example.com")
+	}
+}
+
+// TestRepo_ListEnrollments_SoftDeletedProgramEmptyName verifies that when the querier
+// returns a row with an empty ProgramName (COALESCE on soft-deleted program), the
+// repository passes through the empty string unchanged.
+func TestRepo_ListEnrollments_SoftDeletedProgramEmptyName(t *testing.T) {
+	want := []enrollmentdb.ListEnrollmentsRow{
+		{
+			ID:          pgUUID(uuid.New()),
+			StudentName: "Bob Jones",
+			ProgramName: "", // soft-deleted program → LEFT JOIN miss → empty COALESCE
+			Status:      "pending",
+		},
+	}
+	q := &fakeQuerier{listResult: want}
+	repo := &postgresRepository{q: q}
+
+	got, err := repo.ListEnrollments(context.Background(), ListEnrollmentsRepoParams{RowLimit: 21})
+	if err != nil {
+		t.Fatalf("ListEnrollments SoftDeletedProgramEmptyName: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d rows, want 1", len(got))
+	}
+	if got[0].ProgramName != "" {
+		t.Errorf("ProgramName must be empty for soft-deleted program, got %q", got[0].ProgramName)
 	}
 }

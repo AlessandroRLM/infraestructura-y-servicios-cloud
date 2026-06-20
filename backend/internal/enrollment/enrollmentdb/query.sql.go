@@ -142,15 +142,28 @@ func (q *Queries) InsertEnrollment(ctx context.Context, arg InsertEnrollmentPara
 }
 
 const listEnrollments = `-- name: ListEnrollments :many
-SELECT id, student_id, program_id, year, status, paid_at, created_at, updated_at, deleted_at, created_by, updated_by FROM enrollments
-WHERE deleted_at IS NULL
-  AND ($1::uuid IS NULL OR id < $1::uuid)
-  AND ($2::uuid IS NULL OR student_id = $2::uuid)
-  AND ($3::uuid IS NULL OR program_id = $3::uuid)
-  AND ($4::int IS NULL OR year = $4::int)
-  AND ($5::text IS NULL OR status = $5::text)
-ORDER BY id DESC
-LIMIT $6::int
+SELECT
+  e.id, e.student_id, e.program_id, e.year, e.status, e.paid_at,
+  e.created_at, e.updated_at, e.deleted_at, e.created_by, e.updated_by,
+  COALESCE(NULLIF(TRIM(COALESCE(p.given_names,'')||' '||COALESCE(p.last_name_paternal,'')), ''), u.email, '') AS student_name,
+  COALESCE(pr.name, '') AS program_name
+FROM enrollments e
+LEFT JOIN users u ON u.id = e.student_id AND u.deleted_at IS NULL
+LEFT JOIN user_profiles p ON p.user_id = e.student_id AND p.deleted_at IS NULL
+LEFT JOIN programs pr ON pr.id = e.program_id AND pr.deleted_at IS NULL
+WHERE e.deleted_at IS NULL
+  AND ($1::uuid IS NULL OR e.id < $1::uuid)
+  AND ($2::uuid IS NULL OR e.student_id = $2::uuid)
+  AND ($3::uuid IS NULL OR e.program_id = $3::uuid)
+  AND ($4::int IS NULL OR e.year = $4::int)
+  AND ($5::text IS NULL OR e.status = $5::text)
+  AND ($6::text IS NULL
+       OR u.email ILIKE '%' || $6 || '%' ESCAPE '\'
+       OR (COALESCE(p.given_names,'')||' '||COALESCE(p.last_name_paternal,'')) ILIKE '%' || $6 || '%' ESCAPE '\'
+       OR pr.code ILIKE '%' || $6 || '%' ESCAPE '\'
+       OR pr.name ILIKE '%' || $6 || '%' ESCAPE '\')
+ORDER BY e.id DESC
+LIMIT $7::int
 `
 
 type ListEnrollmentsParams struct {
@@ -159,25 +172,43 @@ type ListEnrollmentsParams struct {
 	ProgramID pgtype.UUID
 	Year      pgtype.Int4
 	Status    pgtype.Text
+	Query     pgtype.Text
 	RowLimit  int32
 }
 
-func (q *Queries) ListEnrollments(ctx context.Context, arg ListEnrollmentsParams) ([]Enrollment, error) {
+type ListEnrollmentsRow struct {
+	ID          pgtype.UUID
+	StudentID   pgtype.UUID
+	ProgramID   pgtype.UUID
+	Year        int32
+	Status      string
+	PaidAt      pgtype.Timestamptz
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+	DeletedAt   pgtype.Timestamptz
+	CreatedBy   pgtype.UUID
+	UpdatedBy   pgtype.UUID
+	StudentName string
+	ProgramName string
+}
+
+func (q *Queries) ListEnrollments(ctx context.Context, arg ListEnrollmentsParams) ([]ListEnrollmentsRow, error) {
 	rows, err := q.db.Query(ctx, listEnrollments,
 		arg.PageToken,
 		arg.StudentID,
 		arg.ProgramID,
 		arg.Year,
 		arg.Status,
+		arg.Query,
 		arg.RowLimit,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Enrollment
+	var items []ListEnrollmentsRow
 	for rows.Next() {
-		var i Enrollment
+		var i ListEnrollmentsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.StudentID,
@@ -190,6 +221,8 @@ func (q *Queries) ListEnrollments(ctx context.Context, arg ListEnrollmentsParams
 			&i.DeletedAt,
 			&i.CreatedBy,
 			&i.UpdatedBy,
+			&i.StudentName,
+			&i.ProgramName,
 		); err != nil {
 			return nil, err
 		}

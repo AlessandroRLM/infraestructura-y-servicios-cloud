@@ -38,8 +38,12 @@ type Enrollment struct {
 	CreatedBy *string `protobuf:"bytes,10,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
 	UpdatedBy *string `protobuf:"bytes,11,opt,name=updated_by,json=updatedBy,proto3,oneof" json:"updated_by,omitempty"`
 	// program_name is the display name of the program (carrera) for this enrollment.
-	// Populated only by ListOwnEnrollments; empty for other RPCs.
-	ProgramName   string `protobuf:"bytes,12,opt,name=program_name,json=programName,proto3" json:"program_name,omitempty"`
+	// Populated by ListEnrollments and ListOwnEnrollments; empty for management single-get RPCs.
+	ProgramName string `protobuf:"bytes,12,opt,name=program_name,json=programName,proto3" json:"program_name,omitempty"`
+	// student_name is the display name of the enrolling student, derived from user_profiles
+	// (given_names || ' ' || last_name_paternal), falling back to the student's email when
+	// no user_profile row exists. Populated by ListEnrollments only; empty for other RPCs.
+	StudentName   string `protobuf:"bytes,13,opt,name=student_name,json=studentName,proto3" json:"student_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -154,6 +158,13 @@ func (x *Enrollment) GetUpdatedBy() string {
 func (x *Enrollment) GetProgramName() string {
 	if x != nil {
 		return x.ProgramName
+	}
+	return ""
+}
+
+func (x *Enrollment) GetStudentName() string {
+	if x != nil {
+		return x.StudentName
 	}
 	return ""
 }
@@ -402,7 +413,10 @@ type ListEnrollmentsRequest struct {
 	PageSize int32 `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// Opaque cursor returned by a previous ListEnrollments or ListOwnEnrollments call.
 	// Empty string returns the first page.
-	PageToken     string `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// query is an optional search string. Filters by student email/name or program code/name (ILIKE).
+	// Empty string means unfiltered.
+	Query         string `protobuf:"bytes,7,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -475,6 +489,13 @@ func (x *ListEnrollmentsRequest) GetPageSize() int32 {
 func (x *ListEnrollmentsRequest) GetPageToken() string {
 	if x != nil {
 		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListEnrollmentsRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
 	}
 	return ""
 }
@@ -637,7 +658,7 @@ var File_enrollment_v1_enrollment_proto protoreflect.FileDescriptor
 
 const file_enrollment_v1_enrollment_proto_rawDesc = "" +
 	"\n" +
-	"\x1eenrollment/v1/enrollment.proto\x12\renrollment.v1\"\xaa\x03\n" +
+	"\x1eenrollment/v1/enrollment.proto\x12\renrollment.v1\"\xcd\x03\n" +
 	"\n" +
 	"Enrollment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
@@ -659,7 +680,8 @@ const file_enrollment_v1_enrollment_proto_rawDesc = "" +
 	" \x01(\tH\x02R\tcreatedBy\x88\x01\x01\x12\"\n" +
 	"\n" +
 	"updated_by\x18\v \x01(\tH\x03R\tupdatedBy\x88\x01\x01\x12!\n" +
-	"\fprogram_name\x18\f \x01(\tR\vprogramNameB\n" +
+	"\fprogram_name\x18\f \x01(\tR\vprogramName\x12!\n" +
+	"\fstudent_name\x18\r \x01(\tR\vstudentNameB\n" +
 	"\n" +
 	"\b_paid_atB\r\n" +
 	"\v_deleted_atB\r\n" +
@@ -677,7 +699,7 @@ const file_enrollment_v1_enrollment_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x1a\n" +
 	"\x18CancelEnrollmentResponse\"&\n" +
 	"\x14GetEnrollmentRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\xbe\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xd4\x01\n" +
 	"\x16ListEnrollmentsRequest\x12\x1d\n" +
 	"\n" +
 	"student_id\x18\x01 \x01(\tR\tstudentId\x12\x1d\n" +
@@ -687,7 +709,8 @@ const file_enrollment_v1_enrollment_proto_rawDesc = "" +
 	"\x06status\x18\x04 \x01(\tR\x06status\x12\x1b\n" +
 	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x06 \x01(\tR\tpageToken\"~\n" +
+	"page_token\x18\x06 \x01(\tR\tpageToken\x12\x14\n" +
+	"\x05query\x18\a \x01(\tR\x05query\"~\n" +
 	"\x17ListEnrollmentsResponse\x12;\n" +
 	"\venrollments\x18\x01 \x03(\v2\x19.enrollment.v1.EnrollmentR\venrollments\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"W\n" +
