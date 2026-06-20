@@ -32,6 +32,9 @@ profile.cov
 go.work
 go.work.sum
 
+# air hot-reload build output (docker-compose dev stack)
+/backend/tmp/
+
 # env file
 .env
 
