@@ -1,5 +1,7 @@
-// Placeholder — will be rewritten in WU4
+// WU4 page + table + filter bar
 export { EnrollmentsPage } from "./components/EnrollmentsPage";
+export { EnrollmentsTable } from "./components/EnrollmentsTable";
+export { EnrollmentsFilterBar } from "./components/EnrollmentsFilterBar";
 
 // WU2 foundation exports
 export { EnrollmentStatusBadge } from "./components/EnrollmentStatusBadge";

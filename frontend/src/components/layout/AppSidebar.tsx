@@ -34,7 +34,10 @@ export const ADMIN_NAV = [
   {
     label: "Inscripciones",
     icon: ClipboardList,
-    options: linkOptions({ to: "/admin/enrollments" }),
+    options: linkOptions({
+      to: "/admin/enrollments",
+      search: { q: "", pageSize: 20 },
+    }),
   },
   {
     label: "Secciones",
