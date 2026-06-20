@@ -47,6 +47,20 @@ describe("isEligibleFor — participant area", () => {
   });
 });
 
+describe("isEligibleFor — enrollment.view_own qualifies for participant area (WU5)", () => {
+  it("a session with only enrollment.view_own is eligible for the participant area", () => {
+    expect(isEligibleFor(session(["enrollment.view_own"]), "participant")).toBe(
+      true,
+    );
+  });
+
+  it("a session with only enrollment.view_own is NOT eligible for the admin area", () => {
+    expect(isEligibleFor(session(["enrollment.view_own"]), "admin")).toBe(
+      false,
+    );
+  });
+});
+
 describe("isEligibleFor — dual-eligible via grades.write (S-01c)", () => {
   it("grades.write qualifies for both admin and participant", () => {
     const s = session(["grades.write"]);

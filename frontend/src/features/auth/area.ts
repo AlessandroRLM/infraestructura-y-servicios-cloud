@@ -23,6 +23,7 @@ export const ADMIN_PERMISSIONS = [
  */
 export const PARTICIPANT_PERMISSIONS = [
   "grades.view_own",
+  "enrollment.view_own",
   "section_enrollment.view_own",
   "sections.enroll",
   "grades.write",

@@ -21,6 +21,7 @@ import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedAppSectionEnrollmentsRouteImport } from './routes/_authenticated/app/section-enrollments'
 import { Route as AuthenticatedAppGradesRouteImport } from './routes/_authenticated/app/grades'
+import { Route as AuthenticatedAppEnrollmentsRouteImport } from './routes/_authenticated/app/enrollments'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin/users'
 import { Route as AuthenticatedAdminSectionEnrollmentsRouteImport } from './routes/_authenticated/admin/section-enrollments'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin/reports'
@@ -89,6 +90,12 @@ const AuthenticatedAppGradesRoute = AuthenticatedAppGradesRouteImport.update({
   path: '/grades',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AuthenticatedAppEnrollmentsRoute =
+  AuthenticatedAppEnrollmentsRouteImport.update({
+    id: '/enrollments',
+    path: '/enrollments',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -146,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/section-enrollments': typeof AuthenticatedAdminSectionEnrollmentsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/app/enrollments': typeof AuthenticatedAppEnrollmentsRoute
   '/app/grades': typeof AuthenticatedAppGradesRoute
   '/app/section-enrollments': typeof AuthenticatedAppSectionEnrollmentsRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
@@ -164,6 +172,7 @@ export interface FileRoutesByTo {
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/section-enrollments': typeof AuthenticatedAdminSectionEnrollmentsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/app/enrollments': typeof AuthenticatedAppEnrollmentsRoute
   '/app/grades': typeof AuthenticatedAppGradesRoute
   '/app/section-enrollments': typeof AuthenticatedAppSectionEnrollmentsRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
@@ -186,6 +195,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/section-enrollments': typeof AuthenticatedAdminSectionEnrollmentsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/app/enrollments': typeof AuthenticatedAppEnrollmentsRoute
   '/_authenticated/app/grades': typeof AuthenticatedAppGradesRoute
   '/_authenticated/app/section-enrollments': typeof AuthenticatedAppSectionEnrollmentsRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/section-enrollments'
     | '/admin/users'
+    | '/app/enrollments'
     | '/app/grades'
     | '/app/section-enrollments'
     | '/admin/'
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/section-enrollments'
     | '/admin/users'
+    | '/app/enrollments'
     | '/app/grades'
     | '/app/section-enrollments'
     | '/admin'
@@ -247,6 +259,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/section-enrollments'
     | '/_authenticated/admin/users'
+    | '/_authenticated/app/enrollments'
     | '/_authenticated/app/grades'
     | '/_authenticated/app/section-enrollments'
     | '/_authenticated/admin/'
@@ -344,6 +357,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppGradesRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/enrollments': {
+      id: '/_authenticated/app/enrollments'
+      path: '/enrollments'
+      fullPath: '/app/enrollments'
+      preLoaderRoute: typeof AuthenticatedAppEnrollmentsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
       path: '/users'
@@ -426,12 +446,14 @@ const AuthenticatedAdminRouteRouteWithChildren =
   )
 
 interface AuthenticatedAppRouteRouteChildren {
+  AuthenticatedAppEnrollmentsRoute: typeof AuthenticatedAppEnrollmentsRoute
   AuthenticatedAppGradesRoute: typeof AuthenticatedAppGradesRoute
   AuthenticatedAppSectionEnrollmentsRoute: typeof AuthenticatedAppSectionEnrollmentsRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
+  AuthenticatedAppEnrollmentsRoute: AuthenticatedAppEnrollmentsRoute,
   AuthenticatedAppGradesRoute: AuthenticatedAppGradesRoute,
   AuthenticatedAppSectionEnrollmentsRoute:
     AuthenticatedAppSectionEnrollmentsRoute,
