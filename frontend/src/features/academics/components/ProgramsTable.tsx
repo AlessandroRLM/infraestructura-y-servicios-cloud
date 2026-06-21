@@ -177,7 +177,7 @@ export function ProgramsTable({ onCreateClick }: ProgramsTableProps) {
                               onSelect={() => setCoursesProgram(program)}
                             >
                               <BookOpen data-icon="inline-start" />
-                              Asignaturas
+                              Gestionar
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               variant="destructive"
