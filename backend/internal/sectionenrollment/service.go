@@ -24,10 +24,16 @@ const (
 // sectionEnrollmentClamp is the shared page-size clamp for section_enrollment list operations.
 var sectionEnrollmentClamp = pagination.Clamp{Min: sectionEnrollmentPageSizeMin, Max: sectionEnrollmentPageSizeMax}
 
-// ListSectionEnrollmentsResult holds the paginated result for ListSectionEnrollments and
-// ListOwnSectionEnrollments.
+// ListSectionEnrollmentsResult holds the paginated result for ListSectionEnrollments.
 type ListSectionEnrollmentsResult struct {
 	SectionEnrollments []sectionenrollmentdb.SectionEnrollment
+	NextPageToken      string
+}
+
+// ListOwnSectionEnrollmentsResult holds the paginated result for ListOwnSectionEnrollments,
+// where each row is enriched with course name/code and academic period year/term.
+type ListOwnSectionEnrollmentsResult struct {
+	SectionEnrollments []sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow
 	NextPageToken      string
 }
 
@@ -81,13 +87,14 @@ func (s *Service) EnrollOwnSection(ctx context.Context, sectionIDStr, programIDS
 }
 
 // ListOwnSectionEnrollments returns a paginated page of live inscriptions for the authenticated
-// student. Student identity is derived exclusively from the context.
+// student, each enriched with course name/code and academic period year/term.
+// Student identity is derived exclusively from the context.
 // pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
 // Returns ErrUnauthenticated when no authenticated user is present (fail-closed).
-func (s *Service) ListOwnSectionEnrollments(ctx context.Context, pageSize int32, pageToken string) (ListSectionEnrollmentsResult, error) {
+func (s *Service) ListOwnSectionEnrollments(ctx context.Context, pageSize int32, pageToken string) (ListOwnSectionEnrollmentsResult, error) {
 	callerID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
-		return ListSectionEnrollmentsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
+		return ListOwnSectionEnrollmentsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
 	}
 
 	clamped := sectionEnrollmentClamp.Apply(pageSize)
@@ -96,26 +103,26 @@ func (s *Service) ListOwnSectionEnrollments(ctx context.Context, pageSize int32,
 	if pageToken != "" {
 		id, err := uuid.Parse(pageToken)
 		if err != nil {
-			return ListSectionEnrollmentsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+			return ListOwnSectionEnrollmentsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
 		}
 		tokenUUID = &id
 	}
 
-	rows, err := s.repo.ListOwnSectionEnrollments(ctx, ListOwnSectionEnrollmentsRepoParams{
+	rows, err := s.repo.ListOwnSectionEnrollmentsEnriched(ctx, ListOwnSectionEnrollmentsRepoParams{
 		StudentID: callerID,
 		PageToken: tokenUUID,
 		RowLimit:  int32(clamped + 1),
 	})
 	if err != nil {
-		return ListSectionEnrollmentsResult{}, err
+		return ListOwnSectionEnrollmentsResult{}, err
 	}
 
 	page := pagination.Paginate(rows, clamped)
-	nextToken := pagination.TokenOf(page, func(r sectionenrollmentdb.SectionEnrollment) uuid.UUID {
+	nextToken := pagination.TokenOf(page, func(r sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow) uuid.UUID {
 		return uuid.UUID(r.ID.Bytes)
 	})
 
-	return ListSectionEnrollmentsResult{
+	return ListOwnSectionEnrollmentsResult{
 		SectionEnrollments: page.Items,
 		NextPageToken:      nextToken,
 	}, nil

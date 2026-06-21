@@ -66,6 +66,18 @@ message SectionEnrollment {
   // Populated only when using the teacher-scoped ListSectionRosterForTeacher RPC;
   // empty string on other RPCs that return SectionEnrollment (backward-compatible addition).
   string student_id = 10;
+  // course_name is the display name of the course for this section.
+  // Populated only by ListOwnSectionEnrollments; empty on all other RPCs (backward-compatible).
+  string course_name = 11;
+  // course_code is the short code of the course for this section.
+  // Populated only by ListOwnSectionEnrollments; empty on all other RPCs (backward-compatible).
+  string course_code = 12;
+  // period_year is the calendar year of the academic period that contains this section.
+  // Populated only by ListOwnSectionEnrollments; zero on all other RPCs (backward-compatible).
+  int32 period_year = 13;
+  // period_term is the term number within the academic year (e.g. 1 or 2) of the academic period.
+  // Populated only by ListOwnSectionEnrollments; zero on all other RPCs (backward-compatible).
+  int32 period_term = 14;
 }
 
 // EnrollOwnSectionRequest carries section_id and program_id.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -36,6 +37,10 @@ type fakeRepository struct {
 	listOwnCalled bool
 	listOwnRows   []sectionenrollmentdb.SectionEnrollment
 	listOwnErr    error
+
+	listOwnEnrichedCalled bool
+	listOwnEnrichedRows   []sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow
+	listOwnEnrichedErr    error
 
 	getOwnCalled bool
 	getOwnRow    sectionenrollmentdb.SectionEnrollment
@@ -71,6 +76,11 @@ func (f *fakeRepository) ListSectionEnrollments(_ context.Context, _ ListSection
 func (f *fakeRepository) ListOwnSectionEnrollments(_ context.Context, _ ListOwnSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.SectionEnrollment, error) {
 	f.listOwnCalled = true
 	return f.listOwnRows, f.listOwnErr
+}
+
+func (f *fakeRepository) ListOwnSectionEnrollmentsEnriched(_ context.Context, _ ListOwnSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow, error) {
+	f.listOwnEnrichedCalled = true
+	return f.listOwnEnrichedRows, f.listOwnEnrichedErr
 }
 
 func (f *fakeRepository) GetOwnSectionEnrollment(_ context.Context, _ uuid.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
@@ -221,10 +231,12 @@ func TestService_GetOwnSectionEnrollment_NoContext(t *testing.T) {
 
 // TestService_ListOwnSectionEnrollments_DerivesFromContext verifies that no student_id
 // is required in the call — it is always derived from the context.
+// Also verifies the enriched repo method is called (not the plain one), since
+// ListOwnSectionEnrollments now returns course/period display labels.
 func TestService_ListOwnSectionEnrollments_DerivesFromContext(t *testing.T) {
 	t.Parallel()
 
-	repo := &fakeRepository{listOwnRows: []sectionenrollmentdb.SectionEnrollment{}}
+	repo := &fakeRepository{listOwnEnrichedRows: []sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow{}}
 	svc := NewService(repo)
 
 	callerID := uuid.New()
@@ -235,8 +247,11 @@ func TestService_ListOwnSectionEnrollments_DerivesFromContext(t *testing.T) {
 		t.Fatalf("ListOwnSectionEnrollments: unexpected error %v", err)
 	}
 	_ = result
-	if !repo.listOwnCalled {
-		t.Error("ListOwnSectionEnrollments was not called on repository")
+	if !repo.listOwnEnrichedCalled {
+		t.Error("ListOwnSectionEnrollmentsEnriched was not called on repository")
+	}
+	if repo.listOwnCalled {
+		t.Error("plain ListOwnSectionEnrollments must NOT be called by ListOwnSectionEnrollments (use enriched variant)")
 	}
 }
 
@@ -250,6 +265,62 @@ func TestService_ListOwnSectionEnrollments_NoContext(t *testing.T) {
 	_, err := svc.ListOwnSectionEnrollments(context.Background(), 0, "")
 	if !errors.Is(err, ErrUnauthenticated) {
 		t.Errorf("ListOwnSectionEnrollments(no ctx) = %v; want ErrUnauthenticated", err)
+	}
+}
+
+// TestService_ListOwnSectionEnrollments_EnrichedFieldsPassThrough verifies that the
+// course_name, course_code, period_year, and period_term values returned by the
+// enriched repository method are preserved intact in the service result.
+// This is the JOIN contract: the service must not discard these display-label columns.
+func TestService_ListOwnSectionEnrollments_EnrichedFieldsPassThrough(t *testing.T) {
+	t.Parallel()
+
+	seID := uuid.New()
+	enrollmentID := uuid.New()
+	sectionID := uuid.New()
+	now := time.Now()
+
+	enrichedRow := sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow{
+		ID:           pgtype.UUID{Bytes: seID, Valid: true},
+		EnrollmentID: pgtype.UUID{Bytes: enrollmentID, Valid: true},
+		SectionID:    pgtype.UUID{Bytes: sectionID, Valid: true},
+		Status:       "in_progress",
+		RegisteredAt: pgtype.Timestamptz{Time: now, Valid: true},
+		CreatedAt:    pgtype.Timestamptz{Time: now, Valid: true},
+		UpdatedAt:    pgtype.Timestamptz{Time: now, Valid: true},
+		CourseName:   "Linear Algebra",
+		CourseCode:   "MATH-201",
+		PeriodYear:   2024,
+		PeriodTerm:   1,
+	}
+
+	repo := &fakeRepository{
+		listOwnEnrichedRows: []sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow{enrichedRow},
+	}
+	svc := NewService(repo)
+
+	ctx := contextWithUser(uuid.New())
+	result, err := svc.ListOwnSectionEnrollments(ctx, 20, "")
+	if err != nil {
+		t.Fatalf("ListOwnSectionEnrollments: unexpected error %v", err)
+	}
+
+	if len(result.SectionEnrollments) != 1 {
+		t.Fatalf("expected 1 section enrollment, got %d", len(result.SectionEnrollments))
+	}
+
+	got := result.SectionEnrollments[0]
+	if got.CourseName != "Linear Algebra" {
+		t.Errorf("CourseName = %q, want %q", got.CourseName, "Linear Algebra")
+	}
+	if got.CourseCode != "MATH-201" {
+		t.Errorf("CourseCode = %q, want %q", got.CourseCode, "MATH-201")
+	}
+	if got.PeriodYear != 2024 {
+		t.Errorf("PeriodYear = %d, want 2024", got.PeriodYear)
+	}
+	if got.PeriodTerm != 1 {
+		t.Errorf("PeriodTerm = %d, want 1", got.PeriodTerm)
 	}
 }
 

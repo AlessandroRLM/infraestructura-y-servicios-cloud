@@ -42,6 +42,11 @@ type Querier interface {
 	// Returns live inscriptions for a student by joining enrollments on student_id.
 	// Keyset pagination: results ordered by se.id DESC; page_token is the exclusive upper bound.
 	ListOwnSectionEnrollments(ctx context.Context, arg ListOwnSectionEnrollmentsParams) ([]SectionEnrollment, error)
+	// Returns live inscriptions for a student enriched with course name/code and academic period
+	// year/term via JOINs on sections, courses, and academic_periods.
+	// Used only by ListOwnSectionEnrollments RPC; other RPCs use queries that do not project these columns.
+	// Keyset pagination: results ordered by se.id DESC; page_token is the exclusive upper bound.
+	ListOwnSectionEnrollmentsEnriched(ctx context.Context, arg ListOwnSectionEnrollmentsEnrichedParams) ([]ListOwnSectionEnrollmentsEnrichedRow, error)
 	ListSectionEnrollments(ctx context.Context, arg ListSectionEnrollmentsParams) ([]SectionEnrollment, error)
 	// Returns live section_enrollment rows for a section the caller teaches, with student_id
 	// projected from the linked enrollment.

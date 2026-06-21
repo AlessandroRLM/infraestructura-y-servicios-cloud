@@ -85,6 +85,11 @@ type fakeQuerier struct {
 	listOwnRows   []sectionenrollmentdb.SectionEnrollment
 	listOwnErr    error
 
+	// ListOwnSectionEnrollmentsEnriched
+	listOwnEnrichedCalled bool
+	listOwnEnrichedRows   []sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow
+	listOwnEnrichedErr    error
+
 	// SetSectionEnrollmentOutcome
 	setOutcomeCalled     bool
 	setOutcomeRow        sectionenrollmentdb.SectionEnrollment
@@ -166,6 +171,11 @@ func (f *fakeQuerier) ListSectionEnrollments(_ context.Context, _ sectionenrollm
 func (f *fakeQuerier) ListOwnSectionEnrollments(_ context.Context, _ sectionenrollmentdb.ListOwnSectionEnrollmentsParams) ([]sectionenrollmentdb.SectionEnrollment, error) {
 	f.listOwnCalled = true
 	return f.listOwnRows, f.listOwnErr
+}
+
+func (f *fakeQuerier) ListOwnSectionEnrollmentsEnriched(_ context.Context, _ sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedParams) ([]sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow, error) {
+	f.listOwnEnrichedCalled = true
+	return f.listOwnEnrichedRows, f.listOwnEnrichedErr
 }
 
 func (f *fakeQuerier) SetSectionEnrollmentOutcome(_ context.Context, arg sectionenrollmentdb.SetSectionEnrollmentOutcomeParams) (sectionenrollmentdb.SectionEnrollment, error) {

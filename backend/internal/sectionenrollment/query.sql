@@ -134,6 +134,29 @@ WHERE e.student_id = sqlc.arg('student_id')::uuid
 ORDER BY se.id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
+-- name: ListOwnSectionEnrollmentsEnriched :many
+-- Returns live inscriptions for a student enriched with course name/code and academic period
+-- year/term via JOINs on sections, courses, and academic_periods.
+-- Used only by ListOwnSectionEnrollments RPC; other RPCs use queries that do not project these columns.
+-- Keyset pagination: results ordered by se.id DESC; page_token is the exclusive upper bound.
+SELECT
+    se.id, se.enrollment_id, se.section_id, se.status, se.registered_at,
+    se.created_at, se.updated_at, se.deleted_at, se.final_grade,
+    c.name  AS course_name,
+    c.code  AS course_code,
+    ap.year AS period_year,
+    ap.term AS period_term
+FROM section_enrollments se
+JOIN enrollments e  ON e.id  = se.enrollment_id
+JOIN sections    s  ON s.id  = se.section_id
+JOIN courses     c  ON c.id  = s.course_id
+JOIN academic_periods ap ON ap.id = s.academic_period_id
+WHERE e.student_id = sqlc.arg('student_id')::uuid
+  AND se.deleted_at IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR se.id < sqlc.narg('page_token')::uuid)
+ORDER BY se.id DESC
+LIMIT sqlc.arg('row_limit')::int;
+
 -- name: ListSectionRosterForTeacher :many
 -- Returns live section_enrollment rows for a section the caller teaches, with student_id
 -- projected from the linked enrollment.
