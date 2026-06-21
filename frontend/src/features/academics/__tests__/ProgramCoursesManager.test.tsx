@@ -75,7 +75,7 @@ async function renderWithSheet(handlers: CatalogImpl) {
   await screen.findByText("ING-01");
   // Open the ⋯ menu and click Asignaturas
   await user.click(screen.getByRole("button", { name: "Acciones ING-01" }));
-  await user.click(screen.getByRole("menuitem", { name: /asignaturas/i }));
+  await user.click(screen.getByRole("menuitem", { name: /gestionar/i }));
   return { user };
 }
 
@@ -87,7 +87,7 @@ describe("ProgramCoursesSheet — open from ProgramsTable", () => {
       listCourses: async () => ({ courses: [] }),
     });
 
-    await screen.findByText("Asignaturas de Ingeniería de Software");
+    await screen.findByText("Gestionar Ingeniería de Software");
   });
 });
 
@@ -172,7 +172,7 @@ describe("ProgramCoursesManager — section error + retry", () => {
 
     await screen.findByText("ING-01");
     await user.click(screen.getByRole("button", { name: "Acciones ING-01" }));
-    await user.click(screen.getByRole("menuitem", { name: /asignaturas/i }));
+    await user.click(screen.getByRole("menuitem", { name: /gestionar/i }));
 
     await screen.findByText("No se pudo cargar las asignaturas de la carrera.");
     expect(
@@ -181,7 +181,7 @@ describe("ProgramCoursesManager — section error + retry", () => {
 
     // Sheet header still visible
     expect(
-      screen.getByText("Asignaturas de Ingeniería de Software"),
+      screen.getByText("Gestionar Ingeniería de Software"),
     ).toBeInTheDocument();
 
     // Retry triggers refetch
