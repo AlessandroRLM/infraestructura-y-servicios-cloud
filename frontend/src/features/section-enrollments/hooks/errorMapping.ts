@@ -37,3 +37,21 @@ export function mapWithdrawSectionError(
   }
   return "transport";
 }
+
+/**
+ * Maps an EnrollOwnSection mutation error to a human-readable Spanish message.
+ * Never surfaces raw error codes or service names.
+ *
+ * - FailedPrecondition → window closed or capacity exceeded
+ * - AlreadyExists → student is already enrolled in this section
+ * - Everything else → generic transport/infra failure (toast)
+ */
+export function mapEnrollOwnSectionError(err: unknown): string {
+  if (err instanceof ConnectError) {
+    if (err.code === Code.FailedPrecondition)
+      return "La ventana de inscripción está cerrada o la sección ya no tiene cupos disponibles.";
+    if (err.code === Code.AlreadyExists)
+      return "Ya estás inscrito en esta sección.";
+  }
+  return "No se pudo completar la inscripción. Intenta de nuevo.";
+}

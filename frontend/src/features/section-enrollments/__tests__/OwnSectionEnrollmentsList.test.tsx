@@ -78,7 +78,19 @@ function renderOwnSectionEnrollments(
 ) {
   return renderWithProviders({
     route,
-    transport: makeStubTransport([SectionEnrollmentService, handlers]),
+    // Default listEnrollableSections to an empty page so the EnrollableSectionsList
+    // panel (also rendered on this route) stays silent and does not interfere with
+    // assertions targeting the OwnSectionEnrollmentsList panel.
+    transport: makeStubTransport([
+      SectionEnrollmentService,
+      {
+        listEnrollableSections: async () => ({
+          sections: [],
+          nextPageToken: "",
+        }),
+        ...handlers,
+      },
+    ]),
     session: studentSession,
     sessionSource: studentSessionSource,
   });
