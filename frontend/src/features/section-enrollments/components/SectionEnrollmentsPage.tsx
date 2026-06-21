@@ -45,6 +45,15 @@ export function SectionEnrollmentsPage({
     const section = pageState.section;
     return (
       <div className="flex flex-col gap-6">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground w-fit"
+          onClick={() => setPageState({ view: "select", section: null })}
+        >
+          <ArrowLeft className="size-4" aria-hidden />
+          Volver a secciones
+        </button>
+
         <div className="flex flex-col gap-1">
           <h1 className="font-semibold text-2xl tracking-tight">
             Inscripciones a secciones
@@ -54,15 +63,6 @@ export function SectionEnrollmentsPage({
             Semestre {section.periodTerm}
           </p>
         </div>
-
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground w-fit"
-          onClick={() => setPageState({ view: "select", section: null })}
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Volver a secciones
-        </button>
 
         <SectionEnrollmentsTable sectionId={section.id} />
       </div>
