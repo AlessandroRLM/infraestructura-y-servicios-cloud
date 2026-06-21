@@ -29,6 +29,10 @@ export function useRecentAuditLogs({
     {
       pageParamKey: "pageToken",
       getNextPageParam: (lastPage) => lastPage.nextPageToken || undefined,
+      // Audit feed must reflect the latest events every time the page is opened
+      // (any audited action performed elsewhere), so always refetch on mount
+      // instead of serving a cached page that would require a manual reload.
+      refetchOnMount: "always",
     },
   );
 
