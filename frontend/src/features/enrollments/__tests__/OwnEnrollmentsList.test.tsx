@@ -56,7 +56,9 @@ const studentSessionSource = {
 };
 
 function makeEnrollment(
-  overrides: Partial<Parameters<typeof create<typeof EnrollmentSchema>>[1]> = {},
+  overrides: Partial<
+    Parameters<typeof create<typeof EnrollmentSchema>>[1]
+  > = {},
 ) {
   return create(EnrollmentSchema, {
     id: "enr-1",
@@ -115,7 +117,9 @@ describe("OwnEnrollmentsList — data display", () => {
     renderOwnEnrollments({
       listOwnEnrollments: async () =>
         create(ListEnrollmentsResponseSchema, {
-          enrollments: [makeEnrollment({ status: "pending", paidAt: undefined })],
+          enrollments: [
+            makeEnrollment({ status: "pending", paidAt: undefined }),
+          ],
           nextPageToken: "",
         }),
     });
@@ -135,9 +139,7 @@ describe("OwnEnrollmentsList — data display", () => {
     });
 
     await screen.findByText("Ingeniería Civil");
-    expect(
-      screen.getByRole("button", { name: /pagar/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pagar/i })).toBeInTheDocument();
   });
 
   it("does NOT show a Pagar button for paid rows", async () => {

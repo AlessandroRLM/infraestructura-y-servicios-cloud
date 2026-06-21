@@ -1,7 +1,7 @@
 import { Outlet } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { eligibleAreas, readPreferredArea, useSession } from "@/features/auth";
 import type { Area } from "@/features/auth";
+import { eligibleAreas, readPreferredArea, useSession } from "@/features/auth";
 import { ADMIN_NAV, AppSidebar, PARTICIPANT_NAV } from "./AppSidebar";
 
 /**

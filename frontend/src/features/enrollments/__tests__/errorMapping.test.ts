@@ -60,7 +60,10 @@ describe("mapCreateEnrollmentError", () => {
 
 describe("mapLifecycleError", () => {
   it("FailedPrecondition returns precondition", () => {
-    const err = new ConnectError("failed precondition", Code.FailedPrecondition);
+    const err = new ConnectError(
+      "failed precondition",
+      Code.FailedPrecondition,
+    );
     expect(mapLifecycleError(err)).toBe("precondition");
   });
 

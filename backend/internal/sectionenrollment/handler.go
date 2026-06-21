@@ -101,7 +101,8 @@ func (h *Handler) EnrollOwnSection(
 	return connect.NewResponse(sectionEnrollmentToProto(row)), nil
 }
 
-// ListOwnSectionEnrollments returns a paginated page of live inscriptions for the authenticated student.
+// ListOwnSectionEnrollments returns a paginated page of live inscriptions for the authenticated student,
+// each enriched with course name/code and academic period year/term.
 // The student identity is injected from context; the request carries no student_id field.
 func (h *Handler) ListOwnSectionEnrollments(
 	ctx context.Context,
@@ -113,7 +114,7 @@ func (h *Handler) ListOwnSectionEnrollments(
 	}
 	protos := make([]*section_enrollmentv1.SectionEnrollment, 0, len(result.SectionEnrollments))
 	for _, r := range result.SectionEnrollments {
-		protos = append(protos, sectionEnrollmentToProto(r))
+		protos = append(protos, ownSectionEnrollmentRowToProto(r))
 	}
 	return connect.NewResponse(&section_enrollmentv1.ListSectionEnrollmentsResponse{
 		SectionEnrollments: protos,
@@ -247,6 +248,32 @@ func sectionEnrollmentToProto(r sectionenrollmentdb.SectionEnrollment) *section_
 		CreatedAt:    r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:    r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		FinalGrade:   pgconv.NumericToString(r.FinalGrade),
+	}
+	if r.DeletedAt.Valid {
+		s := r.DeletedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+		se.DeletedAt = &s
+	}
+	return se
+}
+
+// ownSectionEnrollmentRowToProto converts a ListOwnSectionEnrollmentsEnrichedRow (which includes
+// course name/code and academic period year/term) to its proto representation.
+// These denormalized fields are populated only for ListOwnSectionEnrollments; all other
+// RPCs leave them at their zero values (empty string / 0).
+func ownSectionEnrollmentRowToProto(r sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow) *section_enrollmentv1.SectionEnrollment {
+	se := &section_enrollmentv1.SectionEnrollment{
+		Id:           uuidToString(r.ID),
+		EnrollmentId: uuidToString(r.EnrollmentID),
+		SectionId:    uuidToString(r.SectionID),
+		Status:       r.Status,
+		RegisteredAt: r.RegisteredAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:    r.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:    r.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		FinalGrade:   pgconv.NumericToString(r.FinalGrade),
+		CourseName:   r.CourseName,
+		CourseCode:   r.CourseCode,
+		PeriodYear:   r.PeriodYear,
+		PeriodTerm:   r.PeriodTerm,
 	}
 	if r.DeletedAt.Valid {
 		s := r.DeletedAt.Time.Format("2006-01-02T15:04:05Z07:00")

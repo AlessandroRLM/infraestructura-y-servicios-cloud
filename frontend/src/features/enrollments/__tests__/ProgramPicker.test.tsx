@@ -50,10 +50,9 @@ const stubTransport = makeStubTransport([
 describe("ProgramPicker — lists programs", () => {
   it("opens popover and shows programs from the stub", async () => {
     const user = userEvent.setup();
-    renderComponent(
-      <ProgramPicker value="" onChange={vi.fn()} />,
-      { transport: stubTransport },
-    );
+    renderComponent(<ProgramPicker value="" onChange={vi.fn()} />, {
+      transport: stubTransport,
+    });
 
     const trigger = screen.getByRole("combobox");
     await user.click(trigger);
@@ -105,10 +104,9 @@ describe("ProgramPicker — lists programs", () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
 
-    renderComponent(
-      <ProgramPicker value="" onChange={onChange} />,
-      { transport: stubTransport },
-    );
+    renderComponent(<ProgramPicker value="" onChange={onChange} />, {
+      transport: stubTransport,
+    });
 
     const trigger = screen.getByRole("combobox");
     await user.click(trigger);

@@ -62,3 +62,33 @@ export function mapProgramCourseError(err: unknown): string {
   }
   return "No se pudo completar la acción. Inténtalo de nuevo.";
 }
+
+/**
+ * Maps a section mutation error to either an inline field error or a toast signal.
+ * Never surfaces raw error text or codes to the UI.
+ */
+export function mapSectionMutationError(
+  err: unknown,
+): "handled-inline" | "toast" {
+  if (err instanceof ConnectError) {
+    if (err.code === Code.AlreadyExists || err.code === Code.InvalidArgument) {
+      return "handled-inline";
+    }
+  }
+  return "toast";
+}
+
+/**
+ * Maps section-teacher assign/remove errors to a user-facing string.
+ * Never surfaces raw error codes, stack traces, or service names.
+ */
+export function mapSectionTeacherError(err: unknown): string {
+  if (err instanceof ConnectError) {
+    if (err.code === Code.AlreadyExists)
+      return "Este docente ya está asignado a la sección.";
+    if (err.code === Code.NotFound)
+      return "Este docente ya no está en la sección.";
+    // InvalidArgument and all transport/internal codes fall through to generic.
+  }
+  return "No se pudo completar la acción. Inténtalo de nuevo.";
+}

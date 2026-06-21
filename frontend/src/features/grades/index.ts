@@ -4,6 +4,7 @@ export { GradesPage } from "./components/GradesPage";
 export { OwnGradesView } from "./components/OwnGradesView";
 // Scheme-admin public surface (Slice 2)
 export { SchemeManagementView } from "./components/SchemeManagementView";
+export { SectionSelectionTable } from "./components/SectionSelectionTable";
 export type {
   EvaluationRow,
   GradeSectionGroup as GradeSectionGroupData,

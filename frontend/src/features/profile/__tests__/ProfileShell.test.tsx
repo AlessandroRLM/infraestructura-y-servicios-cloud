@@ -5,11 +5,12 @@
  * Uses renderWithProviders at the /profile route so the full shell + page
  * component tree mounts, matching production behaviour.
  */
+
+import type { ServiceImpl } from "@connectrpc/connect";
 import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { makeStubTransport } from "@/core/test";
 import type { AuthenticatedSession } from "@/features/auth";
-import type { ServiceImpl } from "@connectrpc/connect";
 import { ProfileService } from "@/gen/profiles/v1/profiles_pb";
 import { renderWithProviders } from "@/test";
 
@@ -93,7 +94,9 @@ describe("Profile shell", () => {
     // Sidebar nav link for "Académico" (/admin/academics) must be present.
     // (The sidebar brand text is also "Académico", so query by link role to be specific.)
     await screen.findByRole("link", { name: /académico/i });
-    expect(screen.getByRole("link", { name: /matrículas/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /matrículas/i }),
+    ).toBeInTheDocument();
 
     // Back link must point to /admin
     const backLink = screen.getByRole("link", { name: /volver/i });

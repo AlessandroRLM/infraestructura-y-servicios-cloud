@@ -42,7 +42,19 @@ type SectionEnrollment struct {
 	// student_id is the user_id of the student who owns this section enrollment.
 	// Populated only when using the teacher-scoped ListSectionRosterForTeacher RPC;
 	// empty string on other RPCs that return SectionEnrollment (backward-compatible addition).
-	StudentId     string `protobuf:"bytes,10,opt,name=student_id,json=studentId,proto3" json:"student_id,omitempty"`
+	StudentId string `protobuf:"bytes,10,opt,name=student_id,json=studentId,proto3" json:"student_id,omitempty"`
+	// course_name is the display name of the course for this section.
+	// Populated only by ListOwnSectionEnrollments; empty on all other RPCs (backward-compatible).
+	CourseName string `protobuf:"bytes,11,opt,name=course_name,json=courseName,proto3" json:"course_name,omitempty"`
+	// course_code is the short code of the course for this section.
+	// Populated only by ListOwnSectionEnrollments; empty on all other RPCs (backward-compatible).
+	CourseCode string `protobuf:"bytes,12,opt,name=course_code,json=courseCode,proto3" json:"course_code,omitempty"`
+	// period_year is the calendar year of the academic period that contains this section.
+	// Populated only by ListOwnSectionEnrollments; zero on all other RPCs (backward-compatible).
+	PeriodYear int32 `protobuf:"varint,13,opt,name=period_year,json=periodYear,proto3" json:"period_year,omitempty"`
+	// period_term is the term number within the academic year (e.g. 1 or 2) of the academic period.
+	// Populated only by ListOwnSectionEnrollments; zero on all other RPCs (backward-compatible).
+	PeriodTerm    int32 `protobuf:"varint,14,opt,name=period_term,json=periodTerm,proto3" json:"period_term,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -145,6 +157,34 @@ func (x *SectionEnrollment) GetStudentId() string {
 		return x.StudentId
 	}
 	return ""
+}
+
+func (x *SectionEnrollment) GetCourseName() string {
+	if x != nil {
+		return x.CourseName
+	}
+	return ""
+}
+
+func (x *SectionEnrollment) GetCourseCode() string {
+	if x != nil {
+		return x.CourseCode
+	}
+	return ""
+}
+
+func (x *SectionEnrollment) GetPeriodYear() int32 {
+	if x != nil {
+		return x.PeriodYear
+	}
+	return 0
+}
+
+func (x *SectionEnrollment) GetPeriodTerm() int32 {
+	if x != nil {
+		return x.PeriodTerm
+	}
+	return 0
 }
 
 // EnrollOwnSectionRequest carries section_id and program_id.
@@ -741,7 +781,7 @@ var File_section_enrollment_v1_section_enrollment_proto protoreflect.FileDescrip
 
 const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"\n" +
-	".section_enrollment/v1/section_enrollment.proto\x12\x15section_enrollment.v1\"\xd5\x02\n" +
+	".section_enrollment/v1/section_enrollment.proto\x12\x15section_enrollment.v1\"\xd9\x03\n" +
 	"\x11SectionEnrollment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
 	"\renrollment_id\x18\x02 \x01(\tR\fenrollmentId\x12\x1d\n" +
@@ -759,7 +799,15 @@ const file_section_enrollment_v1_section_enrollment_proto_rawDesc = "" +
 	"finalGrade\x12\x1d\n" +
 	"\n" +
 	"student_id\x18\n" +
-	" \x01(\tR\tstudentIdB\r\n" +
+	" \x01(\tR\tstudentId\x12\x1f\n" +
+	"\vcourse_name\x18\v \x01(\tR\n" +
+	"courseName\x12\x1f\n" +
+	"\vcourse_code\x18\f \x01(\tR\n" +
+	"courseCode\x12\x1f\n" +
+	"\vperiod_year\x18\r \x01(\x05R\n" +
+	"periodYear\x12\x1f\n" +
+	"\vperiod_term\x18\x0e \x01(\x05R\n" +
+	"periodTermB\r\n" +
 	"\v_deleted_at\"W\n" +
 	"\x17EnrollOwnSectionRequest\x12\x1d\n" +
 	"\n" +

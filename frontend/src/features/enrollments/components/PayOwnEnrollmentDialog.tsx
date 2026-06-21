@@ -60,14 +60,11 @@ export function PayOwnEnrollmentDialog({
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            ¿Confirmar pago de tu matrícula?
-          </AlertDialogTitle>
+          <AlertDialogTitle>¿Confirmar pago de tu matrícula?</AlertDialogTitle>
           <AlertDialogDescription>
-            Tu matrícula en{" "}
-            <strong>{enrollment.programName}</strong> será marcada como{" "}
-            <strong>pagada</strong>. Esta acción solo es posible si la
-            matrícula está en estado pendiente.
+            Tu matrícula en <strong>{enrollment.programName}</strong> será
+            marcada como <strong>pagada</strong>. Esta acción solo es posible si
+            la matrícula está en estado pendiente.
           </AlertDialogDescription>
         </AlertDialogHeader>
 

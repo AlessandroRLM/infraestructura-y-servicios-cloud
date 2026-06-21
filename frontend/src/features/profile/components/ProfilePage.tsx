@@ -5,14 +5,10 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  eligibleAreas,
-  readPreferredArea,
-  useSession,
-} from "@/features/auth";
 import type { Area } from "@/features/auth";
-import { UpsertOwnProfileRequestSchema } from "@/gen/profiles/v1/profiles_pb";
+import { eligibleAreas, readPreferredArea, useSession } from "@/features/auth";
 import type { UserProfile } from "@/gen/profiles/v1/profiles_pb";
+import { UpsertOwnProfileRequestSchema } from "@/gen/profiles/v1/profiles_pb";
 import { useOwnProfile } from "../hooks/useOwnProfile";
 import { useUpsertOwnProfile } from "../hooks/useUpsertOwnProfile";
 import type { ProfileFormValues } from "../schemas/profile";
@@ -21,7 +17,10 @@ import { ProfileForm, type ProfileFormHelpers } from "./ProfileForm";
 import { ProfileIdentityCard } from "./ProfileIdentityCard";
 
 /** Resolves the home path for the active area to use as the back-nav target. */
-function resolveAreaHome(areas: Area[], preferred: Area | null): "/admin" | "/app" {
+function resolveAreaHome(
+  areas: Area[],
+  preferred: Area | null,
+): "/admin" | "/app" {
   const active =
     preferred !== null && areas.includes(preferred)
       ? preferred

@@ -70,9 +70,7 @@ describe("MarkPaidDialog — confirm success", () => {
         expect.anything(),
       ),
     );
-    await waitFor(() =>
-      expect(toastSuccess).toHaveBeenCalled(),
-    );
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalled());
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 });
@@ -89,9 +87,7 @@ describe("MarkPaidDialog — FailedPrecondition", () => {
 
     await user.click(screen.getByRole("button", { name: /marcar pagada/i }));
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
 
     expect(screen.queryByText(/FailedPrecondition/)).not.toBeInTheDocument();
     expect(screen.queryByText(/FAILED_PRECONDITION/)).not.toBeInTheDocument();
@@ -114,9 +110,7 @@ describe("MarkPaidDialog — transport error", () => {
 
     await user.click(screen.getByRole("button", { name: /marcar pagada/i }));
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
 
     expect(screen.queryByText(/Internal/)).not.toBeInTheDocument();
     expect(toastError).not.toHaveBeenCalled();
@@ -132,7 +126,10 @@ describe("MarkPaidDialog — no auto-close on action click", () => {
     // A slow mutation — dialog must stay open during pending
     let resolve!: (v: typeof mockEnrollment) => void;
     const markEnrollmentPaid = vi.fn(
-      () => new Promise<typeof mockEnrollment>((r) => { resolve = r; }),
+      () =>
+        new Promise<typeof mockEnrollment>((r) => {
+          resolve = r;
+        }),
     );
 
     renderDialog({ markEnrollmentPaid }, onOpenChange);

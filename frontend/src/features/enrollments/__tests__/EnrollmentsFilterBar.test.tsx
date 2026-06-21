@@ -14,7 +14,9 @@ import { describe, expect, it, vi } from "vitest";
 import { renderComponent } from "@/test";
 import { EnrollmentsFilterBar } from "../components/EnrollmentsFilterBar";
 
-function renderBar(overrides: Partial<React.ComponentProps<typeof EnrollmentsFilterBar>> = {}) {
+function renderBar(
+  overrides: Partial<React.ComponentProps<typeof EnrollmentsFilterBar>> = {},
+) {
   const defaults: React.ComponentProps<typeof EnrollmentsFilterBar> = {
     q: "",
     year: undefined,
@@ -41,7 +43,9 @@ describe("EnrollmentsFilterBar — SearchInput", () => {
     const onQChange = vi.fn();
     renderBar({ onQChange });
 
-    const input = screen.getByPlaceholderText(/buscar por estudiante o programa/i);
+    const input = screen.getByPlaceholderText(
+      /buscar por estudiante o programa/i,
+    );
     await user.type(input, "ana");
 
     await waitFor(
@@ -74,7 +78,8 @@ describe("EnrollmentsFilterBar — Year input", () => {
     await user.type(yearInput, "9");
 
     // Partial/out-of-range → emits undefined
-    const lastCall = onYearChange.mock.calls[onYearChange.mock.calls.length - 1];
+    const lastCall =
+      onYearChange.mock.calls[onYearChange.mock.calls.length - 1];
     expect(lastCall?.[0]).toBeUndefined();
   });
 });
@@ -87,9 +92,13 @@ describe("EnrollmentsFilterBar — Status Select", () => {
     await user.click(screen.getByRole("combobox", { name: /estado/i }));
     // findAllByText because "Todas" appears both in the trigger value and the option
     expect(await screen.findAllByText("Todas")).not.toHaveLength(0);
-    expect(screen.getByRole("option", { name: "Pendiente" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Pendiente" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Pagada" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Cancelada" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Cancelada" }),
+    ).toBeInTheDocument();
   });
 
   it("selecting Todas emits undefined (not __all__)", async () => {

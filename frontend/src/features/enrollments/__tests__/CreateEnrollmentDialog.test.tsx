@@ -129,10 +129,9 @@ async function fillYear(
 
 describe("CreateEnrollmentDialog — submit disabled state", () => {
   it("submit is disabled when no fields are set", () => {
-    renderComponent(
-      <CreateEnrollmentDialog open onOpenChange={vi.fn()} />,
-      { transport: makeDefaultTransport() },
-    );
+    renderComponent(<CreateEnrollmentDialog open onOpenChange={vi.fn()} />, {
+      transport: makeDefaultTransport(),
+    });
 
     const submitBtn = screen.getByRole("button", { name: /crear matrícula/i });
     expect(submitBtn).toBeDisabled();
@@ -140,10 +139,9 @@ describe("CreateEnrollmentDialog — submit disabled state", () => {
 
   it("submit remains disabled with program+year but no student", async () => {
     const user = userEvent.setup();
-    renderComponent(
-      <CreateEnrollmentDialog open onOpenChange={vi.fn()} />,
-      { transport: makeDefaultTransport() },
-    );
+    renderComponent(<CreateEnrollmentDialog open onOpenChange={vi.fn()} />, {
+      transport: makeDefaultTransport(),
+    });
 
     await selectProgram(user);
     await fillYear(user, "2026");
@@ -154,10 +152,9 @@ describe("CreateEnrollmentDialog — submit disabled state", () => {
 
   it("submit remains disabled with out-of-range year", async () => {
     const user = userEvent.setup();
-    renderComponent(
-      <CreateEnrollmentDialog open onOpenChange={vi.fn()} />,
-      { transport: makeDefaultTransport() },
-    );
+    renderComponent(<CreateEnrollmentDialog open onOpenChange={vi.fn()} />, {
+      transport: makeDefaultTransport(),
+    });
 
     await selectStudent(user);
     await selectProgram(user);
@@ -245,9 +242,7 @@ describe("CreateEnrollmentDialog — domain error (AlreadyExists)", () => {
     await user.click(submitBtn);
 
     await waitFor(() =>
-      expect(
-        screen.getByText(/ya existe una matrícula/i),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/ya existe una matrícula/i)).toBeInTheDocument(),
     );
 
     // No raw error code visible
@@ -295,7 +290,9 @@ describe("CreateEnrollmentDialog — quota precondition (FailedPrecondition)", (
 
     // No raw code, no duplicate-enrollment message, no toast, dialog stays open
     expect(screen.queryByText(/FailedPrecondition/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/ya existe una matrícula/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/ya existe una matrícula/i),
+    ).not.toBeInTheDocument();
     expect(toastError).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });

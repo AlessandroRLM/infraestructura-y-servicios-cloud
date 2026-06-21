@@ -249,6 +249,86 @@ func (q *Queries) ListOwnSectionEnrollments(ctx context.Context, arg ListOwnSect
 	return items, nil
 }
 
+const listOwnSectionEnrollmentsEnriched = `-- name: ListOwnSectionEnrollmentsEnriched :many
+SELECT
+    se.id, se.enrollment_id, se.section_id, se.status, se.registered_at,
+    se.created_at, se.updated_at, se.deleted_at, se.final_grade,
+    c.name  AS course_name,
+    c.code  AS course_code,
+    ap.year AS period_year,
+    ap.term AS period_term
+FROM section_enrollments se
+JOIN enrollments e  ON e.id  = se.enrollment_id
+JOIN sections    s  ON s.id  = se.section_id
+JOIN courses     c  ON c.id  = s.course_id
+JOIN academic_periods ap ON ap.id = s.academic_period_id
+WHERE e.student_id = $1::uuid
+  AND se.deleted_at IS NULL
+  AND ($2::uuid IS NULL OR se.id < $2::uuid)
+ORDER BY se.id DESC
+LIMIT $3::int
+`
+
+type ListOwnSectionEnrollmentsEnrichedParams struct {
+	StudentID pgtype.UUID
+	PageToken pgtype.UUID
+	RowLimit  int32
+}
+
+type ListOwnSectionEnrollmentsEnrichedRow struct {
+	ID           pgtype.UUID
+	EnrollmentID pgtype.UUID
+	SectionID    pgtype.UUID
+	Status       string
+	RegisteredAt pgtype.Timestamptz
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+	DeletedAt    pgtype.Timestamptz
+	FinalGrade   pgtype.Numeric
+	CourseName   string
+	CourseCode   string
+	PeriodYear   int32
+	PeriodTerm   int32
+}
+
+// Returns live inscriptions for a student enriched with course name/code and academic period
+// year/term via JOINs on sections, courses, and academic_periods.
+// Used only by ListOwnSectionEnrollments RPC; other RPCs use queries that do not project these columns.
+// Keyset pagination: results ordered by se.id DESC; page_token is the exclusive upper bound.
+func (q *Queries) ListOwnSectionEnrollmentsEnriched(ctx context.Context, arg ListOwnSectionEnrollmentsEnrichedParams) ([]ListOwnSectionEnrollmentsEnrichedRow, error) {
+	rows, err := q.db.Query(ctx, listOwnSectionEnrollmentsEnriched, arg.StudentID, arg.PageToken, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOwnSectionEnrollmentsEnrichedRow
+	for rows.Next() {
+		var i ListOwnSectionEnrollmentsEnrichedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EnrollmentID,
+			&i.SectionID,
+			&i.Status,
+			&i.RegisteredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.FinalGrade,
+			&i.CourseName,
+			&i.CourseCode,
+			&i.PeriodYear,
+			&i.PeriodTerm,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSectionEnrollments = `-- name: ListSectionEnrollments :many
 SELECT id, enrollment_id, section_id, status, registered_at, created_at, updated_at, deleted_at, final_grade FROM section_enrollments
 WHERE deleted_at IS NULL

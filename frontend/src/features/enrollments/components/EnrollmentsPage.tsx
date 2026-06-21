@@ -20,10 +20,7 @@ export function EnrollmentsPage() {
 
       <EnrollmentsTable />
 
-      <CreateEnrollmentDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-      />
+      <CreateEnrollmentDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }

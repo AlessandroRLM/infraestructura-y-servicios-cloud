@@ -11,17 +11,16 @@ import { z } from "zod";
 export const adminEnrollmentsSearchSchema = z.object({
   q: z.string().default("").catch(""),
   year: z.coerce.number().int().min(2000).max(2100).optional().catch(undefined),
-  status: z
-    .enum(["pending", "paid", "cancelled"])
-    .optional()
-    .catch(undefined),
+  status: z.enum(["pending", "paid", "cancelled"]).optional().catch(undefined),
   pageSize: z.coerce
     .number()
     .pipe(z.union([z.literal(20), z.literal(50), z.literal(100)]))
     .catch(20),
 });
 
-export type AdminEnrollmentsSearch = z.infer<typeof adminEnrollmentsSearchSchema>;
+export type AdminEnrollmentsSearch = z.infer<
+  typeof adminEnrollmentsSearchSchema
+>;
 
 /**
  * URL search schema for the student own-enrollments view.

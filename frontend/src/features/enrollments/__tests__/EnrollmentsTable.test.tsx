@@ -378,7 +378,9 @@ describe("EnrollmentsTable — search and filters", () => {
     await screen.findByText("Todavía no hay matrículas");
     const initialCallCount = listEnrollments.mock.calls.length;
 
-    const input = screen.getByPlaceholderText(/buscar por estudiante o programa/i);
+    const input = screen.getByPlaceholderText(
+      /buscar por estudiante o programa/i,
+    );
     await user.type(input, "alice");
 
     await waitFor(
@@ -409,7 +411,9 @@ describe("EnrollmentsTable — search and filters", () => {
 
     await screen.findByText("Todavía no hay matrículas");
 
-    const input = screen.getByPlaceholderText(/buscar por estudiante o programa/i);
+    const input = screen.getByPlaceholderText(
+      /buscar por estudiante o programa/i,
+    );
     await user.clear(input);
 
     await waitFor(

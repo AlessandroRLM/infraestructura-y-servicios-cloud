@@ -101,9 +101,7 @@ describe("CancelEnrollmentDialog — FailedPrecondition", () => {
       screen.getByRole("button", { name: /cancelar matrícula/i }),
     );
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
 
     expect(screen.queryByText(/FailedPrecondition/)).not.toBeInTheDocument();
     expect(screen.queryByText(/FAILED_PRECONDITION/)).not.toBeInTheDocument();
@@ -127,9 +125,7 @@ describe("CancelEnrollmentDialog — transport error", () => {
       screen.getByRole("button", { name: /cancelar matrícula/i }),
     );
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
 
     expect(screen.queryByText(/Internal/)).not.toBeInTheDocument();
     expect(toastError).not.toHaveBeenCalled();
@@ -142,12 +138,16 @@ describe("CancelEnrollmentDialog — no auto-close on action click", () => {
   it("action click does not immediately close dialog", async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
-    let resolve!: (v: ReturnType<typeof create<typeof CancelEnrollmentResponseSchema>>) => void;
+    let resolve!: (
+      v: ReturnType<typeof create<typeof CancelEnrollmentResponseSchema>>,
+    ) => void;
     const cancelEnrollment = vi.fn(
       () =>
-        new Promise<ReturnType<typeof create<typeof CancelEnrollmentResponseSchema>>>(
-          (r) => { resolve = r; },
-        ),
+        new Promise<
+          ReturnType<typeof create<typeof CancelEnrollmentResponseSchema>>
+        >((r) => {
+          resolve = r;
+        }),
     );
 
     renderDialog({ cancelEnrollment }, onOpenChange);

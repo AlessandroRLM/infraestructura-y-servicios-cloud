@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { StudentPicker } from "@/features/reports/components/StudentPicker";
-import { useCreateEnrollment } from "../hooks/useCreateEnrollment";
+import { StudentPicker } from "@/features/reports";
 import { mapCreateEnrollmentError } from "../hooks/errorMapping";
+import { useCreateEnrollment } from "../hooks/useCreateEnrollment";
 import { ProgramPicker } from "./ProgramPicker";
 
 interface CreateEnrollmentDialogProps {
@@ -79,8 +79,7 @@ export function CreateEnrollmentDialog({
     }
   };
 
-  const canSubmit =
-    studentId !== "" && programId !== "" && year != null;
+  const canSubmit = studentId !== "" && programId !== "" && year != null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

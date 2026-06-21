@@ -46,6 +46,13 @@ type Repository interface {
 	// Keyset pagination: results are ordered by se.id DESC; PageToken is the exclusive upper bound.
 	ListOwnSectionEnrollments(ctx context.Context, p ListOwnSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.SectionEnrollment, error)
 
+	// ListOwnSectionEnrollmentsEnriched returns a page of live inscriptions for the given
+	// student enriched with course name/code and academic period year/term via JOINs on
+	// sections, courses, and academic_periods.
+	// Populated only for the ListOwnSectionEnrollments RPC; other RPCs leave these fields empty.
+	// Keyset pagination: results are ordered by se.id DESC; PageToken is the exclusive upper bound.
+	ListOwnSectionEnrollmentsEnriched(ctx context.Context, p ListOwnSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow, error)
+
 	// GetOwnSectionEnrollment returns a live inscription by id without the ownership check
 	// (ownership is enforced by the service). It is distinct from GetSectionEnrollment to
 	// allow the service to apply scoping after the fetch.
@@ -422,6 +429,23 @@ func (r *postgresRepository) ListOwnSectionEnrollments(ctx context.Context, p Li
 		params.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
 	}
 	rows, err := r.q.ListOwnSectionEnrollments(ctx, params)
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
+}
+
+// ListOwnSectionEnrollmentsEnriched returns a page of live inscriptions for the given student,
+// enriched with course name/code and academic period year/term from joined tables.
+func (r *postgresRepository) ListOwnSectionEnrollmentsEnriched(ctx context.Context, p ListOwnSectionEnrollmentsRepoParams) ([]sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedRow, error) {
+	params := sectionenrollmentdb.ListOwnSectionEnrollmentsEnrichedParams{
+		StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
+		RowLimit:  p.RowLimit,
+	}
+	if p.PageToken != nil {
+		params.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListOwnSectionEnrollmentsEnriched(ctx, params)
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}

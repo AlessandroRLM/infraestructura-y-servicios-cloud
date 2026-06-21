@@ -96,11 +96,12 @@ export function EnrollmentsFilterBar({
         <Label htmlFor="filter-status" className="sr-only">
           Estado
         </Label>
-        <Select
-          value={status ?? ALL_STATUS}
-          onValueChange={handleStatusChange}
-        >
-          <SelectTrigger id="filter-status" aria-label="Estado" className="w-[160px]">
+        <Select value={status ?? ALL_STATUS} onValueChange={handleStatusChange}>
+          <SelectTrigger
+            id="filter-status"
+            aria-label="Estado"
+            className="w-[160px]"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -112,10 +113,7 @@ export function EnrollmentsFilterBar({
         </Select>
       </div>
 
-      <PageSizeSelector
-        value={pageSize}
-        onChange={onPageSizeChange}
-      />
+      <PageSizeSelector value={pageSize} onChange={onPageSizeChange} />
     </div>
   );
 }

@@ -134,10 +134,11 @@ describe("grades sub-route navigation", () => {
     expect(
       await screen.findByText("No se pudo cargar la sección."),
     ).toBeInTheDocument();
-    // A link back to /admin/grades is present
-    expect(
-      screen.getByRole("link", { name: /volver a secciones/i }),
-    ).toBeInTheDocument();
+    // A link back to /admin/grades is present with the canonical back-link style.
+    const backLink = screen.getByRole("link", { name: /volver a secciones/i });
+    expect(backLink).toBeInTheDocument();
+    // ArrowLeft icon is rendered inside the link (aria-hidden, presentational).
+    expect(backLink.querySelector("svg")).toBeInTheDocument();
   });
 
   it("R-04: the grid renders a 'Volver a secciones' back button that triggers navigation", async () => {

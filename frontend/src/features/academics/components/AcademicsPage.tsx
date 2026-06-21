@@ -8,11 +8,16 @@ import { CourseDialog } from "./CourseDialog";
 import { CoursesTable } from "./CoursesTable";
 import { ProgramDialog } from "./ProgramDialog";
 import { ProgramsTable } from "./ProgramsTable";
+import { SectionDialog } from "./SectionDialog";
+import { SectionsTable } from "./SectionsTable";
 
 const TAB_LABELS = {
   programs: "Carreras",
   courses: "Asignaturas",
+  sections: "Secciones",
 } as const;
+
+type TabKey = keyof typeof TAB_LABELS;
 
 export function AcademicsPage() {
   const session = useSession();
@@ -22,22 +27,33 @@ export function AcademicsPage() {
 
   const [createProgramOpen, setCreateProgramOpen] = useState(false);
   const [createCourseOpen, setCreateCourseOpen] = useState(false);
+  const [createSectionOpen, setCreateSectionOpen] = useState(false);
 
   const handleTabChange = (value: string) => {
     // Reset q and pageSize on tab switch so each tab starts with a clean state.
     navigate({
-      search: { tab: value as "programs" | "courses", q: "", pageSize: 20 },
+      search: {
+        tab: value as TabKey,
+        q: "",
+        pageSize: 20,
+      },
     });
   };
 
   const createLabel =
-    TAB_LABELS[tab] === "Carreras" ? "Crear carrera" : "Crear asignatura";
+    tab === "programs"
+      ? "Crear carrera"
+      : tab === "courses"
+        ? "Crear asignatura"
+        : "Crear sección";
 
   const handleCreateClick = () => {
     if (tab === "programs") {
       setCreateProgramOpen(true);
-    } else {
+    } else if (tab === "courses") {
       setCreateCourseOpen(true);
+    } else {
+      setCreateSectionOpen(true);
     }
   };
 
@@ -57,12 +73,16 @@ export function AcademicsPage() {
         <TabsList>
           <TabsTrigger value="programs">{TAB_LABELS.programs}</TabsTrigger>
           <TabsTrigger value="courses">{TAB_LABELS.courses}</TabsTrigger>
+          <TabsTrigger value="sections">{TAB_LABELS.sections}</TabsTrigger>
         </TabsList>
         <TabsContent value="programs">
           <ProgramsTable onCreateClick={() => setCreateProgramOpen(true)} />
         </TabsContent>
         <TabsContent value="courses">
           <CoursesTable onCreateClick={() => setCreateCourseOpen(true)} />
+        </TabsContent>
+        <TabsContent value="sections">
+          <SectionsTable onCreateClick={() => setCreateSectionOpen(true)} />
         </TabsContent>
       </Tabs>
 
@@ -74,6 +94,11 @@ export function AcademicsPage() {
       <CourseDialog
         open={createCourseOpen}
         onOpenChange={setCreateCourseOpen}
+      />
+
+      <SectionDialog
+        open={createSectionOpen}
+        onOpenChange={setCreateSectionOpen}
       />
     </div>
   );
