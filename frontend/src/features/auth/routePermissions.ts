@@ -22,6 +22,7 @@ import type { Permission } from "./permissions";
  */
 export const ROUTE_PERMISSIONS = {
   "/admin/academics": ["catalog.manage"],
+  "/admin/audit": ["audit.read"],
   "/admin/enrollments": ["enrollment.manage"],
   "/admin/section-enrollments": ["enrollment.manage"],
   "/admin/grades": ["grades.read", "grades.write"],

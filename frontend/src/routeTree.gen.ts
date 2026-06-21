@@ -27,6 +27,7 @@ import { Route as AuthenticatedAdminSectionEnrollmentsRouteImport } from './rout
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin/reports'
 import { Route as AuthenticatedAdminGradesRouteImport } from './routes/_authenticated/admin/grades'
 import { Route as AuthenticatedAdminEnrollmentsRouteImport } from './routes/_authenticated/admin/enrollments'
+import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin/audit'
 import { Route as AuthenticatedAdminAcademicsRouteImport } from './routes/_authenticated/admin/academics'
 import { Route as AuthenticatedAdminGradesIndexRouteImport } from './routes/_authenticated/admin/grades.index'
 import { Route as AuthenticatedAdminGradesSectionIdRouteImport } from './routes/_authenticated/admin/grades.$sectionId'
@@ -126,6 +127,11 @@ const AuthenticatedAdminEnrollmentsRoute =
     path: '/enrollments',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AuthenticatedAdminRouteRoute,
+} as any)
 const AuthenticatedAdminAcademicsRoute =
   AuthenticatedAdminAcademicsRouteImport.update({
     id: '/academics',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/forbidden': typeof AuthenticatedForbiddenRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/admin/academics': typeof AuthenticatedAdminAcademicsRoute
+  '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/admin/grades': typeof AuthenticatedAdminGradesRouteWithChildren
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AuthenticatedProfileRoute
   '/': typeof AuthenticatedIndexRoute
   '/admin/academics': typeof AuthenticatedAdminAcademicsRoute
+  '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/section-enrollments': typeof AuthenticatedAdminSectionEnrollmentsRoute
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/academics': typeof AuthenticatedAdminAcademicsRoute
+  '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/enrollments': typeof AuthenticatedAdminEnrollmentsRoute
   '/_authenticated/admin/grades': typeof AuthenticatedAdminGradesRouteWithChildren
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
@@ -221,6 +230,7 @@ export interface FileRouteTypes {
     | '/forbidden'
     | '/profile'
     | '/admin/academics'
+    | '/admin/audit'
     | '/admin/enrollments'
     | '/admin/grades'
     | '/admin/reports'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/'
     | '/admin/academics'
+    | '/admin/audit'
     | '/admin/enrollments'
     | '/admin/reports'
     | '/admin/section-enrollments'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/_authenticated/'
     | '/_authenticated/admin/academics'
+    | '/_authenticated/admin/audit'
     | '/_authenticated/admin/enrollments'
     | '/_authenticated/admin/grades'
     | '/_authenticated/admin/reports'
@@ -410,6 +422,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminEnrollmentsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/audit': {
+      id: '/_authenticated/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/academics': {
       id: '/_authenticated/admin/academics'
       path: '/academics'
@@ -453,6 +472,7 @@ const AuthenticatedAdminGradesRouteWithChildren =
 
 interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminAcademicsRoute: typeof AuthenticatedAdminAcademicsRoute
+  AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminEnrollmentsRoute: typeof AuthenticatedAdminEnrollmentsRoute
   AuthenticatedAdminGradesRoute: typeof AuthenticatedAdminGradesRouteWithChildren
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
@@ -464,6 +484,7 @@ interface AuthenticatedAdminRouteRouteChildren {
 const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren =
   {
     AuthenticatedAdminAcademicsRoute: AuthenticatedAdminAcademicsRoute,
+    AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
     AuthenticatedAdminEnrollmentsRoute: AuthenticatedAdminEnrollmentsRoute,
     AuthenticatedAdminGradesRoute: AuthenticatedAdminGradesRouteWithChildren,
     AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
