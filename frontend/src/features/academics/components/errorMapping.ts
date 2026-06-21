@@ -79,6 +79,21 @@ export function mapSectionMutationError(
 }
 
 /**
+ * Maps an academic period mutation error to either an inline field error or a toast signal.
+ * Never surfaces raw error text or codes to the UI.
+ */
+export function mapAcademicPeriodMutationError(
+  err: unknown,
+): "handled-inline" | "toast" {
+  if (err instanceof ConnectError) {
+    if (err.code === Code.AlreadyExists || err.code === Code.InvalidArgument) {
+      return "handled-inline";
+    }
+  }
+  return "toast";
+}
+
+/**
  * Maps section-teacher assign/remove errors to a user-facing string.
  * Never surfaces raw error codes, stack traces, or service names.
  */
