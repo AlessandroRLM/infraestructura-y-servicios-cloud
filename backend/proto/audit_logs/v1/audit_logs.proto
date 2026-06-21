@@ -4,12 +4,17 @@ package audit_logs.v1;
 
 option go_package = "github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/audit_logs/v1;auditlogsv1";
 
-// AuditLogsService exposes a single read RPC for querying the append-only audit log.
-// Scoped by entity+entity_id (always required). Requires audit.read permission.
+// AuditLogsService exposes read RPCs for querying the append-only audit log.
+// Requires audit.read permission for all RPCs.
 service AuditLogsService {
   // ListAuditLogs returns a paginated, newest-first list of audit log entries for
   // a given entity instance. Requires audit.read permission.
   rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse);
+
+  // ListRecentAuditLogs returns a paginated, newest-first global feed of audit log
+  // entries across all entities, optionally filtered by actor and/or date range.
+  // Requires audit.read permission.
+  rpc ListRecentAuditLogs(ListRecentAuditLogsRequest) returns (ListRecentAuditLogsResponse);
 }
 
 // AuditLog is a single entry in the append-only audit log.
@@ -63,4 +68,34 @@ message ListAuditLogsResponse {
   string next_page_token = 2;
   // Field number 3 is reserved for has_more if it is ever re-added.
   reserved 3;
+}
+
+// ListRecentAuditLogsRequest is the request message for ListRecentAuditLogs.
+message ListRecentAuditLogsRequest {
+  // actor_id is an optional UUID string filter. When provided, only rows whose
+  // actor_id matches are returned. Empty = no actor filter (includes system rows).
+  string actor_id = 1;
+  // created_from is an optional RFC3339 timestamp lower bound (inclusive).
+  string created_from = 2;
+  // created_to is an optional RFC3339 timestamp upper bound (inclusive).
+  string created_to = 3;
+  // page_size controls how many rows to return. Values <= 0 are clamped to 20;
+  // values > 200 are clamped to 200. No CodeInvalidArgument is returned for
+  // out-of-range values.
+  int32 page_size = 4;
+  // page_token is the opaque continuation cursor returned by a previous call.
+  // Empty string or absent means "start from the beginning" (newest row first).
+  // The cursor encodes (created_at, id) for a composite keyset over the DESC ordering.
+  string page_token = 5;
+}
+
+// ListRecentAuditLogsResponse is the response message for ListRecentAuditLogs.
+message ListRecentAuditLogsResponse {
+  // logs contains the matching audit log entries, ordered newest-first
+  // (DESC by created_at, id).
+  repeated AuditLog logs = 1;
+  // next_page_token is the continuation cursor for the next page. An empty string
+  // signals that no further pages exist (AIP-158 convention). Clients must treat
+  // this value as opaque and never parse or construct it.
+  string next_page_token = 2;
 }

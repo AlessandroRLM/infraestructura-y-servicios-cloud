@@ -283,6 +283,151 @@ func (x *ListAuditLogsResponse) GetNextPageToken() string {
 	return ""
 }
 
+// ListRecentAuditLogsRequest is the request message for ListRecentAuditLogs.
+type ListRecentAuditLogsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// actor_id is an optional UUID string filter. When provided, only rows whose
+	// actor_id matches are returned. Empty = no actor filter (includes system rows).
+	ActorId string `protobuf:"bytes,1,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	// created_from is an optional RFC3339 timestamp lower bound (inclusive).
+	CreatedFrom string `protobuf:"bytes,2,opt,name=created_from,json=createdFrom,proto3" json:"created_from,omitempty"`
+	// created_to is an optional RFC3339 timestamp upper bound (inclusive).
+	CreatedTo string `protobuf:"bytes,3,opt,name=created_to,json=createdTo,proto3" json:"created_to,omitempty"`
+	// page_size controls how many rows to return. Values <= 0 are clamped to 20;
+	// values > 200 are clamped to 200. No CodeInvalidArgument is returned for
+	// out-of-range values.
+	PageSize int32 `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// page_token is the opaque continuation cursor returned by a previous call.
+	// Empty string or absent means "start from the beginning" (newest row first).
+	// The cursor encodes (created_at, id) for a composite keyset over the DESC ordering.
+	PageToken     string `protobuf:"bytes,5,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRecentAuditLogsRequest) Reset() {
+	*x = ListRecentAuditLogsRequest{}
+	mi := &file_audit_logs_v1_audit_logs_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRecentAuditLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRecentAuditLogsRequest) ProtoMessage() {}
+
+func (x *ListRecentAuditLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_audit_logs_v1_audit_logs_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRecentAuditLogsRequest.ProtoReflect.Descriptor instead.
+func (*ListRecentAuditLogsRequest) Descriptor() ([]byte, []int) {
+	return file_audit_logs_v1_audit_logs_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ListRecentAuditLogsRequest) GetActorId() string {
+	if x != nil {
+		return x.ActorId
+	}
+	return ""
+}
+
+func (x *ListRecentAuditLogsRequest) GetCreatedFrom() string {
+	if x != nil {
+		return x.CreatedFrom
+	}
+	return ""
+}
+
+func (x *ListRecentAuditLogsRequest) GetCreatedTo() string {
+	if x != nil {
+		return x.CreatedTo
+	}
+	return ""
+}
+
+func (x *ListRecentAuditLogsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListRecentAuditLogsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+// ListRecentAuditLogsResponse is the response message for ListRecentAuditLogs.
+type ListRecentAuditLogsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// logs contains the matching audit log entries, ordered newest-first
+	// (DESC by created_at, id).
+	Logs []*AuditLog `protobuf:"bytes,1,rep,name=logs,proto3" json:"logs,omitempty"`
+	// next_page_token is the continuation cursor for the next page. An empty string
+	// signals that no further pages exist (AIP-158 convention). Clients must treat
+	// this value as opaque and never parse or construct it.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRecentAuditLogsResponse) Reset() {
+	*x = ListRecentAuditLogsResponse{}
+	mi := &file_audit_logs_v1_audit_logs_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRecentAuditLogsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRecentAuditLogsResponse) ProtoMessage() {}
+
+func (x *ListRecentAuditLogsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_audit_logs_v1_audit_logs_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRecentAuditLogsResponse.ProtoReflect.Descriptor instead.
+func (*ListRecentAuditLogsResponse) Descriptor() ([]byte, []int) {
+	return file_audit_logs_v1_audit_logs_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ListRecentAuditLogsResponse) GetLogs() []*AuditLog {
+	if x != nil {
+		return x.Logs
+	}
+	return nil
+}
+
+func (x *ListRecentAuditLogsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
 var File_audit_logs_v1_audit_logs_proto protoreflect.FileDescriptor
 
 const file_audit_logs_v1_audit_logs_proto_rawDesc = "" +
@@ -309,9 +454,21 @@ const file_audit_logs_v1_audit_logs_proto_rawDesc = "" +
 	"page_token\x18\a \x01(\tR\tpageToken\"r\n" +
 	"\x15ListAuditLogsResponse\x12+\n" +
 	"\x04logs\x18\x01 \x03(\v2\x17.audit_logs.v1.AuditLogR\x04logs\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageTokenJ\x04\b\x03\x10\x042n\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageTokenJ\x04\b\x03\x10\x04\"\xb5\x01\n" +
+	"\x1aListRecentAuditLogsRequest\x12\x19\n" +
+	"\bactor_id\x18\x01 \x01(\tR\aactorId\x12!\n" +
+	"\fcreated_from\x18\x02 \x01(\tR\vcreatedFrom\x12\x1d\n" +
+	"\n" +
+	"created_to\x18\x03 \x01(\tR\tcreatedTo\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x05 \x01(\tR\tpageToken\"r\n" +
+	"\x1bListRecentAuditLogsResponse\x12+\n" +
+	"\x04logs\x18\x01 \x03(\v2\x17.audit_logs.v1.AuditLogR\x04logs\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xdc\x01\n" +
 	"\x10AuditLogsService\x12Z\n" +
-	"\rListAuditLogs\x12#.audit_logs.v1.ListAuditLogsRequest\x1a$.audit_logs.v1.ListAuditLogsResponseBbZ`github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/audit_logs/v1;auditlogsv1b\x06proto3"
+	"\rListAuditLogs\x12#.audit_logs.v1.ListAuditLogsRequest\x1a$.audit_logs.v1.ListAuditLogsResponse\x12l\n" +
+	"\x13ListRecentAuditLogs\x12).audit_logs.v1.ListRecentAuditLogsRequest\x1a*.audit_logs.v1.ListRecentAuditLogsResponseBbZ`github.com/AlessandroRLM/infraestructura-y-servicios-cloud/backend/gen/audit_logs/v1;auditlogsv1b\x06proto3"
 
 var (
 	file_audit_logs_v1_audit_logs_proto_rawDescOnce sync.Once
@@ -325,21 +482,26 @@ func file_audit_logs_v1_audit_logs_proto_rawDescGZIP() []byte {
 	return file_audit_logs_v1_audit_logs_proto_rawDescData
 }
 
-var file_audit_logs_v1_audit_logs_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_audit_logs_v1_audit_logs_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_audit_logs_v1_audit_logs_proto_goTypes = []any{
-	(*AuditLog)(nil),              // 0: audit_logs.v1.AuditLog
-	(*ListAuditLogsRequest)(nil),  // 1: audit_logs.v1.ListAuditLogsRequest
-	(*ListAuditLogsResponse)(nil), // 2: audit_logs.v1.ListAuditLogsResponse
+	(*AuditLog)(nil),                    // 0: audit_logs.v1.AuditLog
+	(*ListAuditLogsRequest)(nil),        // 1: audit_logs.v1.ListAuditLogsRequest
+	(*ListAuditLogsResponse)(nil),       // 2: audit_logs.v1.ListAuditLogsResponse
+	(*ListRecentAuditLogsRequest)(nil),  // 3: audit_logs.v1.ListRecentAuditLogsRequest
+	(*ListRecentAuditLogsResponse)(nil), // 4: audit_logs.v1.ListRecentAuditLogsResponse
 }
 var file_audit_logs_v1_audit_logs_proto_depIdxs = []int32{
 	0, // 0: audit_logs.v1.ListAuditLogsResponse.logs:type_name -> audit_logs.v1.AuditLog
-	1, // 1: audit_logs.v1.AuditLogsService.ListAuditLogs:input_type -> audit_logs.v1.ListAuditLogsRequest
-	2, // 2: audit_logs.v1.AuditLogsService.ListAuditLogs:output_type -> audit_logs.v1.ListAuditLogsResponse
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0, // 1: audit_logs.v1.ListRecentAuditLogsResponse.logs:type_name -> audit_logs.v1.AuditLog
+	1, // 2: audit_logs.v1.AuditLogsService.ListAuditLogs:input_type -> audit_logs.v1.ListAuditLogsRequest
+	3, // 3: audit_logs.v1.AuditLogsService.ListRecentAuditLogs:input_type -> audit_logs.v1.ListRecentAuditLogsRequest
+	2, // 4: audit_logs.v1.AuditLogsService.ListAuditLogs:output_type -> audit_logs.v1.ListAuditLogsResponse
+	4, // 5: audit_logs.v1.AuditLogsService.ListRecentAuditLogs:output_type -> audit_logs.v1.ListRecentAuditLogsResponse
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_audit_logs_v1_audit_logs_proto_init() }
@@ -353,7 +515,7 @@ func file_audit_logs_v1_audit_logs_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_audit_logs_v1_audit_logs_proto_rawDesc), len(file_audit_logs_v1_audit_logs_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

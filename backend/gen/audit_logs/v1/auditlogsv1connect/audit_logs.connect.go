@@ -36,6 +36,9 @@ const (
 	// AuditLogsServiceListAuditLogsProcedure is the fully-qualified name of the AuditLogsService's
 	// ListAuditLogs RPC.
 	AuditLogsServiceListAuditLogsProcedure = "/audit_logs.v1.AuditLogsService/ListAuditLogs"
+	// AuditLogsServiceListRecentAuditLogsProcedure is the fully-qualified name of the
+	// AuditLogsService's ListRecentAuditLogs RPC.
+	AuditLogsServiceListRecentAuditLogsProcedure = "/audit_logs.v1.AuditLogsService/ListRecentAuditLogs"
 )
 
 // AuditLogsServiceClient is a client for the audit_logs.v1.AuditLogsService service.
@@ -43,6 +46,10 @@ type AuditLogsServiceClient interface {
 	// ListAuditLogs returns a paginated, newest-first list of audit log entries for
 	// a given entity instance. Requires audit.read permission.
 	ListAuditLogs(context.Context, *connect.Request[v1.ListAuditLogsRequest]) (*connect.Response[v1.ListAuditLogsResponse], error)
+	// ListRecentAuditLogs returns a paginated, newest-first global feed of audit log
+	// entries across all entities, optionally filtered by actor and/or date range.
+	// Requires audit.read permission.
+	ListRecentAuditLogs(context.Context, *connect.Request[v1.ListRecentAuditLogsRequest]) (*connect.Response[v1.ListRecentAuditLogsResponse], error)
 }
 
 // NewAuditLogsServiceClient constructs a client for the audit_logs.v1.AuditLogsService service. By
@@ -62,12 +69,19 @@ func NewAuditLogsServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(auditLogsServiceMethods.ByName("ListAuditLogs")),
 			connect.WithClientOptions(opts...),
 		),
+		listRecentAuditLogs: connect.NewClient[v1.ListRecentAuditLogsRequest, v1.ListRecentAuditLogsResponse](
+			httpClient,
+			baseURL+AuditLogsServiceListRecentAuditLogsProcedure,
+			connect.WithSchema(auditLogsServiceMethods.ByName("ListRecentAuditLogs")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // auditLogsServiceClient implements AuditLogsServiceClient.
 type auditLogsServiceClient struct {
-	listAuditLogs *connect.Client[v1.ListAuditLogsRequest, v1.ListAuditLogsResponse]
+	listAuditLogs       *connect.Client[v1.ListAuditLogsRequest, v1.ListAuditLogsResponse]
+	listRecentAuditLogs *connect.Client[v1.ListRecentAuditLogsRequest, v1.ListRecentAuditLogsResponse]
 }
 
 // ListAuditLogs calls audit_logs.v1.AuditLogsService.ListAuditLogs.
@@ -75,11 +89,20 @@ func (c *auditLogsServiceClient) ListAuditLogs(ctx context.Context, req *connect
 	return c.listAuditLogs.CallUnary(ctx, req)
 }
 
+// ListRecentAuditLogs calls audit_logs.v1.AuditLogsService.ListRecentAuditLogs.
+func (c *auditLogsServiceClient) ListRecentAuditLogs(ctx context.Context, req *connect.Request[v1.ListRecentAuditLogsRequest]) (*connect.Response[v1.ListRecentAuditLogsResponse], error) {
+	return c.listRecentAuditLogs.CallUnary(ctx, req)
+}
+
 // AuditLogsServiceHandler is an implementation of the audit_logs.v1.AuditLogsService service.
 type AuditLogsServiceHandler interface {
 	// ListAuditLogs returns a paginated, newest-first list of audit log entries for
 	// a given entity instance. Requires audit.read permission.
 	ListAuditLogs(context.Context, *connect.Request[v1.ListAuditLogsRequest]) (*connect.Response[v1.ListAuditLogsResponse], error)
+	// ListRecentAuditLogs returns a paginated, newest-first global feed of audit log
+	// entries across all entities, optionally filtered by actor and/or date range.
+	// Requires audit.read permission.
+	ListRecentAuditLogs(context.Context, *connect.Request[v1.ListRecentAuditLogsRequest]) (*connect.Response[v1.ListRecentAuditLogsResponse], error)
 }
 
 // NewAuditLogsServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -95,10 +118,18 @@ func NewAuditLogsServiceHandler(svc AuditLogsServiceHandler, opts ...connect.Han
 		connect.WithSchema(auditLogsServiceMethods.ByName("ListAuditLogs")),
 		connect.WithHandlerOptions(opts...),
 	)
+	auditLogsServiceListRecentAuditLogsHandler := connect.NewUnaryHandler(
+		AuditLogsServiceListRecentAuditLogsProcedure,
+		svc.ListRecentAuditLogs,
+		connect.WithSchema(auditLogsServiceMethods.ByName("ListRecentAuditLogs")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/audit_logs.v1.AuditLogsService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AuditLogsServiceListAuditLogsProcedure:
 			auditLogsServiceListAuditLogsHandler.ServeHTTP(w, r)
+		case AuditLogsServiceListRecentAuditLogsProcedure:
+			auditLogsServiceListRecentAuditLogsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -110,4 +141,8 @@ type UnimplementedAuditLogsServiceHandler struct{}
 
 func (UnimplementedAuditLogsServiceHandler) ListAuditLogs(context.Context, *connect.Request[v1.ListAuditLogsRequest]) (*connect.Response[v1.ListAuditLogsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("audit_logs.v1.AuditLogsService.ListAuditLogs is not implemented"))
+}
+
+func (UnimplementedAuditLogsServiceHandler) ListRecentAuditLogs(context.Context, *connect.Request[v1.ListRecentAuditLogsRequest]) (*connect.Response[v1.ListRecentAuditLogsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("audit_logs.v1.AuditLogsService.ListRecentAuditLogs is not implemented"))
 }

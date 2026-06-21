@@ -28,12 +28,34 @@ type ListParams struct {
 	RowLimit int32
 }
 
+// ListRecentParams holds the filtering and pagination parameters for ListRecentAuditLogs.
+type ListRecentParams struct {
+	// ActorID is optional — when non-nil, only rows matching this actor are returned.
+	ActorID *uuid.UUID
+	// CreatedFrom is optional — inclusive lower bound on created_at.
+	CreatedFrom *time.Time
+	// CreatedTo is optional — inclusive upper bound on created_at.
+	CreatedTo *time.Time
+	// CursorTs is the created_at of the last row on the previous page (composite keyset cursor).
+	// nil = first page.
+	CursorTs *time.Time
+	// CursorID is the id of the last row on the previous page (composite keyset cursor).
+	// nil = first page.
+	CursorID *uuid.UUID
+	// RowLimit is the LIMIT applied to the query (should be clampedPageSize + 1).
+	RowLimit int32
+}
+
 // Repository is the consumer-side data-access seam for the audit_logs slice.
 // All methods are read-only (pure SELECTs). No pool or transaction is exposed.
 type Repository interface {
 	// ListAuditLogs returns up to params.RowLimit rows for the given entity instance,
 	// ordered newest-first. Caller is responsible for page detection and trimming.
 	ListAuditLogs(ctx context.Context, params ListParams) ([]auditlogsdb.AuditLog, error)
+	// ListRecentAuditLogs returns up to params.RowLimit rows from the global audit log feed,
+	// ordered newest-first (created_at DESC, id DESC). No entity scoping.
+	// Caller is responsible for page detection and trimming.
+	ListRecentAuditLogs(ctx context.Context, params ListRecentParams) ([]auditlogsdb.AuditLog, error)
 }
 
 // postgresRepository wraps auditlogsdb.Querier and implements Repository.
@@ -77,6 +99,41 @@ func toListAuditLogsParams(p ListParams) auditlogsdb.ListAuditLogsParams {
 // the keyset query. Errors are translated via TranslatePgError.
 func (r *postgresRepository) ListAuditLogs(ctx context.Context, params ListParams) ([]auditlogsdb.AuditLog, error) {
 	rows, err := r.q.ListAuditLogs(ctx, toListAuditLogsParams(params))
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
+}
+
+// toListRecentAuditLogsParams translates ListRecentParams into the sqlc-generated
+// auditlogsdb.ListRecentAuditLogsParams. Optional pointer fields are mapped to
+// pgtype values with Valid=false when absent.
+func toListRecentAuditLogsParams(p ListRecentParams) auditlogsdb.ListRecentAuditLogsParams {
+	out := auditlogsdb.ListRecentAuditLogsParams{
+		RowLimit: p.RowLimit,
+	}
+	if p.ActorID != nil {
+		out.ActorID = pgtype.UUID{Bytes: *p.ActorID, Valid: true}
+	}
+	if p.CreatedFrom != nil {
+		out.CreatedFrom = pgtype.Timestamptz{Time: *p.CreatedFrom, Valid: true}
+	}
+	if p.CreatedTo != nil {
+		out.CreatedTo = pgtype.Timestamptz{Time: *p.CreatedTo, Valid: true}
+	}
+	if p.CursorTs != nil {
+		out.CursorTs = pgtype.Timestamptz{Time: *p.CursorTs, Valid: true}
+	}
+	if p.CursorID != nil {
+		out.CursorID = pgtype.UUID{Bytes: *p.CursorID, Valid: true}
+	}
+	return out
+}
+
+// ListRecentAuditLogs translates ListRecentParams to auditlogsdb.ListRecentAuditLogsParams
+// and executes the global keyset query. Errors are translated via TranslatePgError.
+func (r *postgresRepository) ListRecentAuditLogs(ctx context.Context, params ListRecentParams) ([]auditlogsdb.AuditLog, error) {
+	rows, err := r.q.ListRecentAuditLogs(ctx, toListRecentAuditLogsParams(params))
 	if err != nil {
 		return nil, TranslatePgError(err)
 	}
