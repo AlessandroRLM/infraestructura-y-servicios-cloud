@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { use } from "react";
 import { SessionContext } from "../context/context";
 import type { Permission, Role } from "../permissions";
 import type { SessionState } from "../types";
