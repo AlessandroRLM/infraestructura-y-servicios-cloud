@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useOwnSections } from "@/core/catalog";
 import type { TeachingSection } from "@/gen/catalog/v1/catalog_pb";
-import { useOwnSections } from "../hooks/useOwnSections";
 import { GradeRecordingGrid } from "./GradeRecordingGrid";
 
 interface GradesSectionPageProps {

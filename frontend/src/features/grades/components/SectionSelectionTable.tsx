@@ -10,9 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useOwnSections } from "@/core/catalog";
 import { PageSizeSelector, SearchInput } from "@/core/components";
 import type { TeachingSection } from "@/gen/catalog/v1/catalog_pb";
-import { useOwnSections } from "../hooks/useOwnSections";
 
 const SECTIONS_SEARCH_DEBOUNCE_MS = 300;
 
