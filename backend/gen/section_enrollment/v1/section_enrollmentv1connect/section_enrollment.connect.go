@@ -57,6 +57,9 @@ const (
 	// SectionEnrollmentServiceListSectionRosterForTeacherProcedure is the fully-qualified name of the
 	// SectionEnrollmentService's ListSectionRosterForTeacher RPC.
 	SectionEnrollmentServiceListSectionRosterForTeacherProcedure = "/section_enrollment.v1.SectionEnrollmentService/ListSectionRosterForTeacher"
+	// SectionEnrollmentServiceListEnrollableSectionsProcedure is the fully-qualified name of the
+	// SectionEnrollmentService's ListEnrollableSections RPC.
+	SectionEnrollmentServiceListEnrollableSectionsProcedure = "/section_enrollment.v1.SectionEnrollmentService/ListEnrollableSections"
 )
 
 // SectionEnrollmentServiceClient is a client for the section_enrollment.v1.SectionEnrollmentService
@@ -87,6 +90,11 @@ type SectionEnrollmentServiceClient interface {
 	// the session context; existence of the section is never disclosed if the caller is not
 	// a teacher of the section (empty page, not PermissionDenied).
 	ListSectionRosterForTeacher(context.Context, *connect.Request[v1.ListSectionRosterForTeacherRequest]) (*connect.Response[v1.ListSectionRosterForTeacherResponse], error)
+	// ListEnrollableSections returns the sections a student may self-enroll into.
+	// Eligibility gates: paid enrollment in a program that contains the section's course,
+	// year match, open enrollment window, available capacity, and not already enrolled.
+	// Student identity is derived exclusively from the session context.
+	ListEnrollableSections(context.Context, *connect.Request[v1.ListEnrollableSectionsRequest]) (*connect.Response[v1.ListEnrollableSectionsResponse], error)
 }
 
 // NewSectionEnrollmentServiceClient constructs a client for the
@@ -149,6 +157,12 @@ func NewSectionEnrollmentServiceClient(httpClient connect.HTTPClient, baseURL st
 			connect.WithSchema(sectionEnrollmentServiceMethods.ByName("ListSectionRosterForTeacher")),
 			connect.WithClientOptions(opts...),
 		),
+		listEnrollableSections: connect.NewClient[v1.ListEnrollableSectionsRequest, v1.ListEnrollableSectionsResponse](
+			httpClient,
+			baseURL+SectionEnrollmentServiceListEnrollableSectionsProcedure,
+			connect.WithSchema(sectionEnrollmentServiceMethods.ByName("ListEnrollableSections")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -162,6 +176,7 @@ type sectionEnrollmentServiceClient struct {
 	getSectionEnrollment        *connect.Client[v1.GetSectionEnrollmentRequest, v1.SectionEnrollment]
 	listSectionEnrollments      *connect.Client[v1.ListSectionEnrollmentsRequest, v1.ListSectionEnrollmentsResponse]
 	listSectionRosterForTeacher *connect.Client[v1.ListSectionRosterForTeacherRequest, v1.ListSectionRosterForTeacherResponse]
+	listEnrollableSections      *connect.Client[v1.ListEnrollableSectionsRequest, v1.ListEnrollableSectionsResponse]
 }
 
 // EnrollOwnSection calls section_enrollment.v1.SectionEnrollmentService.EnrollOwnSection.
@@ -208,6 +223,12 @@ func (c *sectionEnrollmentServiceClient) ListSectionRosterForTeacher(ctx context
 	return c.listSectionRosterForTeacher.CallUnary(ctx, req)
 }
 
+// ListEnrollableSections calls
+// section_enrollment.v1.SectionEnrollmentService.ListEnrollableSections.
+func (c *sectionEnrollmentServiceClient) ListEnrollableSections(ctx context.Context, req *connect.Request[v1.ListEnrollableSectionsRequest]) (*connect.Response[v1.ListEnrollableSectionsResponse], error) {
+	return c.listEnrollableSections.CallUnary(ctx, req)
+}
+
 // SectionEnrollmentServiceHandler is an implementation of the
 // section_enrollment.v1.SectionEnrollmentService service.
 type SectionEnrollmentServiceHandler interface {
@@ -236,6 +257,11 @@ type SectionEnrollmentServiceHandler interface {
 	// the session context; existence of the section is never disclosed if the caller is not
 	// a teacher of the section (empty page, not PermissionDenied).
 	ListSectionRosterForTeacher(context.Context, *connect.Request[v1.ListSectionRosterForTeacherRequest]) (*connect.Response[v1.ListSectionRosterForTeacherResponse], error)
+	// ListEnrollableSections returns the sections a student may self-enroll into.
+	// Eligibility gates: paid enrollment in a program that contains the section's course,
+	// year match, open enrollment window, available capacity, and not already enrolled.
+	// Student identity is derived exclusively from the session context.
+	ListEnrollableSections(context.Context, *connect.Request[v1.ListEnrollableSectionsRequest]) (*connect.Response[v1.ListEnrollableSectionsResponse], error)
 }
 
 // NewSectionEnrollmentServiceHandler builds an HTTP handler from the service implementation. It
@@ -293,6 +319,12 @@ func NewSectionEnrollmentServiceHandler(svc SectionEnrollmentServiceHandler, opt
 		connect.WithSchema(sectionEnrollmentServiceMethods.ByName("ListSectionRosterForTeacher")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sectionEnrollmentServiceListEnrollableSectionsHandler := connect.NewUnaryHandler(
+		SectionEnrollmentServiceListEnrollableSectionsProcedure,
+		svc.ListEnrollableSections,
+		connect.WithSchema(sectionEnrollmentServiceMethods.ByName("ListEnrollableSections")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/section_enrollment.v1.SectionEnrollmentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SectionEnrollmentServiceEnrollOwnSectionProcedure:
@@ -311,6 +343,8 @@ func NewSectionEnrollmentServiceHandler(svc SectionEnrollmentServiceHandler, opt
 			sectionEnrollmentServiceListSectionEnrollmentsHandler.ServeHTTP(w, r)
 		case SectionEnrollmentServiceListSectionRosterForTeacherProcedure:
 			sectionEnrollmentServiceListSectionRosterForTeacherHandler.ServeHTTP(w, r)
+		case SectionEnrollmentServiceListEnrollableSectionsProcedure:
+			sectionEnrollmentServiceListEnrollableSectionsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -350,4 +384,8 @@ func (UnimplementedSectionEnrollmentServiceHandler) ListSectionEnrollments(conte
 
 func (UnimplementedSectionEnrollmentServiceHandler) ListSectionRosterForTeacher(context.Context, *connect.Request[v1.ListSectionRosterForTeacherRequest]) (*connect.Response[v1.ListSectionRosterForTeacherResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("section_enrollment.v1.SectionEnrollmentService.ListSectionRosterForTeacher is not implemented"))
+}
+
+func (UnimplementedSectionEnrollmentServiceHandler) ListEnrollableSections(context.Context, *connect.Request[v1.ListEnrollableSectionsRequest]) (*connect.Response[v1.ListEnrollableSectionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("section_enrollment.v1.SectionEnrollmentService.ListEnrollableSections is not implemented"))
 }

@@ -44,6 +44,12 @@ type ListSectionRosterForTeacherResult struct {
 	NextPageToken string
 }
 
+// ListEnrollableSectionsResult holds the paginated result for ListEnrollableSections.
+type ListEnrollableSectionsResult struct {
+	Sections      []sectionenrollmentdb.ListEnrollableSectionsRow
+	NextPageToken string
+}
+
 // Service orchestrates section_enrollment business logic: UUID validation, self-scope
 // enforcement, and delegation to the Repository.
 //
@@ -329,6 +335,50 @@ func (s *Service) listRosterAll(ctx context.Context, sectionID uuid.UUID, tokenU
 
 	return ListSectionRosterForTeacherResult{
 		Rows:          page.Items,
+		NextPageToken: nextToken,
+	}, nil
+}
+
+// ListEnrollableSections returns a paginated page of sections the authenticated student may
+// self-enroll into. All five eligibility gates are evaluated in a single DB query (no N+1):
+// paid enrollment, program course membership, year match, open window, available capacity,
+// and not already enrolled.
+// Student identity is derived exclusively from the context.
+// pageSize is clamped to [20, 200]. pageToken must be a valid UUID string or empty.
+// Returns ErrUnauthenticated when no authenticated user is present (fail-closed).
+func (s *Service) ListEnrollableSections(ctx context.Context, pageSize int32, pageToken string) (ListEnrollableSectionsResult, error) {
+	callerID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return ListEnrollableSectionsResult{}, fmt.Errorf("%w: no authenticated user in context", ErrUnauthenticated)
+	}
+
+	clamped := sectionEnrollmentClamp.Apply(pageSize)
+
+	var tokenUUID *uuid.UUID
+	if pageToken != "" {
+		id, err := uuid.Parse(pageToken)
+		if err != nil {
+			return ListEnrollableSectionsResult{}, fmt.Errorf("%w: page_token is not a valid UUID: %q", ErrInvalidInput, pageToken)
+		}
+		tokenUUID = &id
+	}
+
+	rows, err := s.repo.ListEnrollableSections(ctx, ListEnrollableSectionsRepoParams{
+		StudentID: callerID,
+		PageToken: tokenUUID,
+		RowLimit:  int32(clamped + 1),
+	})
+	if err != nil {
+		return ListEnrollableSectionsResult{}, err
+	}
+
+	page := pagination.Paginate(rows, clamped)
+	nextToken := pagination.TokenOf(page, func(r sectionenrollmentdb.ListEnrollableSectionsRow) uuid.UUID {
+		return uuid.UUID(r.SectionID.Bytes)
+	})
+
+	return ListEnrollableSectionsResult{
+		Sections:      page.Items,
 		NextPageToken: nextToken,
 	}, nil
 }

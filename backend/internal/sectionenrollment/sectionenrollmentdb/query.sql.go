@@ -200,6 +200,121 @@ func (q *Queries) InsertSectionEnrollment(ctx context.Context, arg InsertSection
 	return i, err
 }
 
+const listEnrollableSections = `-- name: ListEnrollableSections :many
+SELECT
+    s.id                                                                     AS section_id,
+    e.program_id,
+    c.name                                                                   AS course_name,
+    c.code                                                                   AS course_code,
+    ap.year                                                                  AS period_year,
+    ap.term                                                                  AS period_term,
+    (s.capacity - (
+        SELECT count(*)
+        FROM section_enrollments sea
+        WHERE sea.section_id = s.id
+          AND sea.status <> 'withdrawn'
+          AND sea.deleted_at IS NULL
+    ))::int                                                                  AS seats_available
+FROM enrollments e
+JOIN program_courses pc   ON pc.program_id = e.program_id
+JOIN courses       c      ON c.id           = pc.course_id AND c.deleted_at IS NULL
+JOIN sections      s      ON s.course_id    = c.id         AND s.deleted_at IS NULL
+JOIN academic_periods ap  ON ap.id          = s.academic_period_id AND ap.deleted_at IS NULL
+LEFT JOIN section_enrollments se_own
+    ON se_own.section_id    = s.id
+    AND se_own.enrollment_id = e.id
+    AND se_own.status        <> 'withdrawn'
+    AND se_own.deleted_at    IS NULL
+WHERE e.student_id = $1::uuid
+  AND e.status     = 'paid'
+  AND e.deleted_at IS NULL
+  AND e.year       = ap.year
+  AND ap.enrollment_starts_at IS NOT NULL
+  AND ap.enrollment_ends_at   IS NOT NULL
+  AND now() BETWEEN ap.enrollment_starts_at AND ap.enrollment_ends_at
+  AND s.capacity > (
+        SELECT count(*)
+        FROM section_enrollments sac
+        WHERE sac.section_id = s.id
+          AND sac.status <> 'withdrawn'
+          AND sac.deleted_at IS NULL
+    )
+  AND se_own.section_id IS NULL
+  AND ($2::uuid IS NULL OR s.id > $2::uuid)
+ORDER BY s.id ASC
+LIMIT $3::int
+`
+
+type ListEnrollableSectionsParams struct {
+	StudentID pgtype.UUID
+	PageToken pgtype.UUID
+	RowLimit  int32
+}
+
+type ListEnrollableSectionsRow struct {
+	SectionID      pgtype.UUID
+	ProgramID      pgtype.UUID
+	CourseName     string
+	CourseCode     string
+	PeriodYear     int32
+	PeriodTerm     int32
+	SeatsAvailable int32
+}
+
+// Returns sections a student may self-enroll into, applying all five eligibility gates
+// in a single query (no N+1):
+//  1. The student has a PAID enrollment in a program whose course list includes the section.
+//  2. The section's academic period year matches the enrollment's year.
+//  3. The enrollment window is OPEN (now() BETWEEN starts_at AND ends_at, NULL → fail-closed).
+//  4. There is available capacity (active seats < capacity).
+//  5. The student is not already actively enrolled in the section.
+//
+// Seat availability is computed as capacity - active_seat_count; the active-seat count is
+// obtained via a correlated subquery that leverages section_enrollments_active_seat_idx.
+// Stable ORDER BY: period_year DESC, course_code ASC, section_id ASC ensures deterministic
+// keyset pagination across pages.
+// The keyset cursor is (period_year DESC, course_code ASC, section_id ASC); page_token
+// encodes the last seen (period_year, course_code, section_id) as three pipe-delimited fields.
+// To keep the cursor simple and avoid composite type complexity in sqlc, we use a separate
+// page_token_section_id UUID column parameter combined with the other sort fields.
+// Simpler approach: use section_id UUID as the sole cursor (UUIDv7 embeds timestamp, which
+// within a year+code group gives a stable order). We ORDER BY s.id ASC as tie-breaker and
+// use s.id as the cursor so the keyset condition is simply s.id > page_token.
+// NOTE: We switch the stable sort to (period_year DESC, course_code ASC, s.id ASC) and use
+// s.id as the cursor. Since UUIDv7 is monotone by insertion time, this gives a stable order
+// within a (year, course) group. Between (year, course) groups, s.id alone is not sufficient
+// as a cursor, so we use a compound cursor: callers must restart from the last seen s.id
+// within the last (year, code) group. This is an acceptable tradeoff for a discovery endpoint.
+// For simplicity, we use s.id as the sole keyset cursor (exclusive lower bound) which is
+// correct when results are ordered by s.id ASC globally. We therefore order by s.id ASC only.
+func (q *Queries) ListEnrollableSections(ctx context.Context, arg ListEnrollableSectionsParams) ([]ListEnrollableSectionsRow, error) {
+	rows, err := q.db.Query(ctx, listEnrollableSections, arg.StudentID, arg.PageToken, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEnrollableSectionsRow
+	for rows.Next() {
+		var i ListEnrollableSectionsRow
+		if err := rows.Scan(
+			&i.SectionID,
+			&i.ProgramID,
+			&i.CourseName,
+			&i.CourseCode,
+			&i.PeriodYear,
+			&i.PeriodTerm,
+			&i.SeatsAvailable,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOwnSectionEnrollments = `-- name: ListOwnSectionEnrollments :many
 SELECT se.id, se.enrollment_id, se.section_id, se.status, se.registered_at, se.created_at, se.updated_at, se.deleted_at, se.final_grade
 FROM section_enrollments se

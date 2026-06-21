@@ -43,6 +43,14 @@ service SectionEnrollmentService {
   // the session context; existence of the section is never disclosed if the caller is not
   // a teacher of the section (empty page, not PermissionDenied).
   rpc ListSectionRosterForTeacher(ListSectionRosterForTeacherRequest) returns (ListSectionRosterForTeacherResponse);
+
+  // Student discovery procedure — requires sections.enroll permission.
+
+  // ListEnrollableSections returns the sections a student may self-enroll into.
+  // Eligibility gates: paid enrollment in a program that contains the section's course,
+  // year match, open enrollment window, available capacity, and not already enrolled.
+  // Student identity is derived exclusively from the session context.
+  rpc ListEnrollableSections(ListEnrollableSectionsRequest) returns (ListEnrollableSectionsResponse);
 }
 
 // SectionEnrollment represents a single section inscription record.
@@ -155,6 +163,45 @@ message ListSectionRosterForTeacherRequest {
 // Each SectionEnrollment row includes student_id so the caller can resolve display names.
 message ListSectionRosterForTeacherResponse {
   repeated SectionEnrollment section_enrollments = 1;
+  // Opaque cursor for the next page. Empty when this is the last page.
+  string next_page_token = 2;
+}
+
+// ListEnrollableSectionsRequest supports AIP-158 keyset pagination.
+// No student_id field — identity comes exclusively from the session context.
+message ListEnrollableSectionsRequest {
+  // Maximum number of sections to return. Clamped to [20, 200]; zero → 20.
+  int32 page_size = 1;
+  // Opaque cursor returned by a previous ListEnrollableSections call.
+  // Empty string returns the first page.
+  string page_token = 2;
+}
+
+// EnrollableSection represents a section a student may self-enroll into.
+// program_id is the program the student must pass to EnrollOwnSection to disambiguate
+// which paid enrollment to link.
+message EnrollableSection {
+  // section_id is the UUID of the enrollable section.
+  string section_id = 1;
+  // program_id is the UUID of the program (career) the student has a paid enrollment in
+  // that covers this section's course. Pass this to EnrollOwnSection.
+  string program_id = 2;
+  // course_name is the display name of the course.
+  string course_name = 3;
+  // course_code is the short code of the course.
+  string course_code = 4;
+  // period_year is the calendar year of the academic period.
+  int32 period_year = 5;
+  // period_term is the term number within the academic year (e.g. 1 or 2).
+  int32 period_term = 6;
+  // seats_available is the number of remaining seats (capacity - active enrollments).
+  // Always >= 1 (sections with 0 available seats are excluded from this list).
+  int32 seats_available = 7;
+}
+
+// ListEnrollableSectionsResponse is the paginated response for ListEnrollableSections.
+message ListEnrollableSectionsResponse {
+  repeated EnrollableSection sections = 1;
   // Opaque cursor for the next page. Empty when this is the last page.
   string next_page_token = 2;
 }

@@ -102,6 +102,10 @@ func (f *fakeRepository) ListSectionRosterForTeacherAll(_ context.Context, _ Lis
 	return f.rosterRows, f.rosterErr
 }
 
+func (f *fakeRepository) ListEnrollableSections(_ context.Context, _ ListEnrollableSectionsRepoParams) ([]sectionenrollmentdb.ListEnrollableSectionsRow, error) {
+	return nil, nil
+}
+
 // contextWithUser adds a user ID to the context (mirrors auth.WithUserID).
 func contextWithUser(userID uuid.UUID) context.Context {
 	return auth.WithUserID(context.Background(), userID)
