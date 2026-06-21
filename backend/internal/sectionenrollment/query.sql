@@ -199,6 +199,61 @@ WHERE se.section_id = sqlc.arg('section_id')::uuid
 ORDER BY se.id DESC
 LIMIT sqlc.arg('row_limit')::int;
 
+-- name: ListEnrollableSections :many
+-- Returns sections a student may self-enroll into, applying all five eligibility gates
+-- in a single query (no N+1):
+--   1. The student has a PAID enrollment in a program whose course list includes the section.
+--   2. The section's academic period year matches the enrollment's year.
+--   3. The enrollment window is OPEN (now() BETWEEN starts_at AND ends_at, NULL → fail-closed).
+--   4. There is available capacity (active seats < capacity).
+--   5. The student is not already actively enrolled in the section.
+--
+-- Seat counts reuse the section_enrollments_active_seat_idx partial index.
+-- Keyset cursor: s.id ASC (UUIDv7 — monotone by creation time); page_token is the
+-- exclusive lower bound. ORDER BY s.id ASC gives a globally stable page order.
+SELECT
+    s.id                                                                     AS section_id,
+    e.program_id,
+    c.name                                                                   AS course_name,
+    c.code                                                                   AS course_code,
+    ap.year                                                                  AS period_year,
+    ap.term                                                                  AS period_term,
+    (s.capacity - (
+        SELECT count(*)
+        FROM section_enrollments sea
+        WHERE sea.section_id = s.id
+          AND sea.status <> 'withdrawn'
+          AND sea.deleted_at IS NULL
+    ))::int                                                                  AS seats_available
+FROM enrollments e
+JOIN program_courses pc   ON pc.program_id = e.program_id
+JOIN courses       c      ON c.id           = pc.course_id AND c.deleted_at IS NULL
+JOIN sections      s      ON s.course_id    = c.id         AND s.deleted_at IS NULL
+JOIN academic_periods ap  ON ap.id          = s.academic_period_id AND ap.deleted_at IS NULL
+LEFT JOIN section_enrollments se_own
+    ON se_own.section_id    = s.id
+    AND se_own.enrollment_id = e.id
+    AND se_own.status        <> 'withdrawn'
+    AND se_own.deleted_at    IS NULL
+WHERE e.student_id = sqlc.arg('student_id')::uuid
+  AND e.status     = 'paid'
+  AND e.deleted_at IS NULL
+  AND e.year       = ap.year
+  AND ap.enrollment_starts_at IS NOT NULL
+  AND ap.enrollment_ends_at   IS NOT NULL
+  AND now() BETWEEN ap.enrollment_starts_at AND ap.enrollment_ends_at
+  AND s.capacity > (
+        SELECT count(*)
+        FROM section_enrollments sac
+        WHERE sac.section_id = s.id
+          AND sac.status <> 'withdrawn'
+          AND sac.deleted_at IS NULL
+    )
+  AND se_own.section_id IS NULL
+  AND (sqlc.narg('page_token')::uuid IS NULL OR s.id > sqlc.narg('page_token')::uuid)
+ORDER BY s.id ASC
+LIMIT sqlc.arg('row_limit')::int;
+
 -- name: SetSectionEnrollmentOutcome :one
 -- Transitions a section_enrollment status to passed or failed and writes the
 -- computed final grade, within a caller-owned transaction.

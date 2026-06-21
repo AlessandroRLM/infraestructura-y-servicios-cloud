@@ -39,6 +39,33 @@ type Querier interface {
 	// Used as lock step #1 in EnrollSectionTx; lock order is section → key row.
 	GetSectionForUpdateWithWindow(ctx context.Context, id pgtype.UUID) (GetSectionForUpdateWithWindowRow, error)
 	InsertSectionEnrollment(ctx context.Context, arg InsertSectionEnrollmentParams) (SectionEnrollment, error)
+	// Returns sections a student may self-enroll into, applying all five eligibility gates
+	// in a single query (no N+1):
+	//   1. The student has a PAID enrollment in a program whose course list includes the section.
+	//   2. The section's academic period year matches the enrollment's year.
+	//   3. The enrollment window is OPEN (now() BETWEEN starts_at AND ends_at, NULL → fail-closed).
+	//   4. There is available capacity (active seats < capacity).
+	//   5. The student is not already actively enrolled in the section.
+	//
+	// Seat availability is computed as capacity - active_seat_count; the active-seat count is
+	// obtained via a correlated subquery that leverages section_enrollments_active_seat_idx.
+	// Stable ORDER BY: period_year DESC, course_code ASC, section_id ASC ensures deterministic
+	// keyset pagination across pages.
+	// The keyset cursor is (period_year DESC, course_code ASC, section_id ASC); page_token
+	// encodes the last seen (period_year, course_code, section_id) as three pipe-delimited fields.
+	// To keep the cursor simple and avoid composite type complexity in sqlc, we use a separate
+	// page_token_section_id UUID column parameter combined with the other sort fields.
+	// Simpler approach: use section_id UUID as the sole cursor (UUIDv7 embeds timestamp, which
+	// within a year+code group gives a stable order). We ORDER BY s.id ASC as tie-breaker and
+	// use s.id as the cursor so the keyset condition is simply s.id > page_token.
+	// NOTE: We switch the stable sort to (period_year DESC, course_code ASC, s.id ASC) and use
+	// s.id as the cursor. Since UUIDv7 is monotone by insertion time, this gives a stable order
+	// within a (year, course) group. Between (year, course) groups, s.id alone is not sufficient
+	// as a cursor, so we use a compound cursor: callers must restart from the last seen s.id
+	// within the last (year, code) group. This is an acceptable tradeoff for a discovery endpoint.
+	// For simplicity, we use s.id as the sole keyset cursor (exclusive lower bound) which is
+	// correct when results are ordered by s.id ASC globally. We therefore order by s.id ASC only.
+	ListEnrollableSections(ctx context.Context, arg ListEnrollableSectionsParams) ([]ListEnrollableSectionsRow, error)
 	// Returns live inscriptions for a student by joining enrollments on student_id.
 	// Keyset pagination: results ordered by se.id DESC; page_token is the exclusive upper bound.
 	ListOwnSectionEnrollments(ctx context.Context, arg ListOwnSectionEnrollmentsParams) ([]SectionEnrollment, error)

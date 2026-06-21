@@ -68,6 +68,11 @@ type Repository interface {
 	// section_teachers membership scope guard. Used by the admin bypass path.
 	// Keyset pagination: results are ordered by id DESC; PageToken is the exclusive upper bound.
 	ListSectionRosterForTeacherAll(ctx context.Context, p ListSectionRosterForTeacherAllRepoParams) ([]sectionenrollmentdb.ListSectionRosterForTeacherRow, error)
+
+	// ListEnrollableSections returns a page of sections the given student may self-enroll into.
+	// All five eligibility gates are applied in a single query (no N+1).
+	// Keyset pagination: results are ordered by section id ASC; PageToken is the exclusive lower bound.
+	ListEnrollableSections(ctx context.Context, p ListEnrollableSectionsRepoParams) ([]sectionenrollmentdb.ListEnrollableSectionsRow, error)
 }
 
 // EnrollSectionParams holds the validated inputs for EnrollSectionTx.
@@ -134,6 +139,18 @@ type ListSectionRosterForTeacherAllRepoParams struct {
 	// SectionID is the target section (required).
 	SectionID uuid.UUID
 	// PageToken is the exclusive upper-bound UUID cursor; nil = first page.
+	PageToken *uuid.UUID
+	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
+	RowLimit int32
+}
+
+// ListEnrollableSectionsRepoParams holds keyset pagination parameters for
+// ListEnrollableSections.
+type ListEnrollableSectionsRepoParams struct {
+	// StudentID is the authenticated student (required). All eligibility gates
+	// are applied relative to this student's paid enrollments.
+	StudentID uuid.UUID
+	// PageToken is the exclusive lower-bound UUID cursor (s.id ASC order); nil = first page.
 	PageToken *uuid.UUID
 	// RowLimit is clampedPageSize + 1 (over-fetch by one to detect HasNext).
 	RowLimit int32
@@ -530,6 +547,25 @@ func setOutcomeWithQuerier(ctx context.Context, q sectionenrollmentdb.Querier, i
 		return sectionenrollmentdb.SectionEnrollment{}, TranslatePgError(err)
 	}
 	return row, nil
+}
+
+// ListEnrollableSections returns a page of sections the authenticated student may self-enroll into.
+// All five eligibility gates (paid enrollment, program match, year match, open window, available
+// capacity, not already enrolled) are evaluated in a single query via the ListEnrollableSections
+// sqlc query, which leverages the section_enrollments_active_seat_idx partial index.
+func (r *postgresRepository) ListEnrollableSections(ctx context.Context, p ListEnrollableSectionsRepoParams) ([]sectionenrollmentdb.ListEnrollableSectionsRow, error) {
+	params := sectionenrollmentdb.ListEnrollableSectionsParams{
+		StudentID: pgtype.UUID{Bytes: p.StudentID, Valid: true},
+		RowLimit:  p.RowLimit,
+	}
+	if p.PageToken != nil {
+		params.PageToken = pgtype.UUID{Bytes: *p.PageToken, Valid: true}
+	}
+	rows, err := r.q.ListEnrollableSections(ctx, params)
+	if err != nil {
+		return nil, TranslatePgError(err)
+	}
+	return rows, nil
 }
 
 // newFakeRepository constructs a repository backed by the given Querier without a pool.

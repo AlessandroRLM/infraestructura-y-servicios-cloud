@@ -148,6 +148,10 @@ func (f *fakeQuerier) InsertSectionEnrollment(_ context.Context, _ sectionenroll
 	return f.insertRow, f.insertErr
 }
 
+func (f *fakeQuerier) ListEnrollableSections(_ context.Context, _ sectionenrollmentdb.ListEnrollableSectionsParams) ([]sectionenrollmentdb.ListEnrollableSectionsRow, error) {
+	return nil, nil
+}
+
 func (f *fakeQuerier) ReviveSectionEnrollment(_ context.Context, _ pgtype.UUID) (sectionenrollmentdb.SectionEnrollment, error) {
 	f.reviveCalled = true
 	return f.reviveRow, f.reviveErr

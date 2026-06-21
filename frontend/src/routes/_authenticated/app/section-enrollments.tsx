@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireRoutePermission } from "@/features/auth";
-import { OwnSectionEnrollmentsList } from "@/features/section-enrollments";
+import { ParticipantSectionEnrollmentsPage } from "@/features/section-enrollments";
 import { ownSectionEnrollmentsSearchSchema } from "@/features/section-enrollments/schemas/search";
 
 /**
  * Route-owned wrapper that reads search params and passes them down as props.
- * Keeps OwnSectionEnrollmentsList free of any direct Route import, breaking the
- * circular dependency that would arise from app/section-enrollments.tsx ↔ OwnSectionEnrollmentsList.
+ * Keeps ParticipantSectionEnrollmentsPage free of any direct Route import, breaking the
+ * circular dependency that would arise from app/section-enrollments.tsx ↔ the page component.
  *
- * Renders the STUDENT view (participant-scoped listOwnSectionEnrollments).
+ * Renders the STUDENT view: self-enrollment panel + own enrollments list.
  * The ADMIN view lives at admin/section-enrollments.tsx and is untouched.
  */
 function AppSectionEnrollmentsPage() {
@@ -16,7 +16,7 @@ function AppSectionEnrollmentsPage() {
   const navigate = Route.useNavigate();
 
   return (
-    <OwnSectionEnrollmentsList
+    <ParticipantSectionEnrollmentsPage
       pageSize={pageSize}
       onPageSizeChange={(n) =>
         navigate({ search: (prev) => ({ ...prev, pageSize: n }) })

@@ -211,6 +211,29 @@ func (h *Handler) ListSectionEnrollments(
 	}), nil
 }
 
+// --- Student discovery RPCs ---
+
+// ListEnrollableSections returns a paginated list of sections the authenticated student
+// may self-enroll into. All eligibility gates are applied by the service layer.
+// The student identity is derived exclusively from the session context.
+func (h *Handler) ListEnrollableSections(
+	ctx context.Context,
+	req *connect.Request[section_enrollmentv1.ListEnrollableSectionsRequest],
+) (*connect.Response[section_enrollmentv1.ListEnrollableSectionsResponse], error) {
+	result, err := h.svc.ListEnrollableSections(ctx, req.Msg.GetPageSize(), req.Msg.GetPageToken())
+	if err != nil {
+		return nil, MapError(err)
+	}
+	protos := make([]*section_enrollmentv1.EnrollableSection, 0, len(result.Sections))
+	for _, r := range result.Sections {
+		protos = append(protos, enrollableSectionToProto(r))
+	}
+	return connect.NewResponse(&section_enrollmentv1.ListEnrollableSectionsResponse{
+		Sections:      protos,
+		NextPageToken: result.NextPageToken,
+	}), nil
+}
+
 // --- Teacher teaching-scope RPCs ---
 
 // ListSectionRosterForTeacher returns the paginated roster of students enrolled in the
@@ -301,6 +324,19 @@ func rosterRowToProto(r sectionenrollmentdb.ListSectionRosterForTeacherRow) *sec
 		se.DeletedAt = &s
 	}
 	return se
+}
+
+// enrollableSectionToProto converts a ListEnrollableSectionsRow to its proto representation.
+func enrollableSectionToProto(r sectionenrollmentdb.ListEnrollableSectionsRow) *section_enrollmentv1.EnrollableSection {
+	return &section_enrollmentv1.EnrollableSection{
+		SectionId:      uuidToString(r.SectionID),
+		ProgramId:      uuidToString(r.ProgramID),
+		CourseName:     r.CourseName,
+		CourseCode:     r.CourseCode,
+		PeriodYear:     r.PeriodYear,
+		PeriodTerm:     r.PeriodTerm,
+		SeatsAvailable: r.SeatsAvailable,
+	}
 }
 
 // uuidToString converts a pgtype.UUID to a standard hyphenated string.
