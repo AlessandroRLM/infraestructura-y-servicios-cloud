@@ -105,6 +105,23 @@ export type NavItem =
   | (typeof ADMIN_NAV)[number]
   | (typeof PARTICIPANT_NAV)[number];
 
+/**
+ * Returns the `linkOptions` of the first nav entry the session can access,
+ * or `undefined` when no entry is visible for the session.
+ *
+ * Visibility uses the same `isVisible` predicate the sidebar renders with,
+ * so nav order and permission checks are a single source of truth.
+ *
+ * @param session - Current session state (any status).
+ * @param nav - Ordered nav array for the area (ADMIN_NAV or PARTICIPANT_NAV).
+ */
+export function firstAccessibleNavTarget(
+  session: SessionState,
+  nav: readonly NavItem[],
+): NavItem["options"] | undefined {
+  return nav.find((item) => isVisible(session, item))?.options;
+}
+
 // Visibility derives from the same ROUTE_PERMISSIONS map the route guards use:
 // a link shows when its route is unguarded or the session holds one of the
 // route's permissions (ANY). Single source of truth, no duplication.

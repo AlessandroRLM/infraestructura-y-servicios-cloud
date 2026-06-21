@@ -3,10 +3,7 @@ import type { AuthenticatedSession } from "./types";
 /** The two top-level authenticated areas the application exposes. */
 export type Area = "admin" | "participant";
 
-/**
- * Permissions that qualify a user for the admin area.
- * `grades.write` is included because teachers manage grades (dual-eligible overlap).
- */
+/** Permissions that qualify a user for the admin area. */
 export const ADMIN_PERMISSIONS = [
   "catalog.manage",
   "users.manage",
@@ -19,16 +16,17 @@ export const ADMIN_PERMISSIONS = [
 
 /**
  * Permissions that qualify a user for the participant area.
- * `grades.write` is included because teachers can also enter their own context (dual-eligible overlap).
+ * Only route-gating permissions are included (see ROUTE_PERMISSIONS).
+ * Generic auth perms (profile.*) are intentionally excluded: every
+ * authenticated user may hold them, so they cannot be a meaningful
+ * eligibility signal. Teachers hold admin perms only and are therefore
+ * admin-only eligible, bypassing the /choose-area prompt.
  */
 export const PARTICIPANT_PERMISSIONS = [
   "grades.view_own",
   "enrollment.view_own",
   "section_enrollment.view_own",
   "sections.enroll",
-  "grades.write",
-  "profile.view_own",
-  "profile.edit_own",
 ] as const;
 
 /**
@@ -47,7 +45,7 @@ export function isEligibleFor(
  * Returns the ordered list of areas the session is eligible for.
  * The result is `[]` for a zero-eligibility session, `["admin"]` or
  * `["participant"]` for single-eligible, and `["admin","participant"]`
- * for dual-eligible (e.g. a teacher with `grades.write`).
+ * for dual-eligible (e.g. an admin who also holds participant permissions).
  */
 export function eligibleAreas(session: AuthenticatedSession): Area[] {
   const areas: Area[] = [];

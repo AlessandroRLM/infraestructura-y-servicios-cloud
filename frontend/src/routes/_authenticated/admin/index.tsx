@@ -1,13 +1,22 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import {
+  ADMIN_NAV,
+  firstAccessibleNavTarget,
+} from "@/components/layout/AppSidebar";
 
-// The admin area root redirects to the first available admin feature with
-// its required default search params so the academics route's validateSearch
-// receives a well-formed object.
+// Redirects to the first admin nav entry accessible to the current session.
+// Using the session resolved by the parent _authenticated/route.tsx beforeLoad
+// so no second fetch is needed.
 export const Route = createFileRoute("/_authenticated/admin/")({
-  beforeLoad: () => {
-    throw redirect({
-      to: "/admin/academics",
-      search: { tab: "programs", q: "", pageSize: 20 },
-    });
+  beforeLoad: ({ context }) => {
+    const session = context.session;
+    const target = firstAccessibleNavTarget(
+      { ...session, status: "authenticated" },
+      ADMIN_NAV,
+    );
+    if (target) {
+      throw redirect(target);
+    }
+    throw redirect({ to: "/forbidden" });
   },
 });
