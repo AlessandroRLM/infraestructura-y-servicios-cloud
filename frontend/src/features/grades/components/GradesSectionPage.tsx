@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TeachingSection } from "@/gen/catalog/v1/catalog_pb";
 import { useOwnSections } from "../hooks/useOwnSections";
@@ -77,8 +78,9 @@ export function GradesSectionPage({
         </p>
         <Link
           to="/admin/grades"
-          className="text-sm text-primary underline-offset-4 hover:underline"
+          className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground w-fit"
         >
+          <ArrowLeft className="size-4" aria-hidden />
           Volver a secciones
         </Link>
       </div>

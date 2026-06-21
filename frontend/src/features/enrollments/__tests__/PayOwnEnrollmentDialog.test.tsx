@@ -87,9 +87,7 @@ describe("PayOwnEnrollmentDialog — FailedPrecondition", () => {
 
     await user.click(screen.getByRole("button", { name: /pagar/i }));
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
 
     expect(screen.queryByText(/FailedPrecondition/)).not.toBeInTheDocument();
     expect(screen.queryByText(/FAILED_PRECONDITION/)).not.toBeInTheDocument();
@@ -111,9 +109,7 @@ describe("PayOwnEnrollmentDialog — transport error", () => {
 
     await user.click(screen.getByRole("button", { name: /pagar/i }));
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
 
     expect(screen.queryByText(/Internal/)).not.toBeInTheDocument();
     expect(toastError).not.toHaveBeenCalled();

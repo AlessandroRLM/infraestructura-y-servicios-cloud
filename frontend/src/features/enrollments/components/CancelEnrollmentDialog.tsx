@@ -12,8 +12,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { Enrollment } from "@/gen/enrollment/v1/enrollment_pb";
-import { useCancelEnrollment } from "../hooks/useCancelEnrollment";
 import { mapLifecycleError } from "../hooks/errorMapping";
+import { useCancelEnrollment } from "../hooks/useCancelEnrollment";
 
 interface CancelEnrollmentDialogProps {
   open: boolean;
@@ -73,8 +73,8 @@ export function CancelEnrollmentDialog({
 
         {inlineError === "precondition" && (
           <p role="alert" className="text-destructive text-sm">
-            No se puede cancelar: la matrícula ya está cancelada o no cumple
-            las condiciones requeridas.
+            No se puede cancelar: la matrícula ya está cancelada o no cumple las
+            condiciones requeridas.
           </p>
         )}
 

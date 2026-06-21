@@ -1,7 +1,7 @@
-export { useEnrollments } from "./useEnrollments";
-export { useOwnEnrollments } from "./useOwnEnrollments";
+export { mapCreateEnrollmentError, mapLifecycleError } from "./errorMapping";
+export { useCancelEnrollment } from "./useCancelEnrollment";
 export { useCreateEnrollment } from "./useCreateEnrollment";
+export { useEnrollments } from "./useEnrollments";
 export { useMarkEnrollmentPaid } from "./useMarkEnrollmentPaid";
 export { useMarkOwnEnrollmentPaid } from "./useMarkOwnEnrollmentPaid";
-export { useCancelEnrollment } from "./useCancelEnrollment";
-export { mapCreateEnrollmentError, mapLifecycleError } from "./errorMapping";
+export { useOwnEnrollments } from "./useOwnEnrollments";

@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -145,9 +145,14 @@ export function GradeRecordingGrid({
       {/* Header: back button + section info + admin button */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
-          <Button variant="ghost" size="sm" onClick={onBack} className="w-fit">
-            ← Volver a secciones
-          </Button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground w-fit"
+            onClick={onBack}
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Volver a secciones
+          </button>
           <h2 className="font-semibold text-lg">
             {section.courseName}{" "}
             <span className="text-muted-foreground font-normal text-sm">

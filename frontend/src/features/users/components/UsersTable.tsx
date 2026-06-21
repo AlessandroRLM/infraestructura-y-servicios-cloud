@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageSizeSelector, SearchInput } from "@/core/components";
+import { type Role, roleLabel } from "@/features/auth";
 import { Route } from "@/routes/_authenticated/admin/users";
 import { SEARCH_DEBOUNCE_MS } from "../constants";
 import { useUsersList } from "../hooks/useUsersList";
@@ -115,7 +116,11 @@ export function UsersTable({ onRowClick }: UsersTableProps) {
                   <TableCell>
                     {user.displayName?.length ? user.displayName : user.email}
                   </TableCell>
-                  <TableCell>{user.roles.join(", ")}</TableCell>
+                  <TableCell>
+                    {user.roles
+                      .map((role) => roleLabel(role as Role))
+                      .join(", ")}
+                  </TableCell>
                   <TableCell>
                     <UserStatusBadge status={user.status} />
                   </TableCell>

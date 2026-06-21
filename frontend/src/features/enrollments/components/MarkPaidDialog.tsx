@@ -12,8 +12,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { Enrollment } from "@/gen/enrollment/v1/enrollment_pb";
-import { useMarkEnrollmentPaid } from "../hooks/useMarkEnrollmentPaid";
 import { mapLifecycleError } from "../hooks/errorMapping";
+import { useMarkEnrollmentPaid } from "../hooks/useMarkEnrollmentPaid";
 
 interface MarkPaidDialogProps {
   open: boolean;
@@ -60,14 +60,12 @@ export function MarkPaidDialog({
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            ¿Marcar matrícula como pagada?
-          </AlertDialogTitle>
+          <AlertDialogTitle>¿Marcar matrícula como pagada?</AlertDialogTitle>
           <AlertDialogDescription>
             Esta acción cambiará el estado de la matrícula de{" "}
             {enrollment.studentName || enrollment.studentId.slice(0, 8)} a{" "}
-            <strong>pagada</strong>. Solo se puede realizar si la matrícula
-            está en estado pendiente.
+            <strong>pagada</strong>. Solo se puede realizar si la matrícula está
+            en estado pendiente.
           </AlertDialogDescription>
         </AlertDialogHeader>
 

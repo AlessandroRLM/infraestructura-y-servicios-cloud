@@ -12,7 +12,12 @@ describe("adminEnrollmentsSearchSchema", () => {
       year: "2025",
       pageSize: "50",
     });
-    expect(result).toEqual({ q: "García", status: "pending", year: 2025, pageSize: 50 });
+    expect(result).toEqual({
+      q: "García",
+      status: "pending",
+      year: 2025,
+      pageSize: 50,
+    });
   });
 
   it("q defaults to empty string when absent", () => {
@@ -41,9 +46,15 @@ describe("adminEnrollmentsSearchSchema", () => {
   });
 
   it("valid status values parse correctly", () => {
-    expect(adminEnrollmentsSearchSchema.parse({ status: "pending" }).status).toBe("pending");
-    expect(adminEnrollmentsSearchSchema.parse({ status: "paid" }).status).toBe("paid");
-    expect(adminEnrollmentsSearchSchema.parse({ status: "cancelled" }).status).toBe("cancelled");
+    expect(
+      adminEnrollmentsSearchSchema.parse({ status: "pending" }).status,
+    ).toBe("pending");
+    expect(adminEnrollmentsSearchSchema.parse({ status: "paid" }).status).toBe(
+      "paid",
+    );
+    expect(
+      adminEnrollmentsSearchSchema.parse({ status: "cancelled" }).status,
+    ).toBe("cancelled");
   });
 
   it("unknown keys are stripped (studentId, programId)", () => {
@@ -61,9 +72,15 @@ describe("adminEnrollmentsSearchSchema", () => {
   });
 
   it("pageSize accepts 20, 50, 100", () => {
-    expect(adminEnrollmentsSearchSchema.parse({ pageSize: "20" }).pageSize).toBe(20);
-    expect(adminEnrollmentsSearchSchema.parse({ pageSize: "50" }).pageSize).toBe(50);
-    expect(adminEnrollmentsSearchSchema.parse({ pageSize: "100" }).pageSize).toBe(100);
+    expect(
+      adminEnrollmentsSearchSchema.parse({ pageSize: "20" }).pageSize,
+    ).toBe(20);
+    expect(
+      adminEnrollmentsSearchSchema.parse({ pageSize: "50" }).pageSize,
+    ).toBe(50);
+    expect(
+      adminEnrollmentsSearchSchema.parse({ pageSize: "100" }).pageSize,
+    ).toBe(100);
   });
 
   it("invalid q value falls back to empty string", () => {
@@ -80,7 +97,10 @@ describe("ownEnrollmentsSearchSchema", () => {
   });
 
   it("status is stripped as unknown key", () => {
-    const result = ownEnrollmentsSearchSchema.parse({ status: "paid", year: "2025" });
+    const result = ownEnrollmentsSearchSchema.parse({
+      status: "paid",
+      year: "2025",
+    });
     expect(result).not.toHaveProperty("status");
     expect(result).not.toHaveProperty("year");
   });

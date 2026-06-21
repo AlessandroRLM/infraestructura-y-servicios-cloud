@@ -16,8 +16,8 @@ import type { Enrollment } from "@/gen/enrollment/v1/enrollment_pb";
 import { Route } from "@/routes/_authenticated/admin/enrollments";
 import { useEnrollments } from "../hooks/useEnrollments";
 import { CancelEnrollmentDialog } from "./CancelEnrollmentDialog";
-import { EnrollmentsFilterBar } from "./EnrollmentsFilterBar";
 import { EnrollmentStatusBadge } from "./EnrollmentStatusBadge";
+import { EnrollmentsFilterBar } from "./EnrollmentsFilterBar";
 import { MarkPaidDialog } from "./MarkPaidDialog";
 
 export function EnrollmentsTable() {
@@ -51,9 +51,7 @@ export function EnrollmentsTable() {
         year={year}
         status={status}
         pageSize={pageSize}
-        onQChange={(v) =>
-          navigate({ search: (prev) => ({ ...prev, q: v }) })
-        }
+        onQChange={(v) => navigate({ search: (prev) => ({ ...prev, q: v }) })}
         onYearChange={(y) =>
           navigate({ search: (prev) => ({ ...prev, year: y }) })
         }
@@ -247,11 +245,7 @@ function EnrollmentRow({
       {canManage && (
         <TableCell className="flex gap-2 justify-end">
           {enrollment.status === "pending" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onMarkPaid}
-            >
+            <Button variant="ghost" size="sm" onClick={onMarkPaid}>
               Marcar pagada
             </Button>
           )}
