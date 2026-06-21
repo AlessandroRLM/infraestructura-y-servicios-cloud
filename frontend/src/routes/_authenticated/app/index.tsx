@@ -1,13 +1,22 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import {
+  firstAccessibleNavTarget,
+  PARTICIPANT_NAV,
+} from "@/components/layout/AppSidebar";
 
-// The participant area root redirects to the participant grades view with its
-// required default search params so app/grades validateSearch receives a
-// well-formed object.
+// Redirects to the first participant nav entry accessible to the current session.
+// Using the session resolved by the parent _authenticated/route.tsx beforeLoad
+// so no second fetch is needed.
 export const Route = createFileRoute("/_authenticated/app/")({
-  beforeLoad: () => {
-    throw redirect({
-      to: "/app/grades",
-      search: { period: "", program: "", pageSize: 20 },
-    });
+  beforeLoad: ({ context }) => {
+    const session = context.session;
+    const target = firstAccessibleNavTarget(
+      { ...session, status: "authenticated" },
+      PARTICIPANT_NAV,
+    );
+    if (target) {
+      throw redirect(target);
+    }
+    throw redirect({ to: "/forbidden" });
   },
 });

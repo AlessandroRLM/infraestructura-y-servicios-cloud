@@ -23,13 +23,22 @@ const studentSession: SessionState = {
   permissions: ["grades.view_own"],
 };
 
-// grades.write → dual-eligible, no stored preference → /choose-area
+// grades.write → admin-eligible only (no longer participant-eligible) → redirects to /admin
 const teacherSession: SessionState = {
   status: "authenticated",
   userId: "3",
   email: "teacher@test.com",
   roles: ["teacher"],
   permissions: ["grades.write"],
+};
+
+// catalog.manage + grades.view_own → dual-eligible, no stored preference → /choose-area
+const dualSession: SessionState = {
+  status: "authenticated",
+  userId: "5",
+  email: "dual@test.com",
+  roles: ["admin"],
+  permissions: ["catalog.manage", "grades.view_own"],
 };
 
 describe("_authenticated route guard", () => {
@@ -79,10 +88,22 @@ describe("_authenticated index redirect (T-08)", () => {
     );
   });
 
-  it("dual-eligible session with no stored preference redirects to /choose-area", async () => {
+  // grades.write is admin-only: teacher goes directly to /admin without /choose-area.
+  it("teacher session (grades.write) redirects to the admin area without choose-area", async () => {
     const { router } = renderWithProviders({
       route: "/",
       session: teacherSession,
+    });
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toMatch(/^\/admin/),
+    );
+  });
+
+  it("dual-eligible session with no stored preference redirects to /choose-area", async () => {
+    const { router } = renderWithProviders({
+      route: "/",
+      session: dualSession,
     });
 
     await waitFor(() =>

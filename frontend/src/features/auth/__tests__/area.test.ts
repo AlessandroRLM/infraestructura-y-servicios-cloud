@@ -11,6 +11,18 @@ function session(permissions: string[]): AuthenticatedSession {
   return { userId: "1", email: "test@test.com", roles: [], permissions };
 }
 
+/** Full teacher permission set as granted by the backend. */
+const TEACHER_PERMISSIONS = [
+  "grades.read",
+  "grades.write",
+  "reports.read",
+  "section.view_teaching",
+  "section_enrollment.view_teaching",
+  "profile.view_own",
+  "profile.edit_own",
+  "profile.view_names",
+] as const;
+
 describe("isEligibleFor — admin area", () => {
   it("returns true when the session holds a permission in ADMIN_PERMISSIONS", () => {
     expect(isEligibleFor(session(["catalog.manage"]), "admin")).toBe(true);
@@ -61,11 +73,15 @@ describe("isEligibleFor — enrollment.view_own qualifies for participant area (
   });
 });
 
-describe("isEligibleFor — dual-eligible via grades.write (S-01c)", () => {
-  it("grades.write qualifies for both admin and participant", () => {
+describe("isEligibleFor — grades.write is admin-only (no longer dual-eligible)", () => {
+  it("grades.write qualifies for admin", () => {
     const s = session(["grades.write"]);
     expect(isEligibleFor(s, "admin")).toBe(true);
-    expect(isEligibleFor(s, "participant")).toBe(true);
+  });
+
+  it("grades.write does NOT qualify for participant", () => {
+    const s = session(["grades.write"]);
+    expect(isEligibleFor(s, "participant")).toBe(false);
   });
 });
 
@@ -82,14 +98,23 @@ describe("eligibleAreas", () => {
     ).toEqual(["participant"]);
   });
 
-  it("S-01c — teacher (grades.write): returns [admin, participant]", () => {
-    expect(eligibleAreas(session(["grades.write"]))).toEqual([
-      "admin",
-      "participant",
-    ]);
+  it("S-01c — teacher (full permission set): returns [admin] only", () => {
+    expect(eligibleAreas(session([...TEACHER_PERMISSIONS]))).toEqual(["admin"]);
+  });
+
+  it("S-01c-simple — teacher (grades.write only): returns [admin] only", () => {
+    expect(eligibleAreas(session(["grades.write"]))).toEqual(["admin"]);
   });
 
   it("S-01d — zero-eligibility user: returns []", () => {
     expect(eligibleAreas(session([]))).toEqual([]);
+  });
+
+  it("S-01e — admin with all perms remains dual-eligible for admin and participant", () => {
+    // An admin holds both admin perms (catalog.manage) and participant perms
+    // (grades.view_own), so they remain dual-eligible for area switching.
+    expect(
+      eligibleAreas(session(["catalog.manage", "grades.view_own"])),
+    ).toEqual(["admin", "participant"]);
   });
 });
