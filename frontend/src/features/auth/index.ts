@@ -22,12 +22,7 @@ export { useLogout } from "./hooks/useLogout";
 export { hasPermission, hasRole, useSession } from "./hooks/useSession";
 export { type Permission, ROLES, type Role } from "./permissions";
 export { resolveEntryTarget } from "./resolveEntryTarget";
-export {
-  primaryRoleLabel,
-  ROLE_LABELS,
-  roleLabel,
-  sortRolesByPriority,
-} from "./roles";
+export { ROLE_LABELS, roleLabel } from "./roles";
 export {
   type GuardedRoute,
   ROUTE_PERMISSIONS,

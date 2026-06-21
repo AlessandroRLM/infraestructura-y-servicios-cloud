@@ -42,7 +42,7 @@ const TAB_CONFIG: {
  * Returns the subset of tabs the given session may see.
  * Pure function — no hooks, safe to call in both render and effects.
  */
-export function getVisibleTabs(session: SessionState) {
+function getVisibleTabs(session: SessionState) {
   return TAB_CONFIG.filter((t) => hasPermission(session, t.requiresPermission));
 }
 
@@ -52,7 +52,7 @@ export function getVisibleTabs(session: SessionState) {
  * visible tab is returned. Falls back to `requestedTab` when the session has
  * no visible tabs (permission-empty state — the shell handles that case).
  */
-export function resolveActiveTab(
+function resolveActiveTab(
   session: SessionState,
   requestedTab: ReportTab,
 ): ReportTab {

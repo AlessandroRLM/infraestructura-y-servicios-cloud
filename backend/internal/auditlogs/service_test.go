@@ -27,6 +27,10 @@ func (f *fakeRepository) ListAuditLogs(_ context.Context, params ListParams) ([]
 	return f.rows, f.err
 }
 
+func (f *fakeRepository) ListRecentAuditLogs(_ context.Context, _ ListRecentParams) ([]auditlogsdb.AuditLog, error) {
+	return nil, nil
+}
+
 // makeAuditLogRow creates a test AuditLog row with a valid UUID and timestamp.
 func makeAuditLogRow(id uuid.UUID) auditlogsdb.AuditLog {
 	return auditlogsdb.AuditLog{

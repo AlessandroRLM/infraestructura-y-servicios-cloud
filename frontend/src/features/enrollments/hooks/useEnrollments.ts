@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@connectrpc/connect-query";
+import { DEFAULT_PAGE_SIZE } from "@/core/pagination";
 import { EnrollmentService } from "@/gen/enrollment/v1/enrollment_pb";
-import { ENROLLMENT_PAGE_SIZE } from "../constants";
 
 interface EnrollmentFilters {
   q?: string;
@@ -20,7 +20,7 @@ export function useEnrollments({
   q = "",
   year,
   status,
-  pageSize = ENROLLMENT_PAGE_SIZE,
+  pageSize = DEFAULT_PAGE_SIZE,
 }: EnrollmentFilters = {}) {
   const result = useInfiniteQuery(
     EnrollmentService.method.listEnrollments,

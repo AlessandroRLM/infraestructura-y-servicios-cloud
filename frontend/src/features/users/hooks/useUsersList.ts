@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@connectrpc/connect-query";
+import { DEFAULT_PAGE_SIZE } from "@/core/pagination";
 import { IamService } from "@/gen/iam/v1/iam_pb";
-import { USERS_PAGE_SIZE } from "../constants";
 
 /**
  * Cursor-paginated list of users with optional search filter. `isError`
@@ -9,7 +9,7 @@ import { USERS_PAGE_SIZE } from "../constants";
  */
 export function useUsersList(
   query: string,
-  pageSize: number = USERS_PAGE_SIZE,
+  pageSize: number = DEFAULT_PAGE_SIZE,
 ) {
   const result = useInfiniteQuery(
     IamService.method.listUsers,

@@ -1,8 +1,7 @@
 import { useInfiniteQuery } from "@connectrpc/connect-query";
 import type { TeachingSection } from "@/gen/catalog/v1/catalog_pb";
 import { CatalogService } from "@/gen/catalog/v1/catalog_pb";
-
-const SECTIONS_PAGE_SIZE = 50;
+import { DEFAULT_PAGE_SIZE } from "../pagination";
 
 /** Result shape returned by useOwnSections. */
 export interface UseOwnSectionsResult {
@@ -57,7 +56,7 @@ export interface UseOwnSectionsParams {
 export function useOwnSections(
   params: UseOwnSectionsParams = {},
 ): UseOwnSectionsResult {
-  const { pageSize = SECTIONS_PAGE_SIZE, query = "", enabled = true } = params;
+  const { pageSize = DEFAULT_PAGE_SIZE, query = "", enabled = true } = params;
   const result = useInfiniteQuery(
     CatalogService.method.listOwnSections,
     { pageSize, pageToken: "", query },

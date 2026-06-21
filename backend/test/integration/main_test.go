@@ -279,8 +279,9 @@ func TestMain(m *testing.M) {
 		reportsv1connect.ReportsServiceGetProgramSummaryReportProcedure:   authz.RequirePermission(authz.PermReportsRead),
 		reportsv1connect.ReportsServiceGetStudentRecordReportProcedure:    authz.RequirePermission(authz.PermReportsRead),
 
-		// Audit logs procedure — requires audit.read.
-		auditlogsv1connect.AuditLogsServiceListAuditLogsProcedure: authz.RequirePermission(authz.PermAuditRead),
+		// Audit logs procedures — all require audit.read.
+		auditlogsv1connect.AuditLogsServiceListAuditLogsProcedure:       authz.RequirePermission(authz.PermAuditRead),
+		auditlogsv1connect.AuditLogsServiceListRecentAuditLogsProcedure: authz.RequirePermission(authz.PermAuditRead),
 
 		// IAM procedures — all require users.manage.
 		iamv1connect.IamServiceListUsersProcedure:  authz.RequirePermission(authz.PermUsersManage),

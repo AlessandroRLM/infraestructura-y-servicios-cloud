@@ -1,4 +1,5 @@
 import { useInfiniteQuery } from "@connectrpc/connect-query";
+import { DEFAULT_PAGE_SIZE } from "@/core/pagination";
 import { EnrollmentService } from "@/gen/enrollment/v1/enrollment_pb";
 
 /**
@@ -7,7 +8,7 @@ import { EnrollmentService } from "@/gen/enrollment/v1/enrollment_pb";
  * Used exclusively by EnrollSectionDialog to allow the admin to pick
  * which annual enrollment to link to the section.
  */
-export function useEnrollmentsForPicker(pageSize = 20) {
+export function useEnrollmentsForPicker(pageSize = DEFAULT_PAGE_SIZE) {
   const result = useInfiniteQuery(
     EnrollmentService.method.listEnrollments,
     {

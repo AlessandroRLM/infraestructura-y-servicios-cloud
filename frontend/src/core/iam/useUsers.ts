@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from "@connectrpc/connect-query";
 import { IamService } from "@/gen/iam/v1/iam_pb";
+import { DEFAULT_PAGE_SIZE } from "../pagination";
 
 /**
  * Cursor-paginated hook for listing users with optional text search (email / display_name).
@@ -8,7 +9,7 @@ import { IamService } from "@/gen/iam/v1/iam_pb";
  *
  * Backed by IamService.listUsers (requires users.manage at the service layer).
  */
-export function useUsers(query: string, pageSize = 50) {
+export function useUsers(query: string, pageSize = DEFAULT_PAGE_SIZE) {
   const result = useInfiniteQuery(
     IamService.method.listUsers,
     { query, pageSize, pageToken: "" },

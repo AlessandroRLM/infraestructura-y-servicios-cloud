@@ -72,3 +72,68 @@ func (q *Queries) ListAuditLogs(ctx context.Context, arg ListAuditLogsParams) ([
 	}
 	return items, nil
 }
+
+const listRecentAuditLogs = `-- name: ListRecentAuditLogs :many
+SELECT id, actor_id, action, entity, entity_id, detail, created_at
+FROM audit_logs
+WHERE ($1::uuid IS NULL OR actor_id = $1::uuid)
+  AND ($2::timestamptz IS NULL OR created_at >= $2::timestamptz)
+  AND ($3::timestamptz IS NULL   OR created_at <= $3::timestamptz)
+  AND (
+    $4::timestamptz IS NULL
+    OR created_at < $4::timestamptz
+    OR (created_at = $4::timestamptz AND id < $5::uuid)
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT $6::int
+`
+
+type ListRecentAuditLogsParams struct {
+	ActorID     pgtype.UUID
+	CreatedFrom pgtype.Timestamptz
+	CreatedTo   pgtype.Timestamptz
+	CursorTs    pgtype.Timestamptz
+	CursorID    pgtype.UUID
+	RowLimit    int32
+}
+
+// Global keyset-paginated feed over the entire audit_logs table, newest-first.
+// No entity/entity_id scoping — all rows are visible (global feed).
+// Optional actor_id and created_at range filters are residual.
+// Keyset cursor uses the composite (created_at DESC, id DESC) ordering:
+// cursor_ts + cursor_id encode the last row seen; next page contains rows strictly
+// older than (cursor_ts, cursor_id) in the DESC ordering.
+func (q *Queries) ListRecentAuditLogs(ctx context.Context, arg ListRecentAuditLogsParams) ([]AuditLog, error) {
+	rows, err := q.db.Query(ctx, listRecentAuditLogs,
+		arg.ActorID,
+		arg.CreatedFrom,
+		arg.CreatedTo,
+		arg.CursorTs,
+		arg.CursorID,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditLog
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.ActorID,
+			&i.Action,
+			&i.Entity,
+			&i.EntityID,
+			&i.Detail,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

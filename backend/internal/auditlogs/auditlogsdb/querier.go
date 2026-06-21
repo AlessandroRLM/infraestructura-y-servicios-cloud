@@ -13,6 +13,13 @@ type Querier interface {
 	// entity + entity_id are required and ride audit_logs_entity_idx. Optional actor_id and
 	// created_at range are residual filters. Newest-first (id DESC, UUIDv7 = reverse chrono).
 	ListAuditLogs(ctx context.Context, arg ListAuditLogsParams) ([]AuditLog, error)
+	// Global keyset-paginated feed over the entire audit_logs table, newest-first.
+	// No entity/entity_id scoping — all rows are visible (global feed).
+	// Optional actor_id and created_at range filters are residual.
+	// Keyset cursor uses the composite (created_at DESC, id DESC) ordering:
+	// cursor_ts + cursor_id encode the last row seen; next page contains rows strictly
+	// older than (cursor_ts, cursor_id) in the DESC ordering.
+	ListRecentAuditLogs(ctx context.Context, arg ListRecentAuditLogsParams) ([]AuditLog, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -11,7 +11,7 @@ export { MarkPaidDialog } from "./components/MarkPaidDialog";
 export { PayOwnEnrollmentDialog } from "./components/PayOwnEnrollmentDialog";
 // WU3 component exports
 export { ProgramPicker } from "./components/ProgramPicker";
-export { ENROLLMENT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "./constants";
+export { SEARCH_DEBOUNCE_MS } from "./constants";
 export {
   mapCreateEnrollmentError,
   mapLifecycleError,

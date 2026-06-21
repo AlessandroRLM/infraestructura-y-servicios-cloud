@@ -6,6 +6,7 @@ import {
   GraduationCap,
   ListChecks,
   PenLine,
+  ScrollText,
   Users,
   Wallet,
 } from "lucide-react";
@@ -71,6 +72,14 @@ export const ADMIN_NAV = [
     options: linkOptions({
       to: "/admin/users",
       search: { q: "", pageSize: 20 },
+    }),
+  },
+  {
+    label: "Auditoría",
+    icon: ScrollText,
+    options: linkOptions({
+      to: "/admin/audit",
+      search: { actorId: "", from: "", to: "" },
     }),
   },
 ] as const;

@@ -30,6 +30,13 @@ func (f *fakeAuditService) ListAuditLogs(
 	return &auditlogsv1.ListAuditLogsResponse{}, f.err
 }
 
+func (f *fakeAuditService) ListRecentAuditLogs(
+	_ context.Context,
+	_ *auditlogsv1.ListRecentAuditLogsRequest,
+) (*auditlogsv1.ListRecentAuditLogsResponse, error) {
+	return &auditlogsv1.ListRecentAuditLogsResponse{}, nil
+}
+
 // TestHandler_ListAuditLogs_MissingEntity_ReturnsCodeInvalidArgument verifies that
 // an empty entity returns CodeInvalidArgument without calling the service.
 func TestHandler_ListAuditLogs_MissingEntity_ReturnsCodeInvalidArgument(t *testing.T) {
