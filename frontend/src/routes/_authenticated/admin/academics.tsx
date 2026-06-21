@@ -5,7 +5,7 @@ import { requireRoutePermission } from "@/features/auth";
 
 const academicsSearchSchema = z.object({
   tab: z
-    .enum(["programs", "courses", "sections"])
+    .enum(["programs", "courses", "sections", "periods"])
     .default("programs")
     .catch("programs"),
   q: z.string().default("").catch(""),
