@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@connectrpc/connect-query";
+import { DEFAULT_PAGE_SIZE } from "@/core/pagination";
 import { EnrollmentService } from "@/gen/enrollment/v1/enrollment_pb";
-import { ENROLLMENT_PAGE_SIZE } from "../constants";
 
 /**
  * Cursor-paginated list of the authenticated student's own enrollments.
@@ -9,7 +9,7 @@ import { ENROLLMENT_PAGE_SIZE } from "../constants";
  * `isError` reflects only the initial load; a failed "load more" surfaces via
  * `isFetchNextPageError` while the already-loaded pages stay visible.
  */
-export function useOwnEnrollments(pageSize: number = ENROLLMENT_PAGE_SIZE) {
+export function useOwnEnrollments(pageSize: number = DEFAULT_PAGE_SIZE) {
   const result = useInfiniteQuery(
     EnrollmentService.method.listOwnEnrollments,
     {

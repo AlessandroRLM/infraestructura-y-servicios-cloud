@@ -1,7 +1,6 @@
 import { useInfiniteQuery } from "@connectrpc/connect-query";
+import { DEFAULT_PAGE_SIZE } from "@/core/pagination";
 import { SectionEnrollmentService } from "@/gen/section_enrollment/v1/section_enrollment_pb";
-
-const SECTION_ENROLLMENTS_PAGE_SIZE = 20;
 
 interface SectionEnrollmentsFilters {
   sectionId: string;
@@ -17,7 +16,7 @@ interface SectionEnrollmentsFilters {
 export function useSectionEnrollments({
   sectionId,
   status,
-  pageSize = SECTION_ENROLLMENTS_PAGE_SIZE,
+  pageSize = DEFAULT_PAGE_SIZE,
 }: SectionEnrollmentsFilters) {
   const result = useInfiniteQuery(
     SectionEnrollmentService.method.listSectionEnrollments,

@@ -3,12 +3,10 @@ import type {
   FetchNextPageOptions,
   InfiniteQueryObserverResult,
 } from "@tanstack/react-query";
+import { DEFAULT_PAGE_SIZE } from "@/core/pagination";
 import { GradesService } from "@/gen/grades/v1/grades_pb";
 import type { GradeSectionGroup } from "../groupBySection";
 import { groupBySection } from "../groupBySection";
-
-/** Default page size used when the URL param is absent or invalid. */
-export const OWN_GRADES_DEFAULT_PAGE_SIZE = 20;
 
 /** Infinite-query result for the student's own grades, pre-grouped by section. */
 export interface UseOwnGradesResult {
@@ -40,7 +38,7 @@ export interface UseOwnGradesResult {
 export function useOwnGrades(
   academicPeriodId: string,
   programId: string,
-  pageSize: number = OWN_GRADES_DEFAULT_PAGE_SIZE,
+  pageSize: number = DEFAULT_PAGE_SIZE,
 ): UseOwnGradesResult {
   const result = useInfiniteQuery(
     GradesService.method.listOwnGrades,
